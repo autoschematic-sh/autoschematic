@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link href="/dashboard/static/output.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100 h-screen">
+    <header class="bg-gray-200 py-4 px-6 flex items-center justify-between">
+        <div class="flex items-center">
+            <span class="text-2xl font-bold">Logo</span>
+            <h3 class="text-2xl font-mono">{{owner}}/{{repo}}</h1>
+        </div>
+        <h1 class="text-2xl font-mono">autoschematic</h1>
+    </header>
+    <div class="flex items-center justify-center h-full">
+        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 w-full max-w-4xl">
+            <h1 class="text-2xl font-bold mb-6">Tasks by Prefix</h1>
+            {{ prefix_listings | json_encode(pretty=true) | safe }}
+            <ul class="list-none p-0">
+                {% for prefix_listing in prefix_listings %}
+                <li class="py-2 border-b border-gray-200">
+                    <span class="font-mono">{{prefix_listing.name}}</span>
+                    <ul class="list-none p-0">
+                        {% for task in prefix_listing.task %}
+                        <li class="py-2 border-b border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <span class="flex font-mono">{{agent.name}}</span>
+                                <form action="/dashboard/{{owner}}/{{repo}}/{{installation_id}}/{{prefix_listing.name | urlencode_strict}}/{{agent.name | urlencode_strict}}/spawn" method="post">
+                                <button
+                                    class="flex bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+                                    <!-- <span>Spawn</span> -->
+                                    <input type="submit" name="spawn" value="Spawn" />
+                                </button>
+                                </form>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+                </li>
+                {% endfor %}
+        </div>
+    </div>
+
+    <script type="module" type="text/javascript">
+    </script>
+       
+</body>
+
+</html>

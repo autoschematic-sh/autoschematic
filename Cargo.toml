@@ -1,0 +1,11 @@
+[workspace]
+
+members = [
+    "autoschematic",
+    "autoschematic-core",
+    "autoschematic-cli",
+    "autoschematic-lsp",
+]
+
+[profile.release]
+debug = 1

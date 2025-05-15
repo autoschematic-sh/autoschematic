@@ -1,0 +1,15 @@
+/target
+dashboard/node_modules/
+dashboard-lit/node_modules
+secret/
+.secret/
+secret_seals/
+# keystore/
+.env
+.env_old
+.dockerenv
+*.pem
+*.p8
+*.pub
+ngrok.sh
+repo_cache/

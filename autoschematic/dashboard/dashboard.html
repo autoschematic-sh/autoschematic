@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autoschematic Console</title>
+    <link href="/dashboard/static/output.css" rel="stylesheet">
+    <script src="/dashboard/static/htmx.min.js"></script>
+    <script src="/dashboard/static/ws.min.js"></script>
+    <!-- <script src="/dashboard/static/ansi_up.js"></script> -->
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            /* Prevent scrollbars on the main page */
+        }
+
+        .container {
+            display: flex;
+            height: 100%;
+        }
+
+        #tree-view {
+            width: 30%;
+            overflow: auto;
+            border-right: 1px solid #ccc;
+        }
+
+        #terminal {
+            flex-grow: 1;
+            /* Take remaining space */
+            background-color: #030303;
+            color: white;
+            font-family: monospace;
+            overflow: auto;
+            padding: 10px;
+        }
+        
+        #terminal-contents {
+            flex-grow: 1;
+            white-space: pre-wrap;
+            padding: 10px;
+        }
+
+        #divider {
+            width: 5px;
+            background-color: #ccc;
+            cursor: col-resize;
+        }
+
+        .run-selector.selected {
+            border: solid #0ff;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="bg-gray-200 py-4 px-6 flex items-center justify-between">
+        <div class="flex items-center">
+            <span class="text-2xl font-bold">Logo</span>
+        </div>
+        <h1 class="text-2xl font-mono">autoschematic</h1>
+    </header>
+    <div id="container" class="flex items-center justify-center h-full">
+        <div id="tree-view" class="h-full">
+            <ul class="list-none p-0">
+                {% for run_id, run in runs %}
+                <li id="run-{{run_id}}" class="run-selector py-2 border-b border-gray-200">
+                    <a href="#{{run_id}}"
+                        class="w-full inline-flex items-center justify-left p-5 text-base font-medium text-gray-500 rounded-lg bg-gray-50 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:bg-gray-800 dark:hover:bg-gray-700 dark:hover:text-white">
+                        <span class="font-mono">{{run.username}}: {{run.command}}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div id="divider" class="divider h-full"></div>
+        <div id="terminal-container" class="h-full">
+            <div id="terminal" class="h-full">
+                <div id="terminal-contents" class="h-full">
+                </div>
+                <pre>
+
+                    
+                    
+
+                </pre>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" type="text/javascript">
+        import { AnsiUp } from '/dashboard/static/ansi_up.js'
+        var ansi_up = new AnsiUp();
+        
+        function loadRun() {
+            const run_id = location.hash.replace(/^#/, '');
+            
+            if (run_id == "") {
+                return;
+            }
+
+            const runSelectors = document.querySelectorAll(".run-selector").forEach((run) => {
+                run.classList.remove("selected");
+            });
+            const selectedRun = document.querySelector('#run-' + run_id);
+            selectedRun.classList.add("selected");
+
+            const terminal = document.querySelector('#terminal');
+            const terminalContents = document.querySelector('#terminal-contents');
+            terminalContents.innerHTML = "";
+
+            const logSocket = new WebSocket("./" + run_id + "/logs");
+            
+
+            logSocket.onmessage = (event) => {
+                event.data.text().then((text) => {
+                    console.log(text);
+                    var html = ansi_up.ansi_to_html(text);
+                    terminalContents.insertAdjacentHTML('beforeend', html);
+                    terminal.scrollTop = terminal.scrollHeight;
+                });
+
+            };
+        }
+        
+        loadRun();
+
+        addEventListener("hashchange", (event) => {
+            loadRun();
+        });
+    </script>
+
+    <script>
+        const container = document.querySelector('#container');
+        const treeView = document.querySelector('#tree-view');
+        const divider = document.querySelector('#divider');
+        const terminal = document.querySelector('#terminal')
+        let isDragging = false;
+
+        divider.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            e.preventDefault(); // Prevent text selection during drag
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+
+            const containerRect = container.getBoundingClientRect();
+            const newTreeViewWidth = e.clientX - containerRect.left;
+            console.log(containerRect);
+            console.log(e);
+
+            // Limit minimum width
+            if (newTreeViewWidth < 20) return;
+
+            // Limit maximum width
+            if (newTreeViewWidth > containerRect.width - 20) return;
+
+            treeView.style.width = `${newTreeViewWidth}px`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,2 @@
+To serve or build the docs in this folder, run `pip install -r requirements.txt` to fetch 
+mkdocs-material and dependencies, and then you can run `mkdocs serve` or `mkdocs build` respectively.

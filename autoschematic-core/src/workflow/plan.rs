@@ -1,0 +1,157 @@
+use std::path::Path;
+
+use anyhow::Context;
+
+use crate::{
+    config::AutoschematicConfig,
+    connector::{parse::connector_shortname, Connector, VirtToPhyOutput},
+    connector_cache::ConnectorCache,
+    keystore::KeyStore,
+    read_outputs::template_config,
+    report::PlanReport,
+    util::split_prefix_addr,
+};
+
+pub async fn plan_connector(
+    connector_shortname: &str,
+    connector: &Box<dyn Connector>,
+    prefix: &Path,
+    virt_addr: &Path,
+) -> Result<Option<PlanReport>, anyhow::Error> {
+    let mut plan_report = PlanReport::default();
+
+    let phy_addr = match connector.addr_virt_to_phy(&virt_addr).await? {
+        VirtToPhyOutput::NotPresent => None,
+        VirtToPhyOutput::Deferred(read_outputs) => {
+            for output in read_outputs {
+                plan_report.missing_outputs.push(output);
+            }
+            return Ok(Some(plan_report));
+        }
+        VirtToPhyOutput::Present(phy_addr) => Some(phy_addr),
+    };
+
+    let current = match phy_addr {
+        Some(ref phy_addr) => {
+            match connector.get(&phy_addr.clone()).await.context(format!(
+                "{}::get({})",
+                connector_shortname,
+                &phy_addr.to_str().unwrap_or_default()
+            ))? {
+                // Existing resource present for this address
+                Some(get_resource_output) => {
+                    let resource = get_resource_output.resource_definition;
+                    Some(resource)
+                }
+                // No existing resource present for this address
+                None => None,
+            }
+        }
+        None => None,
+    };
+
+    let path = prefix.join(virt_addr);
+
+    let connector_ops = if path.is_file() {
+        let desired = std::fs::read_to_string(&path)?;
+
+        let template_result = template_config(&prefix, &desired)?;
+
+        if template_result.missing.len() > 0 {
+            for read_output in template_result.missing {
+                plan_report.missing_outputs.push(read_output);
+            }
+
+            return Ok(Some(plan_report));
+        } else {
+            // TODO warning that this phy .unwrap_or( virt )
+            // may be the most diabolically awful design
+            // TODO remove awful design
+            connector
+                .plan(
+                    &phy_addr.clone().unwrap_or(virt_addr.into()),
+                    current,
+                    Some(template_result.body),
+                )
+                .await
+                .context(format!(
+                    "{}::plan({}, _, _)",
+                    connector_shortname,
+                    virt_addr.to_str().unwrap_or_default()
+                ))?
+        }
+    } else {
+        // TODO warning that this phy .unwrap_or( virt )
+        // may be the most diabolically awful design
+        // TODO remove awful design
+        connector
+            .plan(&phy_addr.clone().unwrap_or(virt_addr.into()), current, None)
+            .await
+            .context(format!(
+                "{}::plan({}, _, _)",
+                connector_shortname,
+                virt_addr.to_str().unwrap_or_default()
+            ))?
+    };
+
+    plan_report.connector_ops = connector_ops;
+
+    Ok(Some(plan_report))
+}
+
+/// For a given path, attempt to resolve its prefix and Connector impl and return a Vec of ConnectorOps.
+/// Note that this, unlike the server implementation, does not handle setting desired = None where files do 
+/// not exist - it is intended to be used from the command line or from LSPs to quickly modify resources.
+pub async fn plan(
+    autoschematic_config: &AutoschematicConfig,
+    connector_cache: &ConnectorCache,
+    keystore: Option<&Box<dyn KeyStore>>,
+    connector_filter: &Option<String>,
+    path: &Path,
+) -> Result<Option<PlanReport>, anyhow::Error> {
+    let Some((prefix, virt_addr)) = split_prefix_addr(autoschematic_config, path) else {
+        return Ok(None);
+    };
+
+    let Some(prefix_def) = autoschematic_config.prefixes.get(prefix.to_str().unwrap_or_default()) else {
+        return Ok(None);
+    };
+
+    'connector: for connector_def in &prefix_def.connectors {
+        let connector_shortname = connector_shortname(&connector_def.name)?;
+
+        if let Some(connector_filter) = &connector_filter {
+            if connector_shortname != *connector_filter {
+                continue 'connector;
+            }
+        }
+
+        let (connector, mut inbox) = connector_cache
+            .get_or_init(&connector_def.name, &prefix, &connector_def.env, keystore)
+            .await?;
+
+        let _reader_handle = tokio::spawn(async move {
+            loop {
+                match inbox.recv().await {
+                    Ok(Some(stdout)) => {
+                        // let res = append_run_log(&sender_trace_handle, stdout).await;
+                        eprintln!("{}", stdout);
+                        // match res {
+                        //     Ok(_) => {}
+                        //     Err(_) => {}
+                        // }
+                    }
+                    Ok(None) => {}
+                    Err(_) => break,
+                }
+            }
+        });
+
+        if connector_cache.filter(&connector_def.name, &prefix, &virt_addr).await? {
+            let plan_report = plan_connector(&connector_shortname, &connector, &prefix, &virt_addr).await?;
+            return Ok(plan_report);
+        }
+    }
+
+    Ok(None)
+}

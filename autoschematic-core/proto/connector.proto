@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package connector;
+
+// Service definition
+service GrpcConnector {
+  // Filter determines if the connector should process this address
+  rpc Filter(PathRequest) returns (BoolResponse);
+  
+  // List all "extant" object paths in the given subpath
+  rpc List(PathRequest) returns (PathListResponse);
+  
+  // Get the current state of the object at address
+  rpc Get(PathRequest) returns (GetResourceResponse);
+  
+  // Plan how to set current -> desired
+  rpc Plan(PlanRequest) returns (OpPlanOutputListResponse);
+  
+  // Execute an operation
+  rpc OpExec(OpExecRequest) returns (OpExecResponse);
+  
+  // Convert virtual address to physical address
+  rpc AddrVirtToPhy(PathRequest) returns (OptionalPathResponse);
+}
+
+// Basic path message for file paths
+message Path {
+  string path = 1;
+}
+
+// Request with a path parameter
+message PathRequest {
+  string path = 1;
+}
+
+// Response containing a boolean result
+message BoolResponse {
+  bool result = 1;
+  ErrorMessage error = 2;
+}
+
+// Response containing a list of paths
+message PathListResponse {
+  repeated string paths = 1;
+  ErrorMessage error = 2;
+}
+
+// Response for Get method, containing optional resource output
+message GetResourceResponse {
+  bool has_resource = 1;
+  GetResourceOutput resource = 2;
+  ErrorMessage error = 3;
+}
+
+// GetResourceOutput struct definition
+message GetResourceOutput {
+  string resource_definition = 1;
+  map<string, OptionalString> outputs = 2;
+}
+
+// Optional string for outputs
+message OptionalString {
+  bool has_value = 1;
+  string value = 2;
+}
+
+// Request for Plan method
+message PlanRequest {
+  string path = 1;
+  bool has_current = 2;
+  string current = 3;
+  bool has_desired = 4;
+  string desired = 5;
+}
+
+// Response containing a list of OpPlanOutput
+message OpPlanOutputListResponse {
+  repeated OpPlanOutput ops = 1;
+  ErrorMessage error = 2;
+}
+
+// OpPlanOutput struct definition
+message OpPlanOutput {
+  string op_definition = 1;
+  bool has_friendly_message = 2;
+  string friendly_message = 3;
+}
+
+// Request for OpExec method
+message OpExecRequest {
+  string path = 1;
+  string op = 2;
+}
+
+// Response for OpExec
+message OpExecResponse {
+  OpExecOutput output = 1;
+  ErrorMessage error = 2;
+}
+
+// OpExecOutput struct definition
+message OpExecOutput {
+  map<string, OptionalString> outputs = 1;
+  bool has_friendly_message = 2;
+  string friendly_message = 3;
+}
+
+// Response containing an optional path
+message OptionalPathResponse {
+  bool has_path = 1;
+  string path = 2;
+  ErrorMessage error = 3;
+}
+
+// Error message
+message ErrorMessage {
+  bool has_error = 1;
+  string message = 2;
+}

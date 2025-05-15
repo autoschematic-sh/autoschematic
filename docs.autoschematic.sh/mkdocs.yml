@@ -1,0 +1,16 @@
+site_name: Autoschematic
+site_url: https://docs.autoschematic.sh/
+theme:
+  name: material
+  custom_dir: overrides
+nav:
+  - About Autoschematic: index.md
+  - Getting Started (Self-Hosting):
+    - Notes on Self-hosting: 01_getting_started_self/01_notes.md
+    - Installation: 01_getting_started_self/02_installation.md
+    - Server Configuration: 01_getting_started_self/03_server_config.md
+    - Github App Configuration: 01_getting_started_self/04_github_app.md
+    - Repository Configuration: 01_getting_started_self/05_repo_config.md
+  - Design:
+    - Core Concepts: 02_design/01_core_concepts.md
+    - Secret Sealing: 02_design/02_secret_seals.md

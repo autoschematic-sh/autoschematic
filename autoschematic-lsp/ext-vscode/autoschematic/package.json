@@ -1,0 +1,68 @@
+{
+  "name": "autoschematic",
+  "displayName": "Autoschematic",
+  "description": "A Visual Studio Code extension for Autoschematic.",
+  "version": "0.4.0",
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": ["onLanguage:ron"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "autoschematic.import",
+        "title": "Autoschematic: Import"
+      },
+      {
+        "command": "autoschematic.plan",
+        "title": "Autoschematic: Plan"
+      },
+      {
+        "command": "autoschematic.apply",
+        "title": "Autoschematic: Apply"
+      },
+      {
+        "command": "autoschematic.relaunch",
+        "title": "Autoschematic: Relaunch"
+      },
+      {
+        "command": "autoschematic.compareWithRemote",
+        "title": "Autoschematic: Compare with remote"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "autoschematic.compareWithRemote",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.99.0",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.23.0",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}
