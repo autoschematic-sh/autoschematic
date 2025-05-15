@@ -35,7 +35,7 @@ setup(
     version = "0.4.0",
     description = 'Core classes and abstract interfaces for creating Autoschematic connectors in Python',
     long_description = long_description,
-    url = 'https://github.com/pfnsec/autoschematic',
+    url = 'https://github.com/autoschematic-sh/autoschematic',
     author = 'Peter Sherman',
     author_email = 'pfnsec@gmail.com',
     license = 'MIT',

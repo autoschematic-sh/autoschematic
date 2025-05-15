@@ -34,7 +34,7 @@ cargo install autoschematic
 For the latest changes, you can clone the repo directly:
 
 ```
-git clone https://github.com/pfnsec/autoschematic
+git clone https://github.com/autoschematic-sh/autoschematic
 cd autoschematic
 cargo build --release
 ```

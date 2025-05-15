@@ -2,7 +2,7 @@ cargo-features = ["edition2024"]
 [package]
 name = "autoschematic"
 description = "A platform for declarative Ops systems, built around Git."
-repository = "https://github.com/pfnsec/autoschematic"
+repository = "https://github.com/autoschematic-sh/autoschematic"
 license = "MIT"
 version = "0.4.0"
 edition = "2024"
