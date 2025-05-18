@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fs, os::unix::ffi::OsStrExt, path::PathBuf};
 
 use anyhow::Context;
 use autoschematic_core::{connector::parse::connector_shortname, glob::addr_matches_filter};
@@ -85,7 +85,7 @@ impl ChangeSet {
                     if let Some(parent) = path.parent() {
                         fs::create_dir_all(parent)?;
                     }
-                    tokio::fs::write(&path, skeleton.body).await?;
+                    tokio::fs::write(&path, skeleton.body.as_bytes()).await?;
                     self.git_add(&repo, &path)?;
 
                     imported_count += 1;

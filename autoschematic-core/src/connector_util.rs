@@ -112,12 +112,12 @@ pub fn output_phy_to_virt<A: ResourceAddress>(
                 bail!("output_path.parent() returned None!")
             };
             let virt_out_path =
-                std::fs::canonicalize(&parent.join(&std::fs::read_link(&output_path)?))?;
+                std::fs::canonicalize(parent.join(&std::fs::read_link(&output_path)?))?;
             // HACK ALERT HACK ALERT
             // If we change the assumption that all connectors and commands run from the root of the repository,
             // or if a connector runs cd for some reason, this will break!
             let virt_out_path = virt_out_path.strip_prefix(std::env::current_dir()?)?;
-            Ok(A::from_path(&unbuild_out_path(prefix, &virt_out_path)?)?)
+            Ok(A::from_path(&unbuild_out_path(prefix, virt_out_path)?)?)
         } else {
             Ok(Some(addr.clone()))
         }
@@ -142,7 +142,7 @@ pub fn load_resource_output_key(
         return Ok(None);
     };
 
-    return Ok(outputs.get(key).cloned());
+    Ok(outputs.get(key).cloned())
 }
 
 pub fn read_mounted_secret(prefix: &Path, secret_ref: &str) -> anyhow::Result<String> {

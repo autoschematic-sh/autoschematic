@@ -25,7 +25,9 @@ pub async fn filter(
             .get_or_init(&connector_def.name, prefix, &connector_def.env, keystore)
             .await?;
 
-        return connector.filter(addr).await;
+        if connector.filter(addr).await? {
+            return Ok(true);
+        }
         //     if let Some(body) = connector.get(addr).await? {
         //         return Ok(Some(body.resource_definition));
         //     }

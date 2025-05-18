@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    ffi::CString,
+    ffi::{CString, OsStr, OsString},
     fs::create_dir_all,
     path::{Path, PathBuf},
     thread::JoinHandle,
@@ -27,7 +27,6 @@ use nix::{
 use rand::{distr::Alphanumeric, Rng};
 use walkdir::WalkDir;
 
-// use crate::{keystore::KeyStore, KEYSTORE};
 
 /// This module handles sandboxing of connector instances using Linux-kernel specific
 /// methods, such as cgroups and namespaces.
@@ -118,8 +117,8 @@ impl Connector for SandboxConnectorHandle {
     async fn plan(
         &self,
         addr: &Path,
-        current: Option<String>,
-        desired: Option<String>,
+        current: Option<OsString>,
+        desired: Option<OsString>,
     ) -> Result<Vec<OpPlanOutput>, anyhow::Error> {
         self.still_alive().context(format!("Before plan({:?})", addr))?;
         let res = Connector::plan(&self.client, addr, current, desired).await;
@@ -155,7 +154,7 @@ impl Connector for SandboxConnectorHandle {
         res
     }
 
-    async fn eq(&self, addr: &Path, a: &str, b: &str) -> Result<bool, anyhow::Error> {
+    async fn eq(&self, addr: &Path, a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error> {
         self.still_alive()
             .context(format!("Before eq({}, _, _)", addr.to_string_lossy()))?;
         let res = Connector::eq(&self.client, addr, a, b).await;
@@ -164,7 +163,7 @@ impl Connector for SandboxConnectorHandle {
         res
     }
 
-    async fn diag(&self, addr: &Path, a: &str) -> Result<DiagnosticOutput, anyhow::Error> {
+    async fn diag(&self, addr: &Path, a: &OsStr) -> Result<DiagnosticOutput, anyhow::Error> {
         self.still_alive()
             .context(format!("Before eq({}, _, _)", addr.to_string_lossy()))?;
         let res = Connector::diag(&self.client, addr, a).await;
@@ -467,10 +466,10 @@ pub fn unseal_secrets_to_folder(
         tracing::error!("unseal_secrets: walk: {:?}", &path);
         let secret_file = std::fs::read_to_string(&path)?;
         let secrets: Vec<SealedSecret> = serde_json::from_str(&secret_file)?;
-        let secret_text = keystore.unseal_secret(secrets.get(0).unwrap())?;
+        let secret_text = keystore.unseal_secret(secrets.first().unwrap())?;
         let out_dir = secret_mount.join(prefix).join(connector_shortname);
         let out_path = path.strip_prefix(prefix.join(".secrets").join(connector_shortname))?;
-        std::fs::create_dir_all(&out_dir.join(out_path).parent().unwrap())?;
+        std::fs::create_dir_all(out_dir.join(out_path).parent().unwrap())?;
         std::fs::write(out_dir.join(out_path), secret_text)?;
     }
     Ok(())

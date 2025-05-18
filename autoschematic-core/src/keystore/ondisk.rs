@@ -35,7 +35,7 @@ impl KeyStore for OndiskKeyStore {
         let keystore = OndiskKeyStore { key_dir };
         
         if let Ok(keys) = keystore.list() {
-            if keys.len() == 0 {
+            if keys.is_empty() {
                 keystore.create_keypair("main")?;
             }
         }

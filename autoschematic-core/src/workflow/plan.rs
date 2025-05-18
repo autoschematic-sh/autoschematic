@@ -1,10 +1,10 @@
-use std::path::Path;
+use std::{ffi::OsString, os::unix::ffi::OsStringExt, path::Path};
 
 use anyhow::Context;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{parse::connector_shortname, Connector, VirtToPhyOutput},
+    connector::{Connector, VirtToPhyOutput, parse::connector_shortname},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
     read_outputs::template_config,
@@ -19,6 +19,8 @@ pub async fn plan_connector(
     virt_addr: &Path,
 ) -> Result<Option<PlanReport>, anyhow::Error> {
     let mut plan_report = PlanReport::default();
+    plan_report.prefix = prefix.into();
+    plan_report.virt_addr = virt_addr.into();
 
     let phy_addr = match connector.addr_virt_to_phy(&virt_addr).await? {
         VirtToPhyOutput::NotPresent => None,
@@ -53,34 +55,51 @@ pub async fn plan_connector(
     let path = prefix.join(virt_addr);
 
     let connector_ops = if path.is_file() {
-        let desired = std::fs::read_to_string(&path)?;
+        // let desired = std::fs::read(&path)?;
+        let desired_bytes = tokio::fs::read(&path).await?;
 
-        let template_result = template_config(&prefix, &desired)?;
+        match str::from_utf8(&desired_bytes) {
+            Ok(desired) => {
+                let template_result = template_config(&prefix, &desired)?;
 
-        if template_result.missing.len() > 0 {
-            for read_output in template_result.missing {
-                plan_report.missing_outputs.push(read_output);
+                if template_result.missing.len() > 0 {
+                    for read_output in template_result.missing {
+                        plan_report.missing_outputs.push(read_output);
+                    }
+
+                    return Ok(Some(plan_report));
+                } else {
+                    // TODO warning that this phy .unwrap_or( virt )
+                    // may be the most diabolically awful design
+                    // TODO remove awful design
+                    connector
+                        .plan(
+                            &phy_addr.clone().unwrap_or(virt_addr.into()),
+                            current,
+                            Some(template_result.body.into()),
+                        )
+                        .await
+                        .context(format!("{}::plan({}, _, _)", connector_shortname, virt_addr.display()))?
+                }
             }
-
-            return Ok(Some(plan_report));
-        } else {
-            // TODO warning that this phy .unwrap_or( virt )
-            // may be the most diabolically awful design
-            // TODO remove awful design
-            connector
-                .plan(
-                    &phy_addr.clone().unwrap_or(virt_addr.into()),
-                    current,
-                    Some(template_result.body),
-                )
-                .await
-                .context(format!(
-                    "{}::plan({}, _, _)",
-                    connector_shortname,
-                    virt_addr.to_str().unwrap_or_default()
-                ))?
+            Err(_) => {
+                // TODO warning that this phy .unwrap_or( virt )
+                // may be the most diabolically awful design
+                // TODO remove awful design
+                connector
+                    .plan(
+                        &phy_addr.clone().unwrap_or(virt_addr.into()),
+                        current,
+                        Some(OsString::from_vec(desired_bytes)),
+                    )
+                    .await
+                    .context(format!("{}::plan({}, _, _)", connector_shortname, virt_addr.display()))?
+            }
         }
     } else {
+        // The file does not exist, so `desired` is therefore None.
+        // Generally speaking, this will destroy the given resource if it currently exists.
+
         // TODO warning that this phy .unwrap_or( virt )
         // may be the most diabolically awful design
         // TODO remove awful design
@@ -100,7 +119,7 @@ pub async fn plan_connector(
 }
 
 /// For a given path, attempt to resolve its prefix and Connector impl and return a Vec of ConnectorOps.
-/// Note that this, unlike the server implementation, does not handle setting desired = None where files do 
+/// Note that this, unlike the server implementation, does not handle setting desired = None where files do
 /// not exist - it is intended to be used from the command line or from LSPs to quickly modify resources.
 pub async fn plan(
     autoschematic_config: &AutoschematicConfig,

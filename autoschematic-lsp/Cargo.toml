@@ -5,7 +5,7 @@ version = "0.4.0"
 edition = "2024"
 
 [dependencies]
-autoschematic-core = { path = "../autoschematic-core", version = "0.4.0" }
+autoschematic-core = { path = "../autoschematic-core", version = "0.4.0", features = [] }
 anyhow = "1.0.98"
 lsp-types = "0.97.0"
 ron = { path = "../../ron", version = "0.10.1" }

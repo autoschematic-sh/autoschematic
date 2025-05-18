@@ -7,7 +7,7 @@ use nix::fcntl::{Flock, FlockArg};
 use tokio::task::spawn_blocking;
 
 pub fn hold_flock_blocking(path: &Path) -> anyhow::Result<Flock<File>> {
-    let file = OpenOptions::new().create(true).write(true).open(path)?;
+    let file = OpenOptions::new().create(true).truncate(true).write(true).open(path)?;
 
     let lock = match Flock::lock(file, FlockArg::LockExclusive) {
         Ok(l) => l,
@@ -18,6 +18,5 @@ pub fn hold_flock_blocking(path: &Path) -> anyhow::Result<Flock<File>> {
 }
 
 pub async fn wait_for_flock(path: PathBuf) -> anyhow::Result<Flock<File>> {
-    spawn_blocking(move || -> Result<Flock<File>, anyhow::Error> { hold_flock_blocking(&path) })
-        .await?
+    spawn_blocking(move || -> Result<Flock<File>, anyhow::Error> { hold_flock_blocking(&path) }).await?
 }

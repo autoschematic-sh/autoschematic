@@ -1,6 +1,5 @@
 use std::{
-    fs::{self},
-    path::{Path, PathBuf},
+    fs::{self}, os::unix::ffi::OsStrExt, path::{Path, PathBuf}
 };
 
 use super::trace::{append_run_log, finish_run, start_run};
@@ -77,7 +76,7 @@ impl ChangeSet {
                     if let Some(parent) = res_path.parent() {
                         fs::create_dir_all(parent)?;
                     }
-                    tokio::fs::write(&res_path, body).await?;
+                    tokio::fs::write(&res_path, body.as_bytes()).await?;
                     tracing::info!("import completed...");
 
                     let mut index = repo.index()?;

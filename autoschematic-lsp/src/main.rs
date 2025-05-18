@@ -1,6 +1,5 @@
 use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
+    collections::HashMap, ffi::{OsStr, OsString}, path::{Path, PathBuf}
 };
 
 use anyhow::Result;
@@ -378,7 +377,7 @@ impl Backend {
                     // let body = tokio::fs::read_to_string(addr).await?;
                     if let Some((connector, _inbox)) = self.connector_cache.get(&connector_def.name, &prefix).await {
                         // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
-                        res.append(&mut diag_to_lsp(connector.diag(addr, &body).await?));
+                        res.append(&mut diag_to_lsp(connector.diag(addr, &OsString::from(body)).await?));
                     }
                 } else {
                     // eprintln!("{} filter: {:?} = false", connector_def.name, addr);

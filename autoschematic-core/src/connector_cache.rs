@@ -89,7 +89,7 @@ impl ConnectorCache {
         };
 
         if let Some(value) = cached_lock_state {
-            return Ok(value)
+            Ok(value)
         } else if let Some((connector, _inbox)) = self.cache.lock().await.get(&connector_key) {
             let res = connector.filter(addr).await?;
             self.filter_cache.lock().await.insert(filter_key, res);

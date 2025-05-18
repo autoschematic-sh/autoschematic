@@ -1,6 +1,8 @@
 use std::{
     collections::HashSet,
+    ffi::{OsStr, OsString},
     fs::{self},
+    os::unix::ffi::OsStrExt,
     path::PathBuf,
 };
 
@@ -8,13 +10,17 @@ use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;
 use anyhow::Context;
 use autoschematic_core::{
-    connector::{parse::connector_shortname, Connector, VirtToPhyOutput}, connector_util::build_out_path, glob::addr_matches_filter, read_outputs::{template_config, ReadOutput}, write_output::{link_phy_output_file, unlink_phy_output_file, write_virt_output_file}
+    connector::{Connector, VirtToPhyOutput, parse::connector_shortname},
+    connector_util::build_out_path,
+    glob::addr_matches_filter,
+    read_outputs::{ReadOutput, template_config},
+    write_output::{link_phy_output_file, unlink_phy_output_file, write_virt_output_file},
 };
 use git2::Repository;
 use octocrab::params::checks::{CheckRunConclusion, CheckRunStatus};
 
 use super::ChangeSet;
-use crate::{object::Object, KEYSTORE};
+use crate::{KEYSTORE, object::Object};
 
 #[derive(Default)]
 pub struct PullStateReport {
@@ -150,28 +156,34 @@ impl ChangeSet {
                             .await?;
 
                         let desired = if object.filename.is_file() {
-                            let desired = fs::read_to_string(&object.filename)?;
+                            let desired_bytes = tokio::fs::read(&object.filename).await?;
 
-                            let template_result = template_config(&PathBuf::from(&prefix_name), &desired)?;
+                            match str::from_utf8(&desired_bytes) {
+                                Ok(desired) => {
+                                    // If valid utf8, try to template.
+                                    let template_result = template_config(&PathBuf::from(&prefix_name), &desired)?;
 
-                            if template_result.missing.len() > 0 {
-                                self.create_check_run(
-                                    Some(file_check_run_id),
-                                    &check_run_name,
-                                    &check_run_url,
-                                    CheckRunStatus::Completed,
-                                    Some(CheckRunConclusion::Skipped),
-                                )
-                                .await?;
+                                    if template_result.missing.len() > 0 {
+                                        self.create_check_run(
+                                            Some(file_check_run_id),
+                                            &check_run_name,
+                                            &check_run_url,
+                                            CheckRunStatus::Completed,
+                                            Some(CheckRunConclusion::Skipped),
+                                        )
+                                        .await?;
 
-                                pull_state_report.deferred_count += 1;
-                                for output in template_result.missing {
-                                    pull_state_report.missing_outputs.insert(output);
+                                        pull_state_report.deferred_count += 1;
+                                        for output in template_result.missing {
+                                            pull_state_report.missing_outputs.insert(output);
+                                        }
+
+                                        continue 'object;
+                                    } else {
+                                        template_result.body.into_bytes()
+                                    }
                                 }
-
-                                continue 'object;
-                            } else {
-                                template_result.body
+                                Err(_) => desired_bytes,
                             }
                         } else {
                             continue 'object;
@@ -187,9 +199,13 @@ impl ChangeSet {
                             // TODO if connectors can optionally implement cmp(addr, a: str, b: str),
                             // we can have a much more coherent definition of "equality",
                             // since connectors can E.G. parse their own Ron!
-                            if current.resource_definition.trim() != desired.trim() {
+                            // if !current.resource_definition.trim() != desired.trim() {
+                            if !connector
+                                .eq(&phy_addr, &current.resource_definition, &OsStr::from_bytes(&desired))
+                                .await?
+                            {
                                 tick_import_count = true;
-                                std::fs::write(&object.filename, current.resource_definition)?;
+                                std::fs::write(&object.filename, current.resource_definition.as_bytes())?;
                                 self.git_add(repo, &object.filename)?;
                             }
 
@@ -203,10 +219,9 @@ impl ChangeSet {
                                         self.git_add(repo, &virt_output_path)?;
 
                                         if virt_addr != phy_addr {
-                                            if let Some(phy_output_path) = link_phy_output_file(
-                                                &virt_output_path,
-                                                &phy_output_path,
-                                            )? {
+                                            if let Some(phy_output_path) =
+                                                link_phy_output_file(&virt_output_path, &phy_output_path)?
+                                            {
                                                 self.git_add(repo, &phy_output_path)?;
                                             }
                                         }

@@ -2,14 +2,16 @@ use std::{
     env::{
         consts::{ARCH, OS},
         current_dir,
-    },
-    path::{Path, PathBuf},
+    }, ffi::OsStr, os::unix::ffi::OsStrExt, path::{Path, PathBuf}
 };
 
 use git2::Repository;
 use ron::error::SpannedResult;
 use serde::{de::DeserializeOwned, Serialize};
 use similar::{ChangeTag, TextDiff};
+
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
 
 #[cfg(feature = "python")]
 use crate::connector::spawn::python::autoschematic_connector_hooks;
@@ -55,7 +57,10 @@ lazy_static::lazy_static! {
     .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME);
 }
 
-pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &str, b: &str) -> Result<bool, anyhow::Error> {
+pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error> {
+    let a = str::from_utf8(a.as_bytes())?;
+    let b = str::from_utf8(b.as_bytes())?;
+
     let Ok(a): SpannedResult<T> = RON.from_str(a) else {
         return Ok(false);
     };
@@ -65,7 +70,9 @@ pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &str, b: &str) -> Result
     Ok(a == b)
 }
 
-pub fn ron_check_syntax<T: DeserializeOwned>(text: &str) -> Result<DiagnosticOutput, anyhow::Error> {
+pub fn ron_check_syntax<T: DeserializeOwned>(text: &OsStr) -> Result<DiagnosticOutput, anyhow::Error> {
+    let text = str::from_utf8(text.as_bytes())?;
+
     let res = ron::Deserializer::from_str_with_options(text, &*RON);
     match res {
         Ok(mut deserializer) => {

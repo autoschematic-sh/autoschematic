@@ -1,6 +1,5 @@
 use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
+    collections::HashMap, ffi::{OsStr, OsString}, path::{Path, PathBuf}
 };
 
 use serde::{Deserialize, Serialize};
@@ -23,7 +22,7 @@ pub mod r#type;
 /// `resource_definition`` will contain the connector's string representation of that
 /// resource, and `outputs` will contain the
 pub struct GetResourceOutput {
-    pub resource_definition: String,
+    pub resource_definition: OsString,
     pub outputs: Option<OutputMap>,
 }
 
@@ -54,7 +53,7 @@ pub struct OpExecOutput {
 /// examples of the kinds of resources that the user can instantiate and manage through the connector.
 pub struct SkeletonOutput {
     pub addr: PathBuf,
-    pub body: String,
+    pub body: OsString,
 }
 
 pub type ConnectorOutbox = Sender<Option<String>>;
@@ -98,8 +97,8 @@ pub trait Connector: Send + Sync {
     async fn plan(
         &self,
         addr: &Path,
-        current: Option<String>,
-        desired: Option<String>,
+        current: Option<OsString>,
+        desired: Option<OsString>,
     ) -> Result<Vec<OpPlanOutput>, anyhow::Error>;
 
     /// Execute an Op.
@@ -135,18 +134,18 @@ pub trait Connector: Send + Sync {
     ///  to match remote state.
     /// The defaul implementation simply compares strings, without serializing or parsing in any way.
     /// addr is ignored in this default case.
-    async fn eq(&self, addr: &Path, a: &str, b: &str) -> Result<bool, anyhow::Error>;
+    async fn eq(&self, addr: &Path, a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error>;
 
-    async fn diag(&self, addr: &Path, a: &str) -> Result<DiagnosticOutput, anyhow::Error>;
+    async fn diag(&self, addr: &Path, a: &OsStr) -> Result<DiagnosticOutput, anyhow::Error>;
 }
 
 // Helper traits for defining custom internal types in Connector implementations.
 // Note that such types are erased by definition at the Connector interface boundary.
 
 pub trait Resource: Send + Sync {
-    fn to_string(&self) -> Result<String, anyhow::Error>;
+    fn to_string(&self) -> Result<OsString, anyhow::Error>;
 
-    fn from_str(addr: &impl ResourceAddress, s: &str) -> Result<Self, anyhow::Error>
+    fn from_str(addr: &impl ResourceAddress, s: &OsStr) -> Result<Self, anyhow::Error>
     where
         Self: Sized;
 }
@@ -189,8 +188,8 @@ impl Connector for Box<dyn Connector> {
     async fn plan(
         &self,
         addr: &Path,
-        current: Option<String>,
-        desired: Option<String>,
+        current: Option<OsString>,
+        desired: Option<OsString>,
     ) -> Result<Vec<OpPlanOutput>, anyhow::Error> {
         Connector::plan(self.as_ref(), addr, current, desired).await
     }
@@ -211,11 +210,11 @@ impl Connector for Box<dyn Connector> {
         Connector::get_skeletons(self.as_ref()).await
     }
 
-    async fn eq(&self, addr: &Path, a: &str, b: &str) -> Result<bool, anyhow::Error> {
+    async fn eq(&self, addr: &Path, a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error> {
         Connector::eq(self.as_ref(), addr, a, b).await
     }
 
-    async fn diag(&self, addr: &Path, a: &str) -> Result<DiagnosticOutput, anyhow::Error> {
+    async fn diag(&self, addr: &Path, a: &OsStr) -> Result<DiagnosticOutput, anyhow::Error> {
         Connector::diag(self.as_ref(), addr, a).await
     }
 }

@@ -1,11 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use async_trait::async_trait;
-use octocrab::{
-    models::InstallationId,
-    Octocrab,
-};
+use octocrab::{Octocrab, models::InstallationId};
 use regex::Regex;
 use secrecy::SecretBox;
 use tempdir::TempDir;
@@ -17,15 +14,12 @@ use crate::{
     chwd::ChangeWorkingDirectory,
     credentials,
     error::{AutoschematicServerError, AutoschematicServerErrorType},
-    git_util::clone_repo, task::state::TaskState,
+    task::state::TaskState,
 };
 
-use super::{
-    message::TaskMessage,
-    state,
-    util::drain_inbox,
-    Task, TaskInbox, TaskOutbox,
-};
+use autoschematic_core::git_util::clone_repo;
+
+use super::{Task, TaskInbox, TaskOutbox, message::TaskMessage, state, util::drain_inbox};
 
 pub enum TestType {
     Fuzz(PathBuf),
@@ -57,12 +51,9 @@ impl Task for TestTask {
     where
         Self: Sized,
     {
-        let (client, token) =
-            credentials::octocrab_installation_client(InstallationId(installation_id)).await?;
+        let (client, token) = credentials::octocrab_installation_client(InstallationId(installation_id)).await?;
 
-        outbox
-            .send(TaskMessage::StateChange(state::TaskState::Running))
-            .await?;
+        outbox.send(TaskMessage::StateChange(state::TaskState::Running)).await?;
         let re = Regex::new(r"^(?<type>[^:]+):(?<path>.+)$")?;
         let Some(caps) = re.captures(name) else {
             return Err(AutoschematicServerError {
@@ -90,16 +81,11 @@ impl Task for TestTask {
     }
 
     async fn run(mut self: Box<Self>, _arg: serde_json::Value) -> anyhow::Result<()> {
-        self.outbox
-            .send(TaskMessage::StateChange(TaskState::Running))
-            .await?;
+        self.outbox.send(TaskMessage::StateChange(TaskState::Running)).await?;
 
         let _ = drain_inbox(&mut self.inbox).await.map_err(async |e| {
             tracing::error!("{}", e);
-            let _ = self
-                .outbox
-                .send(TaskMessage::StateChange(TaskState::Stopped))
-                .await;
+            let _ = self.outbox.send(TaskMessage::StateChange(TaskState::Stopped)).await;
         });
 
         let repo = self.client.repos(&self.owner, &self.repo).get().await?;
@@ -115,22 +101,13 @@ impl Task for TestTask {
         //         default_branch.clone(),
         //     ))
         //     .await?;
-        clone_repo(
-            &self.owner,
-            &self.repo,
-            self.temp_dir.path(),
-            &default_branch,
-            &self.token,
-        )
-        .await
-        .context("Cloning repo")?;
+        clone_repo(&self.owner, &self.repo, self.temp_dir.path(), &default_branch, &self.token)
+            .await
+            .context("Cloning repo")?;
 
         let _ = drain_inbox(&mut self.inbox).await.map_err(async |e| {
             tracing::error!("{}", e);
-            let _ = self
-                .outbox
-                .send(TaskMessage::StateChange(TaskState::Stopped))
-                .await;
+            let _ = self.outbox.send(TaskMessage::StateChange(TaskState::Stopped)).await;
         });
 
         // match &head_ref.object {

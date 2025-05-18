@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{ffi::OsString, path::Path};
 
 use crate::{
     config::AutoschematicConfig, connector::parse::connector_shortname, connector_cache::ConnectorCache,
@@ -11,7 +11,7 @@ pub async fn get(
     keystore: Option<&Box<dyn KeyStore>>,
     prefix: &Path,
     addr: &Path,
-) -> Result<Option<String>, AutoschematicError> {
+) -> Result<Option<OsString>, AutoschematicError> {
     let Some(prefix_str) = prefix.to_str() else {
         return Ok(None);
     };

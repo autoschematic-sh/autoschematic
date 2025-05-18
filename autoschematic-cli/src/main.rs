@@ -1,14 +1,17 @@
 use std::path::PathBuf;
 
-use clap::{command, Parser, Subcommand};
+use clap::{Parser, Subcommand, command};
 use sso::{login_via_github, persist_github_token};
 
 mod config;
 mod init;
 mod install;
+mod plan;
+mod apply;
 mod seal;
 mod sso;
 mod validate;
+mod ui;
 
 #[derive(Parser, Debug)]
 #[command(name = "autoschematic")]
@@ -67,7 +70,35 @@ pub enum AutoschematicSubcommand {
         /// Url of the Github organization to log in to, or github.com if omitted
         #[arg(long, default_value = None)]
         url: Option<String>,
-    }
+    },
+    /// Display the series of operations needed to apply the changeset.
+    Plan {
+        /// Optional path (can be a glob) to filter the changeset.
+        #[arg(short, long, value_name = "prefix")]
+        prefix: Option<String>,
+
+        /// Optional: run for a single connector by name
+        #[arg(short, long, value_name = "connector")]
+        connector: Option<String>,
+
+        /// Optional path (can be a glob) to filter which resources are imported.
+        #[arg(short, long, value_name = "subpath")]
+        subpath: Option<String>,
+    },
+    /// Execute the series of operations needed to apply the changeset.
+    Apply {
+        /// Optional path (can be a glob) to filter the changeset.
+        #[arg(short, long, value_name = "prefix")]
+        prefix: Option<String>,
+
+        /// Optional: run for a single connector by name
+        #[arg(short, long, value_name = "connector")]
+        connector: Option<String>,
+
+        /// Optional path (can be a glob) to filter which resources are imported.
+        #[arg(short, long, value_name = "subpath")]
+        subpath: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -82,14 +113,7 @@ async fn main() -> anyhow::Result<()> {
             in_path,
             key_id,
         } => {
-            seal::seal(
-                &domain,
-                prefix.as_deref(),
-                &path,
-                in_path.as_deref(),
-                key_id.as_deref(),
-            )
-            .await?;
+            seal::seal(&domain, prefix.as_deref(), &path, in_path.as_deref(), key_id.as_deref()).await?;
         }
         AutoschematicSubcommand::Init {} => {
             init::init()?;
@@ -101,8 +125,22 @@ async fn main() -> anyhow::Result<()> {
             let token = login_via_github().await?;
             persist_github_token(&token)?;
         }
-        AutoschematicSubcommand::Install {url, version } => {
+        AutoschematicSubcommand::Install { url, version } => {
             install::install(&url, version).await?;
+        }
+        AutoschematicSubcommand::Plan {
+            prefix,
+            connector,
+            subpath,
+        } => {
+            plan::plan(&prefix, &connector, &subpath).await?;
+        }
+        AutoschematicSubcommand::Apply {
+            prefix,
+            connector,
+            subpath,
+        } => {
+            apply::apply(&prefix, &connector, &subpath).await?;
         }
     };
 

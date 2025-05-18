@@ -8,6 +8,7 @@ edition = "2024"
 # build = "build.rs"
 
 [features]
+default = []
 grpc = ["tonic-build", "tonic", "prost"]
 python = ["pyo3"]
 # wasm = ["wasm-bindgen", "serde-wasm-bindgen"]
@@ -32,18 +33,25 @@ tokio-stream = "0.1.17"
 prost = { version = "0.13.5", optional = true }
 regex = "1.11.1"
 lazy_static = "1.5.0"
-pyo3 = { version = "0.24.0", optional = true, features = ["serde"] }
+pyo3 = { version = "0.25.0", optional = true, features = ["serde"] }
 flate2 = "1.1.1"
 flume = "0.11.1"
 octocrab = { version = "0.44.0", features = ["stream"] }
 tar = "0.4.44"
-nix = { version = "0.30.1", features = ["sched", "signal", "user", "process", "fs", "mount"] }
+nix = { version = "0.30.1", features = [
+    "sched",
+    "signal",
+    "user",
+    "process",
+    "fs",
+    "mount",
+] }
 ron = { path = "../../ron", version = "0.10.1" }
 walkdir = "2.5.0"
 rand = "0.9.1"
 libc = "0.2.172"
 hyper = "1.6.0"
-rustls = "0.23.22"
+rustls = { version = "0.23.22", default-features = false, features = ["std", "ring"] }
 ecdsa = "0.16.8"
 signature = "2.2.0"
 hex = "0.4.3"
@@ -59,6 +67,7 @@ git2 = "0.20.1"
 serde_path_to_error = "0.1.17"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 similar = "2.7.0"
+secrecy = "0.10.3"
 
 # capnp = "0.20"
 # capnp-rpc = "0.20.3"
@@ -68,4 +77,4 @@ similar = "2.7.0"
 tonic-build = { version = "0.13.0", optional = true }
 
 [dev-dependencies]
-rustls = "0.23.26"
+rustls = { version = "0.23.22", default-features = false, features = ["std", "ring"] }

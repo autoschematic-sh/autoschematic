@@ -1,14 +1,3 @@
-//! GitHub webhook event handlers for the Autoschematic service
-//!
-//! This module contains the core event handling logic for processing GitHub webhook events.
-//! It implements handlers for various event types including:
-//! - Pull Request events (open, reopen)
-//! - Issue Comment events (created, edited)
-//! - Check Run events
-//! - Check Suite events
-//!
-//! Each event type triggers specific automation workflows for schema management.
-
 use askama::Template;
 use autoschematic_core::unescape::try_unescape;
 use clap::Parser;

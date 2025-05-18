@@ -202,7 +202,7 @@ impl ChangeSet {
                                     .plan(
                                         &phy_addr.clone().unwrap_or(virt_addr.into()),
                                         current,
-                                        Some(template_result.body),
+                                        Some(template_result.body.into()),
                                     )
                                     .await
                                     .context(format!(

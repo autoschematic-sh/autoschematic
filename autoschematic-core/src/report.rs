@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 // The list of ConnectorOps along with their human-readable descriptions
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub struct PlanReport {
-    pub overall_success: bool,
     pub prefix: PathBuf,
     pub virt_addr: PathBuf,
     /// Optional: if different to virt_addr, represents the \
@@ -30,8 +29,19 @@ pub struct PlanReport {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct PlanReportSet {
-    pub overall_success: bool,
     pub plan_reports: Vec<PlanReport>,
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
+pub struct ApplyReport {
+    pub outputs: Vec<OpExecOutput>,
+    pub wrote_files: Vec<PathBuf>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct ApplyReportSet {
+    pub apply_reports: Vec<ApplyReport>,
 }
 
 // A PlanReport outlines, for a given plan run at connector:prefix:addr:
@@ -62,7 +72,7 @@ pub struct PlanReportSetOld {
 // The error, if any, or
 // The list of ConnectorOps along with their human-readable descriptions
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
-pub struct ApplyReport {
+pub struct ApplyReportOld {
     pub connector_name: String,
     pub prefix: String,
     pub virt_addr: PathBuf,
@@ -73,7 +83,7 @@ pub struct ApplyReport {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-pub struct ApplyReportSet {
+pub struct ApplyReportSetOld {
     pub overall_success: bool,
-    pub apply_reports: Vec<ApplyReport>,
+    pub apply_reports: Vec<ApplyReportOld>,
 }

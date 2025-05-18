@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use super::trace::{append_run_log, finish_run, start_run};
-use autoschematic_core::report::ApplyReportSet;
-use autoschematic_core::report::ApplyReport;
+use autoschematic_core::report::ApplyReportSetOld;
+use autoschematic_core::report::ApplyReportOld;
 use anyhow::bail;
 use autoschematic_core::connector::parse::connector_shortname;
 use autoschematic_core::connector::VirtToPhyOutput;
@@ -22,10 +22,10 @@ impl ChangeSet {
         connector_filter: Option<String>,
         comment_username: &str,
         comment_url: &str,
-    ) -> Result<ApplyReportSet, anyhow::Error> {
+    ) -> Result<ApplyReportSetOld, anyhow::Error> {
         let trace_handle = start_run(self, comment_username, comment_url, "apply", "").await?;
 
-        let mut apply_report_set = ApplyReportSet {
+        let mut apply_report_set = ApplyReportSetOld {
             overall_success: true,
             apply_reports: Vec::new(),
         };
@@ -177,7 +177,7 @@ impl ChangeSet {
                                 Some(CheckRunConclusion::Failure),
                             )
                             .await?;
-                            apply_report_set.apply_reports.push(ApplyReport {
+                            apply_report_set.apply_reports.push(ApplyReportOld {
                                 connector_name: plan_report.connector_name.clone(),
                                 prefix: prefix.clone(),
                                 virt_addr: virt_addr.to_path_buf(),
@@ -196,7 +196,7 @@ impl ChangeSet {
                                 Some(CheckRunConclusion::Success),
                             )
                             .await?;
-                            apply_report_set.apply_reports.push(ApplyReport {
+                            apply_report_set.apply_reports.push(ApplyReportOld {
                                 connector_name: plan_report.connector_name.clone(),
                                 prefix: prefix.clone(),
                                 virt_addr: virt_addr,

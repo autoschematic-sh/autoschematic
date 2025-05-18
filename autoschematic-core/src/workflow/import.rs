@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::{os::unix::ffi::OsStrExt, path::{Path, PathBuf}};
 
 use anyhow::{bail, Context};
 use tokio::sync::broadcast::error::RecvError;
@@ -68,7 +68,8 @@ pub async fn import_resource(
                 if let Some(parent) = res_path.parent() {
                     tokio::fs::create_dir_all(parent).await?;
                 }
-                tokio::fs::write(&res_path, body).await?;
+                // tokio::fs::wr
+                tokio::fs::write(&res_path, body.as_bytes()).await?;
                 tracing::info!("import completed...");
 
                 // let mut index = repo.index()?;

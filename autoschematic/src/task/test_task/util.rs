@@ -2,7 +2,8 @@ use std::{path::Path, time::Duration};
 
 use anyhow::bail;
 
-use crate::{task::util::{create_comment, wait_for_comment_types}, git_util::pull_with_rebase};
+use crate::task::util::{create_comment, wait_for_comment_types};
+use autoschematic_core::git_util::pull_with_rebase;
 
 use super::TestTask;
 
@@ -19,10 +20,7 @@ impl TestTask {
             &self.owner,
             &self.repo,
             issue_number,
-            &format!(
-                "autoschematic pull-state {} {}",
-                prefix_filter, connector_filter
-            ),
+            &format!("autoschematic pull-state {} {}", prefix_filter, connector_filter),
         )
         .await?;
 
@@ -44,12 +42,7 @@ impl TestTask {
         Ok(comment_type)
     }
 
-    pub async fn plan(
-        &mut self,
-        issue_number: u64,
-        prefix_filter: &str,
-        connector_filter: &str,
-    ) -> anyhow::Result<String> {
+    pub async fn plan(&mut self, issue_number: u64, prefix_filter: &str, connector_filter: &str) -> anyhow::Result<String> {
         tokio::time::sleep(Duration::from_secs(1)).await;
         create_comment(
             &mut self.outbox,
@@ -78,21 +71,9 @@ impl TestTask {
         Ok(comment_type)
     }
 
-    pub async fn apply(
-        &mut self,
-        issue_number: u64,
-        prefix_filter: &str,
-        connector_filter: &str,
-    ) -> anyhow::Result<String> {
+    pub async fn apply(&mut self, issue_number: u64, prefix_filter: &str, connector_filter: &str) -> anyhow::Result<String> {
         tokio::time::sleep(Duration::from_secs(1)).await;
-        create_comment(
-            &mut self.outbox,
-            &self.owner,
-            &self.repo,
-            issue_number,
-            "autoschematic apply",
-        )
-        .await?;
+        create_comment(&mut self.outbox, &self.owner, &self.repo, issue_number, "autoschematic apply").await?;
 
         let (comment_type, comment) = wait_for_comment_types(
             &self.owner,
@@ -105,22 +86,14 @@ impl TestTask {
         Ok(comment_type)
     }
 
-    pub async fn import(
-        &mut self,
-        issue_number: u64,
-        prefix_filter: &str,
-        connector_filter: &str,
-    ) -> anyhow::Result<String> {
+    pub async fn import(&mut self, issue_number: u64, prefix_filter: &str, connector_filter: &str) -> anyhow::Result<String> {
         tokio::time::sleep(Duration::from_secs(1)).await;
         create_comment(
             &mut self.outbox,
             &self.owner,
             &self.repo,
             issue_number,
-            &format!(
-                "autoschematic import {} {}",
-                prefix_filter, connector_filter
-            ),
+            &format!("autoschematic import {} {}", prefix_filter, connector_filter),
         )
         .await?;
 
@@ -147,10 +120,7 @@ impl TestTask {
             &self.owner,
             &self.repo,
             issue_number,
-            &format!(
-                "autoschematic import --overwrite {} {}",
-                prefix_filter, connector_filter
-            ),
+            &format!("autoschematic import --overwrite {} {}", prefix_filter, connector_filter),
         )
         .await?;
 
@@ -174,9 +144,7 @@ impl TestTask {
         branch_name: &str,
     ) -> anyhow::Result<()> {
         'reapply: loop {
-            let comment_type = self
-                .plan(issue_number, &prefix_filter, &connector_filter)
-                .await?;
+            let comment_type = self.plan(issue_number, &prefix_filter, &connector_filter).await?;
 
             let mut do_apply = false;
             let mut have_deferrals = false;
@@ -205,9 +173,7 @@ impl TestTask {
             }
 
             if do_apply {
-                let comment_type = self
-                    .apply(issue_number, &prefix_filter, &connector_filter)
-                    .await?;
+                let comment_type = self.apply(issue_number, &prefix_filter, &connector_filter).await?;
 
                 match comment_type.as_str() {
                     "apply_overall_success" => {
@@ -227,9 +193,7 @@ impl TestTask {
                 }
 
                 tokio::time::sleep(Duration::from_secs(1)).await;
-                let comment_type = self
-                    .import_overwrite(issue_number, &prefix_filter, &connector_filter)
-                    .await?;
+                let comment_type = self.import_overwrite(issue_number, &prefix_filter, &connector_filter).await?;
 
                 match comment_type.as_str() {
                     "import_success" => {}
@@ -268,9 +232,7 @@ impl TestTask {
         branch_name: &str,
     ) -> anyhow::Result<()> {
         'reapply: loop {
-            let comment_type = self
-                .plan(issue_number, &prefix_filter, &connector_filter)
-                .await?;
+            let comment_type = self.plan(issue_number, &prefix_filter, &connector_filter).await?;
 
             let mut do_apply = false;
             let mut have_deferrals = false;
@@ -299,9 +261,7 @@ impl TestTask {
             }
 
             if do_apply {
-                let comment_type = self
-                    .apply(issue_number, &prefix_filter, &connector_filter)
-                    .await?;
+                let comment_type = self.apply(issue_number, &prefix_filter, &connector_filter).await?;
 
                 match comment_type.as_str() {
                     "apply_overall_success" => {
@@ -321,9 +281,7 @@ impl TestTask {
                 }
 
                 tokio::time::sleep(Duration::from_secs(1)).await;
-                let comment_type = self
-                    .pull_state(issue_number, &prefix_filter, &connector_filter)
-                    .await?;
+                let comment_type = self.pull_state(issue_number, &prefix_filter, &connector_filter).await?;
                 match comment_type.as_str() {
                     "pull_state_success" => {}
                     "pull_state_clean" => {}

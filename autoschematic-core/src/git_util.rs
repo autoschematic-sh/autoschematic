@@ -1,9 +1,12 @@
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use git2::{
+    Cred, FetchOptions, IndexAddOption, PushOptions, RemoteCallbacks, Repository, Status, StatusOptions,
     build::{CheckoutBuilder, RepoBuilder},
-    Cred, FetchOptions, IndexAddOption, PushOptions, RemoteCallbacks, Repository,
 };
 use secrecy::{ExposeSecret, SecretBox};
 
@@ -82,20 +85,13 @@ pub async fn clone_repo(
     Ok(repository)
 }
 
-pub async fn checkout_new_branch(
-    repo_path: &Path,
-    branch_name: &str,
-) -> Result<Repository, anyhow::Error> {
+pub async fn checkout_new_branch(repo_path: &Path, branch_name: &str) -> Result<Repository, anyhow::Error> {
     let Ok(repository) = Repository::open(repo_path) else {
-        bail!(
-            "No repository at {}",
-            &repo_path.to_str().unwrap_or_default()
-        )
+        bail!("No repository at {}", &repo_path.to_str().unwrap_or_default())
     };
 
     {
-        let branch =
-            repository.branch(branch_name, &repository.head()?.peel_to_commit()?, false)?;
+        let branch = repository.branch(branch_name, &repository.head()?.peel_to_commit()?, false)?;
 
         // repository.checkout_tree(&obj, None)?;
         repository.checkout_tree(&branch.get().peel(git2::ObjectType::Tree)?, None)?;
@@ -107,10 +103,7 @@ pub async fn checkout_new_branch(
 
 pub async fn checkout_branch(repo_path: &Path, branch_name: &str) -> anyhow::Result<()> {
     let Ok(repository) = Repository::open(repo_path) else {
-        bail!(
-            "No repository at {}",
-            &repo_path.to_str().unwrap_or_default()
-        )
+        bail!("No repository at {}", &repo_path.to_str().unwrap_or_default())
     };
 
     let (object, reference) = repository.revparse_ext(branch_name)?;
@@ -137,30 +130,19 @@ pub fn git_add(repo_path: &Path, path: &Path) -> anyhow::Result<()> {
     // let repo_path = path.join(owner).join(repo);
     //
 
-    let Ok(repository) = Repository::open(&repo_path) else {
-        bail!(
-            "No repository at {}",
-            &repo_path.to_str().unwrap_or_default()
-        )
+    let Ok(repository) = Repository::open(repo_path) else {
+        bail!("No repository at {}", &repo_path.to_str().unwrap_or_default())
     };
 
     let mut index = repository.index()?;
-    index.add_all(&[path], IndexAddOption::default(), None)?;
+    index.add_all([path], IndexAddOption::default(), None)?;
     index.write()?;
     Ok(())
 }
 
-pub fn git_commit_and_push(
-    repo_path: &Path,
-    head_ref: &str,
-    token: &SecretBox<str>,
-    message: &str,
-) -> anyhow::Result<()> {
-    let Ok(repository) = Repository::open(&repo_path) else {
-        bail!(
-            "No repository at {}",
-            &repo_path.to_str().unwrap_or_default()
-        )
+pub fn git_commit(repo_path: &Path, username: &str, email: &str, message: &str) -> anyhow::Result<()> {
+    let Ok(repository) = Repository::open(repo_path) else {
+        bail!("No repository at {}", &repo_path.to_str().unwrap_or_default())
     };
 
     let mut index = repository.index()?;
@@ -168,7 +150,22 @@ pub fn git_commit_and_push(
     let parent_commit = repository.head()?.peel_to_commit()?;
     let tree = repository.find_tree(oid)?;
     let sig = git2::Signature::now("autoschematic", "apply@autoschematic.sh")?;
-    let commit = repository.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?;
+    let commit = repository.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&parent_commit])?;
+
+    Ok(())
+}
+
+pub fn git_commit_and_push(repo_path: &Path, head_ref: &str, token: &SecretBox<str>, message: &str) -> anyhow::Result<()> {
+    let Ok(repository) = Repository::open(repo_path) else {
+        bail!("No repository at {}", &repo_path.to_str().unwrap_or_default())
+    };
+
+    let mut index = repository.index()?;
+    let oid = index.write_tree()?;
+    let parent_commit = repository.head()?.peel_to_commit()?;
+    let tree = repository.find_tree(oid)?;
+    let sig = git2::Signature::now("autoschematic", "apply@autoschematic.sh")?;
+    let commit = repository.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&parent_commit])?;
 
     // tracing::error!("git_commit: commit: {:?} -> {:?}", commit, parent_commit);
 
@@ -197,16 +194,9 @@ pub fn git_commit_and_push(
     Ok(())
 }
 
-pub fn pull_with_rebase(
-    repo_path: &Path,
-    branch_name: &str,
-    token: &SecretBox<str>,
-) -> Result<(), anyhow::Error> {
+pub fn pull_with_rebase(repo_path: &Path, branch_name: &str, token: &SecretBox<str>) -> Result<(), anyhow::Error> {
     let Ok(repository) = Repository::open(repo_path) else {
-        bail!(
-            "No repository at {}",
-            repo_path.to_str().unwrap_or_default()
-        )
+        bail!("No repository at {}", repo_path.to_str().unwrap_or_default())
     };
 
     let mut callbacks = RemoteCallbacks::new();
@@ -232,11 +222,7 @@ pub fn pull_with_rebase(
     let branch_ref_name = format!("refs/heads/{}", branch_name);
     let mut branch_ref = repository.find_reference(&branch_ref_name)?;
 
-    let msg = format!(
-        "Fast-Forward: Setting {} to id: {}",
-        branch_ref_name,
-        fetch_ref.id()
-    );
+    let msg = format!("Fast-Forward: Setting {} to id: {}", branch_ref_name, fetch_ref.id());
 
     branch_ref.set_target(fetch_ref.id(), &msg)?;
 
@@ -258,9 +244,39 @@ pub fn get_head_sha(repo_path: &Path) -> anyhow::Result<String> {
         let head = repository.head()?;
         Ok(head.peel_to_commit()?.id().to_string())
     } else {
-        bail!(
-            "No repository at {}",
-            repo_path.to_str().unwrap_or_default()
-        )
+        bail!("No repository at {}", repo_path.to_str().unwrap_or_default())
     }
+}
+
+pub fn get_staged_files() -> Result<Vec<PathBuf>, git2::Error> {
+    // Discover the repository by looking in `.` and upwards
+    let repo = Repository::discover(".")?;
+
+    // Configure status options to only look at changes staged in the index
+    let mut status_opts = StatusOptions::new();
+    status_opts.show(git2::StatusShow::Index);
+    status_opts.include_untracked(false).renames_head_to_index(true);
+
+    // Gather statuses
+    let statuses = repo.statuses(Some(&mut status_opts))?;
+
+    // Filter for any kind of index change
+    let mut staged = Vec::new();
+    for entry in statuses.iter() {
+        let s = entry.status();
+        let is_staged = s.intersects(
+            Status::INDEX_NEW
+                | Status::INDEX_MODIFIED
+                | Status::INDEX_DELETED
+                | Status::INDEX_RENAMED
+                | Status::INDEX_TYPECHANGE,
+        );
+        if is_staged {
+            if let Some(path) = entry.path() {
+                staged.push(PathBuf::from(path));
+            }
+        }
+    }
+
+    Ok(staged)
 }

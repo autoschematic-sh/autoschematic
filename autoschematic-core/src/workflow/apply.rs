@@ -7,7 +7,7 @@ use crate::{
     connector_cache::ConnectorCache,
     connector_util::build_out_path,
     keystore::KeyStore,
-    report::{ApplyReport, PlanReport},
+    report::{ApplyReport, ApplyReportOld, PlanReport},
     write_output::{link_phy_output_file, unlink_phy_output_file, write_virt_output_file},
 };
 
@@ -17,8 +17,10 @@ pub async fn apply_connector(
     plan: &PlanReport,
 ) -> anyhow::Result<Option<ApplyReport>> {
     let mut apply_report = ApplyReport::default();
-    let mut wrote_files = Vec::new();
+    eprintln!("apply_connector");
+    
     for op in &plan.connector_ops {
+        eprintln!("apply_connector: {:?}", op.friendly_message);
         // let Some(phy_addr) = connector.addr_virt_to_phy(&virt_addr).await? else {
         //     exec_error = Some(anyhow!(
         //         "Error: virt addr could not be resolved: {:?}",
@@ -45,13 +47,13 @@ pub async fn apply_connector(
                         let phy_output_path = build_out_path(&plan.prefix, &phy_addr);
 
                         if phy_addr != plan.virt_addr {
-                            apply_report.phy_addr = Some(phy_addr.clone());
+                            // apply_report.phy_addr = Some(phy_addr.clone());
 
                             let _phy_output_path = link_phy_output_file(&virt_output_path, &phy_output_path)?;
-                            wrote_files.push(phy_output_path);
+                            apply_report.wrote_files.push(phy_output_path);
                         }
 
-                        wrote_files.push(virt_output_path);
+                        apply_report.wrote_files.push(virt_output_path);
                     }
                 } else {
                     if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
@@ -59,10 +61,10 @@ pub async fn apply_connector(
 
                         if phy_addr != plan.virt_addr {
                             unlink_phy_output_file(&phy_output_path)?;
-                            wrote_files.push(phy_output_path);
+                            apply_report.wrote_files.push(phy_output_path);
                         }
 
-                        wrote_files.push(virt_output_path);
+                        apply_report.wrote_files.push(virt_output_path);
                     }
                 }
             }
@@ -71,7 +73,7 @@ pub async fn apply_connector(
         apply_report.outputs.push(op_exec_output);
     }
 
-    Ok(None)
+    Ok(Some(apply_report))
 }
 
 /// For a given path, attempt to resolve its prefix and Connector impl and return a Vec of ConnectorOps.
@@ -129,8 +131,8 @@ pub async fn apply(
             .filter(&connector_def.name, &plan_report.prefix, &plan_report.virt_addr)
             .await?
         {
-            let plan_report = apply_connector(&connector_shortname, &connector, plan_report).await?;
-            return Ok(plan_report);
+            let apply_report = apply_connector(&connector_shortname, &connector, plan_report).await?;
+            return Ok(apply_report);
         }
     }
 

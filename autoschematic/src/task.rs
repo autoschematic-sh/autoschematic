@@ -1,6 +1,6 @@
 use std::{path::Path, time::Duration};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use async_trait::async_trait;
 use message::{TaskMessage, TaskRegistryMessage};
 use regex::Regex;
@@ -9,9 +9,8 @@ use state::TaskState;
 use test_task::TestTask;
 
 use crate::{
-    credentials,
+    TASK_REGISTRY, credentials,
     error::{AutoschematicServerError, AutoschematicServerErrorType},
-    TASK_REGISTRY,
 };
 
 pub mod message;
@@ -67,10 +66,7 @@ pub async fn spawn_task(
     installation_id: u64,
     arg: serde_json::Value,
 ) -> anyhow::Result<()> {
-    let (client, token) = credentials::octocrab_installation_client(
-        octocrab::models::InstallationId(installation_id),
-    )
-    .await?;
+    let (client, token) = credentials::octocrab_installation_client(octocrab::models::InstallationId(installation_id)).await?;
     // Match a Task name.
     // Task names take the form:
     // {type}:{path}
@@ -125,10 +121,7 @@ pub async fn spawn_task(
                                         break 'attempt;
                                     }
                                     Err(octocrab::Error::GitHub { source, backtrace }) => {
-                                        tracing::error!(
-                                            "Failed to create issue comment: {}",
-                                            source
-                                        );
+                                        tracing::error!("Failed to create issue comment: {}", source);
                                         tokio::time::sleep(Duration::from_millis(10)).await;
                                         continue 'attempt;
                                     }
@@ -204,9 +197,7 @@ pub async fn spawn_task(
     // registry_outbox
     //     .send_async(AgentRegistryMessage::ShutDown)
     //     .await?;
-    task_outbox
-        .send(TaskMessage::StateChange(state::TaskState::Running))
-        .await?;
+    task_outbox.send(TaskMessage::StateChange(state::TaskState::Running)).await?;
 
     match &caps["type"] {
         "test" => {
@@ -247,6 +238,7 @@ pub async fn spawn_task(
             );
             Ok(())
         }
+        #[cfg(feature = "python")]
         "op-python" => {
             let task = PythonTask::new(
                 owner,
@@ -262,9 +254,7 @@ pub async fn spawn_task(
             let error_registry_key = registry_key.clone();
             let join_handle = tokio::spawn(async move {
                 match task.run(arg).await {
-                    Ok(()) => Ok(task_outbox
-                        .send(TaskMessage::StateChange(TaskState::Succeeded))
-                        .await?),
+                    Ok(()) => Ok(task_outbox.send(TaskMessage::StateChange(TaskState::Succeeded)).await?),
                     Err(e) => {
                         tracing::error!("Task error: {:#}", e);
                         Ok(task_outbox

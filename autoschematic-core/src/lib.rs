@@ -8,6 +8,7 @@ pub mod connector_util;
 pub mod diag;
 pub mod error;
 pub mod flock;
+pub mod git_util;
 pub mod glob;
 pub mod keystore;
 pub mod lockfile;

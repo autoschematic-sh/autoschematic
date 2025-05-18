@@ -2,13 +2,13 @@
 macro_rules! get_resource_output {
     ($resource:expr) => {{
         Ok(Some(GetResourceOutput {
-            resource_definition: Resource::to_string(&$resource)?,
+            resource_definition: Resource::to_string(&$resource).context("Resource::to_string")?,
             outputs: None,
         }))
     }};
     ($resource:expr, $outputs:expr) => {{
         Ok(Some(GetResourceOutput {
-            resource_definition: Resource::to_string(&$resource)?,
+            resource_definition: Resource::to_string(&$resource).context("Resource::to_string")?,
             outputs: Some(HashMap::from_iter($outputs.into_iter().map(|(k, v)| (k.to_string(), v)))),
         }))
     }};
