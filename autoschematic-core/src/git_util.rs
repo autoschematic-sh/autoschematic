@@ -149,8 +149,8 @@ pub fn git_commit(repo_path: &Path, username: &str, email: &str, message: &str) 
     let oid = index.write_tree()?;
     let parent_commit = repository.head()?.peel_to_commit()?;
     let tree = repository.find_tree(oid)?;
-    let sig = git2::Signature::now("autoschematic", "apply@autoschematic.sh")?;
-    let commit = repository.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&parent_commit])?;
+    let sig = git2::Signature::now(username, email)?;
+    repository.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&parent_commit])?;
 
     Ok(())
 }
@@ -165,20 +165,11 @@ pub fn git_commit_and_push(repo_path: &Path, head_ref: &str, token: &SecretBox<s
     let parent_commit = repository.head()?.peel_to_commit()?;
     let tree = repository.find_tree(oid)?;
     let sig = git2::Signature::now("autoschematic", "apply@autoschematic.sh")?;
-    let commit = repository.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&parent_commit])?;
-
-    // tracing::error!("git_commit: commit: {:?} -> {:?}", commit, parent_commit);
+    repository.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&parent_commit])?;
 
     let mut remote = repository.find_remote("origin")?;
 
-    // tracing::error!(
-    //     "git_commit: remote: {:?}",
-    //     String::from_utf8_lossy(remote.url_bytes())
-    // );
-
     let refspec = format!("refs/heads/{}:refs/heads/{}", head_ref, head_ref);
-
-    // tracing::error!("git_commit: refspec: {}", refspec);
 
     let mut callbacks = RemoteCallbacks::new();
     callbacks.credentials(move |_url, _username_from_url, _allowed_types| {

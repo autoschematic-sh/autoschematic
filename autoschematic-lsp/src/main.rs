@@ -1,5 +1,8 @@
 use std::{
-    collections::HashMap, ffi::{OsStr, OsString}, path::{Path, PathBuf}
+    collections::HashMap,
+    ffi::{OsStr, OsString},
+    os::unix::ffi::OsStringExt,
+    path::{Path, PathBuf},
 };
 
 use anyhow::Result;
@@ -217,6 +220,7 @@ impl LanguageServer for Backend {
 
             "get" => {
                 let Some(path) = lsp_param_to_path(params) else {
+                    eprintln!("Path is None!");
                     return Ok(None);
                 };
 
@@ -226,11 +230,20 @@ impl LanguageServer for Backend {
                 };
 
                 let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &PathBuf::from(path)) else {
+                    eprintln!("Path not in prefix!");
                     return Ok(None);
                 };
 
-                if let Ok(res) = get(autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await {
-                    return Ok(Some(serde_json::to_value(res).unwrap()));
+                if let Ok(Some(res)) = get(autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await {
+                    eprintln!("Get returned Some! {:?}", res);
+                    match String::from_utf8(res.into_vec()) {
+                        Ok(s) => {
+                            return Ok(Some(serde_json::to_value(s).unwrap()));
+                        }
+                        Err(e) => {
+                            return Ok(None);
+                        }
+                    }
                 }
 
                 return Ok(None);
@@ -388,7 +401,7 @@ impl Backend {
         Ok(res)
     }
 
-    async fn load_connectors(&self) -> Result<()> {
+    async fn load_connectors(&self) -> anyhow::Result<()> {
         let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
             return Ok(());
         };

@@ -1,11 +1,16 @@
-use std::{os::unix::ffi::OsStrExt, path::{Path, PathBuf}};
+use std::{
+    os::unix::ffi::OsStrExt,
+    path::{Path, PathBuf},
+    sync,
+};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use tokio::sync::broadcast::error::RecvError;
+use tokio_stream::{StreamExt, wrappers::ReceiverStream};
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{parse::connector_shortname, Connector},
+    connector::{Connector, parse::connector_shortname},
     connector_cache::ConnectorCache,
     connector_util::build_out_path,
     error::AutoschematicError,
@@ -107,8 +112,7 @@ pub async fn import_resource(
     Ok(false)
 }
 
-pub async fn import_complete() {
-}
+pub async fn import_complete() {}
 
 pub async fn import_all(
     autoschematic_config: &AutoschematicConfig,
@@ -183,7 +187,7 @@ pub async fn import_all(
                 connector_shortname,
                 subpath.to_str().unwrap_or_default()
             ))?;
-            
+
             eprintln!("list: {:?}", phy_addrs);
 
             'phy_addr: for phy_addr in phy_addrs {

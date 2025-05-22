@@ -2,13 +2,13 @@
 macro_rules! get_resource_output {
     ($resource:expr) => {{
         Ok(Some(GetResourceOutput {
-            resource_definition: Resource::to_string(&$resource).context("Resource::to_string")?,
+            resource_definition: Resource::to_os_string(&$resource).context("Resource::to_string")?,
             outputs: None,
         }))
     }};
     ($resource:expr, $outputs:expr) => {{
         Ok(Some(GetResourceOutput {
-            resource_definition: Resource::to_string(&$resource).context("Resource::to_string")?,
+            resource_definition: Resource::to_os_string(&$resource).context("Resource::to_string")?,
             outputs: Some(HashMap::from_iter($outputs.into_iter().map(|(k, v)| (k.to_string(), v)))),
         }))
     }};
@@ -58,7 +58,7 @@ macro_rules! skeleton {
     ($addr:expr, $resource:expr) => {{
         SkeletonOutput {
             addr: $addr.to_path_buf(),
-            body: $resource.to_string()?,
+            body: $resource.to_os_string()?,
         }
     }};
 }

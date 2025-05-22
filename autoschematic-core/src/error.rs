@@ -1,5 +1,6 @@
 use std::fmt::{self, Debug};
 
+use std::path::PathBuf;
 use std::{error::Error, fmt::Display, sync::PoisonError};
 
 use serde::{Deserialize, Serialize};
@@ -21,17 +22,13 @@ impl From<anyhow::Error> for ErrorMessage {
 
 impl<C> From<PoisonError<std::sync::RwLockReadGuard<'_, C>>> for ErrorMessage {
     fn from(value: PoisonError<std::sync::RwLockReadGuard<'_, C>>) -> Self {
-        ErrorMessage {
-            msg: value.to_string(),
-        }
+        ErrorMessage { msg: value.to_string() }
     }
 }
 
 impl From<PoisonError<std::sync::MutexGuard<'_, Box<(dyn Connector + 'static)>>>> for ErrorMessage {
     fn from(value: PoisonError<std::sync::MutexGuard<'_, Box<(dyn Connector + 'static)>>>) -> Self {
-        ErrorMessage {
-            msg: value.to_string(),
-        }
+        ErrorMessage { msg: value.to_string() }
     }
 }
 
@@ -54,6 +51,10 @@ pub enum AutoschematicErrorType {
     /// Error when parsing an invalid lock string
     InvalidLockString(String),
 
+    InvalidAddr(PathBuf),
+
+    InvalidOp(PathBuf, String),
+
     /// Internal service error wrapping anyhow::Error
     InternalError(anyhow::Error),
 }
@@ -74,6 +75,12 @@ impl fmt::Display for AutoschematicError {
             }
             AutoschematicErrorType::InvalidLockString(name) => {
                 write!(f, "Invalid Lock String: {}", name)
+            }
+            AutoschematicErrorType::InvalidAddr(addr) => {
+                write!(f, "Invalid Address: {}", addr.display())
+            }
+            AutoschematicErrorType::InvalidOp(addr, op) => {
+                write!(f, "Invalid ConnectorOp for addr {} : {}", addr.display(), op)
             }
             AutoschematicErrorType::InternalError(e) => write!(f, "Internal Error: {:#}", e),
         }
@@ -145,7 +152,7 @@ impl From<tokio::sync::TryLockError> for AutoschematicError {
         }
     }
 }
-/* 
+/*
 impl<T: std::error::Error + Send + Sync + 'static> From<T> for AutoschematicError {
     fn from(err: T) -> Self {
         Self {

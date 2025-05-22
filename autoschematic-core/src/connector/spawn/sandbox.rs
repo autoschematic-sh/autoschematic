@@ -13,20 +13,20 @@ use crate::{
     error::ErrorMessage,
     keystore::KeyStore,
     secret::SealedSecret,
-    tarpc_bridge::{launch_client, TarpcConnectorClient},
+    tarpc_bridge::{TarpcConnectorClient, launch_client},
 };
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use async_trait::async_trait;
 use nix::{
     errno::Errno,
     sched::CloneFlags,
-    sys::signal::kill,
     sys::signal::Signal::SIGKILL,
-    unistd::{execve, getegid, geteuid, pipe, setresuid, Pid, Uid},
+    sys::signal::kill,
+    unistd::{Pid, Uid, execve, getegid, geteuid, pipe, setresuid},
 };
-use rand::{distr::Alphanumeric, Rng};
+use rand::{Rng, distr::Alphanumeric};
+use tokio::sync::mpsc::Receiver;
 use walkdir::WalkDir;
-
 
 /// This module handles sandboxing of connector instances using Linux-kernel specific
 /// methods, such as cgroups and namespaces.
@@ -100,7 +100,7 @@ impl Connector for SandboxConnectorHandle {
         res
     }
 
-    async fn list(&self, subpath: &Path) -> Result<Vec<PathBuf>, anyhow::Error> {
+    async fn list(&self, subpath: &Path) -> anyhow::Result<Vec<PathBuf>> {
         self.still_alive().context(format!("Before list({:?})", subpath))?;
         let res = Connector::list(&self.client, subpath).await;
         self.still_alive().context(format!("After list({:?})", subpath))?;
@@ -442,7 +442,7 @@ impl Drop for SandboxConnectorHandle {
             Err(e) => tracing::warn!("Couldn't remove error_dump {:?}: {}", self.error_dump, e),
         }
 
-        if let Some(handle) = &self.read_thread {
+        if let Some(_) = &self.read_thread {
             // handle.
         }
 

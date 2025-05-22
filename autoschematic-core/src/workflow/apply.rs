@@ -7,7 +7,7 @@ use crate::{
     connector_cache::ConnectorCache,
     connector_util::build_out_path,
     keystore::KeyStore,
-    report::{ApplyReport, ApplyReportOld, PlanReport},
+    report::{ApplyReport, PlanReport},
     write_output::{link_phy_output_file, unlink_phy_output_file, write_virt_output_file},
 };
 

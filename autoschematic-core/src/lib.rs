@@ -7,6 +7,7 @@ pub mod connector_cache;
 pub mod connector_util;
 pub mod diag;
 pub mod error;
+pub mod error_util;
 pub mod flock;
 pub mod git_util;
 pub mod glob;

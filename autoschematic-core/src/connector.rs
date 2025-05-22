@@ -1,7 +1,10 @@
 use std::{
-    collections::HashMap, ffi::{OsStr, OsString}, path::{Path, PathBuf}
+    collections::HashMap,
+    ffi::{OsStr, OsString},
+    path::{Path, PathBuf},
 };
 
+use futures::Stream;
 use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
@@ -56,8 +59,11 @@ pub struct SkeletonOutput {
     pub body: OsString,
 }
 
-pub type ConnectorOutbox = Sender<Option<String>>;
-pub type ConnectorInbox = Receiver<Option<String>>;
+pub type ConnectorOutbox = tokio::sync::broadcast::Sender<Option<String>>;
+pub type ConnectorInbox = tokio::sync::broadcast::Receiver<Option<String>>;
+
+pub type ListResultOutbox = tokio::sync::mpsc::Sender<Option<String>>;
+pub type ListResultInbox = tokio::sync::mpsc::Receiver<Option<String>>;
 
 #[derive(Debug, Serialize, Deserialize)]
 /// VirtToPhyOutput represents the result of Connector::addr_virt_to_phy(addr).
@@ -86,8 +92,7 @@ pub trait Connector: Send + Sync {
     async fn filter(&self, addr: &Path) -> Result<bool, anyhow::Error>;
 
     /// List all "extant" (E.G., currently existing in AWS) object paths, whether they exist in local config or not
-    //
-    async fn list(&self, subpath: &Path) -> Result<Vec<PathBuf>, anyhow::Error>;
+    async fn list(&self, subpath: &Path) -> anyhow::Result<Vec<PathBuf>>;
 
     /// Get the current "real" state of the object at `addr`
     async fn get(&self, addr: &Path) -> Result<Option<GetResourceOutput>, anyhow::Error>;
@@ -143,9 +148,9 @@ pub trait Connector: Send + Sync {
 // Note that such types are erased by definition at the Connector interface boundary.
 
 pub trait Resource: Send + Sync {
-    fn to_string(&self) -> Result<OsString, anyhow::Error>;
+    fn to_os_string(&self) -> Result<OsString, anyhow::Error>;
 
-    fn from_str(addr: &impl ResourceAddress, s: &OsStr) -> Result<Self, anyhow::Error>
+    fn from_os_str(addr: &impl ResourceAddress, s: &OsStr) -> Result<Self, anyhow::Error>
     where
         Self: Sized;
 }
@@ -155,12 +160,12 @@ pub trait ResourceAddress: Send + Sync + Clone + std::fmt::Debug {
     fn to_path_buf(&self) -> PathBuf;
 
     // Produce the resource address corresponding to this path
-    fn from_path(path: &Path) -> Result<Option<Self>, anyhow::Error>
+    fn from_path(path: &Path) -> Result<Self, anyhow::Error>
     where
         Self: Sized;
 }
 
-pub trait ConnectorOp: Send + Sync {
+pub trait ConnectorOp: Send + Sync + std::fmt::Debug {
     fn to_string(&self) -> Result<String, anyhow::Error>;
     fn from_str(s: &str) -> Result<Self, anyhow::Error>
     where
@@ -177,7 +182,7 @@ impl Connector for Box<dyn Connector> {
         Connector::filter(self.as_ref(), addr).await
     }
 
-    async fn list(&self, subpath: &Path) -> Result<Vec<PathBuf>, anyhow::Error> {
+    async fn list(&self, subpath: &Path) -> anyhow::Result<Vec<PathBuf>> {
         Connector::list(self.as_ref(), subpath).await
     }
 

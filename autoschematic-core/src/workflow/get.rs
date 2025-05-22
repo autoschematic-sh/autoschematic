@@ -27,11 +27,13 @@ pub async fn get(
             .await?;
 
         if connector.filter(addr).await? {
+            eprintln!("filter true");
             if let Some(body) = connector.get(addr).await? {
                 return Ok(Some(body.resource_definition));
             }
         }
     }
+    eprintln!("filter false");
 
     Ok(None)
 }

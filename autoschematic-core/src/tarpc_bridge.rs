@@ -1,10 +1,14 @@
 use std::{
-    ffi::{OsStr, OsString}, path::{Path, PathBuf}, sync::Arc, time::Duration
+    collections::HashMap,
+    ffi::{OsStr, OsString},
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
 };
 
-use futures::{lock::Mutex, StreamExt};
+use futures::{StreamExt, lock::Mutex};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use async_trait::async_trait;
 use tarpc::{
     client::Config,
@@ -39,7 +43,11 @@ pub trait TarpcConnector {
 
     /// Determine how to set current -> desired
     /// Returns a sequence of Ops that can be executed by op_exec.
-    async fn plan(addr: PathBuf, current: Option<OsString>, desired: Option<OsString>) -> Result<Vec<OpPlanOutput>, ErrorMessage>;
+    async fn plan(
+        addr: PathBuf,
+        current: Option<OsString>,
+        desired: Option<OsString>,
+    ) -> Result<Vec<OpPlanOutput>, ErrorMessage>;
 
     /// Execute an Op.
     /// OpExecOutput may include output files, containing, for example,
@@ -122,11 +130,22 @@ impl TarpcConnector for ConnectorServer {
         Ok(Connector::get_skeletons(&*self.connector.lock().await).await?)
     }
 
-    async fn eq(self, _context: tarpc::context::Context, addr: PathBuf, a: OsString, b: OsString) -> Result<bool, ErrorMessage> {
+    async fn eq(
+        self,
+        _context: tarpc::context::Context,
+        addr: PathBuf,
+        a: OsString,
+        b: OsString,
+    ) -> Result<bool, ErrorMessage> {
         Ok(Connector::eq(&*self.connector.lock().await, &addr, &a, &b).await?)
     }
 
-    async fn diag(self, _context: tarpc::context::Context, addr: PathBuf, a: OsString) -> Result<DiagnosticOutput, ErrorMessage> {
+    async fn diag(
+        self,
+        _context: tarpc::context::Context,
+        addr: PathBuf,
+        a: OsString,
+    ) -> Result<DiagnosticOutput, ErrorMessage> {
         Ok(Connector::diag(&*self.connector.lock().await, &addr, &a).await?)
     }
 }
@@ -314,7 +333,7 @@ pub async fn launch_server<C: Connector>(
     name: &str,
     prefix: &Path,
     socket: &Path,
-    outbox: Sender<Option<String>>,
+    outbox: tokio::sync::broadcast::Sender<Option<String>>,
 ) -> anyhow::Result<()> {
     let connector = C::new(name, prefix, outbox).await.context("Failed to initialize connector")?;
 
@@ -344,7 +363,7 @@ pub async fn init_server<C: Connector>(
     name: &str,
     prefix: &Path,
     socket: &Path,
-    outbox: Sender<Option<String>>,
+    outbox: tokio::sync::broadcast::Sender<Option<String>>,
 ) -> anyhow::Result<isize> {
     match launch_server::<C>(name, prefix, socket, outbox).await {
         Ok(()) => {

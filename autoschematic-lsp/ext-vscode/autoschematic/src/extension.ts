@@ -75,6 +75,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				// Register a content provider for our custom scheme
 				const provider = vscode.workspace.registerTextDocumentContentProvider('autoschematic-remote', {
 					provideTextDocumentContent(uri: vscode.Uri): string {
+						console.log(remoteContent);
 						return remoteContent;
 					}
 				});

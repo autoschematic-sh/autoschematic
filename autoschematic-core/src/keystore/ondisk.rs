@@ -1,5 +1,7 @@
 // autoschematic/src/keystore/ondisk.rs
 use anyhow::{Result, anyhow};
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
 use elliptic_curve::SecretKey;
 use k256::ecdsa::{Signature, SigningKey};
 use k256::pkcs8::der::pem;
@@ -77,7 +79,7 @@ impl KeyStore for OndiskKeyStore {
         let pem = fs::read_to_string(key_path)?;
         let secret_key = SecretKey::<Secp256k1>::from_sec1_pem(&pem)?;
         let pub_bytes = secret_key.public_key().to_sec1_bytes();
-        Ok(base64::encode(pub_bytes))
+        Ok(BASE64_STANDARD.encode(pub_bytes))
     }
 
     fn get_private_key(&self, id: &str) -> Result<String> {
@@ -85,7 +87,7 @@ impl KeyStore for OndiskKeyStore {
         let pem = fs::read_to_string(key_path)?;
         let secret_key = SecretKey::<Secp256k1>::from_sec1_pem(&pem)?;
         let pub_bytes = secret_key.to_bytes();
-        Ok(base64::encode(pub_bytes))
+        Ok(BASE64_STANDARD.encode(pub_bytes))
     }
 
     fn verify(&self, id: &str, payload: &str) -> Result<String> {

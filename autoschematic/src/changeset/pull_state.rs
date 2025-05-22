@@ -1,10 +1,4 @@
-use std::{
-    collections::HashSet,
-    ffi::{OsStr, OsString},
-    fs::{self},
-    os::unix::ffi::OsStrExt,
-    path::PathBuf,
-};
+use std::{collections::HashSet, ffi::OsStr, os::unix::ffi::OsStrExt, path::PathBuf};
 
 use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;

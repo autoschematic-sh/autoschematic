@@ -117,7 +117,7 @@ pub fn output_phy_to_virt<A: ResourceAddress>(
             // If we change the assumption that all connectors and commands run from the root of the repository,
             // or if a connector runs cd for some reason, this will break!
             let virt_out_path = virt_out_path.strip_prefix(std::env::current_dir()?)?;
-            Ok(A::from_path(&unbuild_out_path(prefix, virt_out_path)?)?)
+            Ok(Some(A::from_path(&unbuild_out_path(prefix, virt_out_path)?)?))
         } else {
             Ok(Some(addr.clone()))
         }
