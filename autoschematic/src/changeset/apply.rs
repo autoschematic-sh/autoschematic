@@ -67,7 +67,7 @@ impl ChangeSet {
             if plan_report.error.is_none() {
                 let (connector, mut inbox) = self
                     .connector_cache
-                    .get_or_init(
+                    .get_or_spawn_connector(
                         &plan_report.connector_name,
                         &PathBuf::from(&prefix),
                         &plan_report.connector_env,

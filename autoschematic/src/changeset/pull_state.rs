@@ -3,6 +3,7 @@ use std::{collections::HashSet, ffi::OsStr, os::unix::ffi::OsStrExt, path::PathB
 use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;
 use anyhow::Context;
+use autoschematic_core::connector::FilterOutput;
 use autoschematic_core::{
     connector::{Connector, VirtToPhyOutput, parse::connector_shortname},
     connector_util::build_out_path,
@@ -85,7 +86,7 @@ impl ChangeSet {
 
                 let (connector, mut inbox) = self
                     .connector_cache
-                    .get_or_init(
+                    .get_or_spawn_connector(
                         &connector_def.name,
                         &PathBuf::from(&prefix_name),
                         &connector_def.env,
@@ -143,6 +144,7 @@ impl ChangeSet {
                         .connector_cache
                         .filter(&connector_def.name, &PathBuf::from(&prefix_name), &virt_addr)
                         .await?
+                        == FilterOutput::Resource
                     {
                         // coz::progress!("pull_state_per_object");
                         let file_check_run_id = self

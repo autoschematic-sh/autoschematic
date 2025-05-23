@@ -156,7 +156,7 @@ pub async fn import_all(
 
             eprintln!("connector init: {}", connector_def.name);
             let (connector, mut inbox) = connector_cache
-                .get_or_init(
+                .get_or_spawn_connector(
                     &connector_def.name,
                     &PathBuf::from(&prefix_name),
                     &connector_def.env,

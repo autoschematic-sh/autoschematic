@@ -4,7 +4,7 @@ use anyhow::Context;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{Connector, VirtToPhyOutput, parse::connector_shortname},
+    connector::{Connector, FilterOutput, VirtToPhyOutput, parse::connector_shortname},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
     read_outputs::template_config,
@@ -146,7 +146,7 @@ pub async fn plan(
         }
 
         let (connector, mut inbox) = connector_cache
-            .get_or_init(&connector_def.name, &prefix, &connector_def.env, keystore)
+            .get_or_spawn_connector(&connector_def.name, &prefix, &connector_def.env, keystore)
             .await?;
 
         let _reader_handle = tokio::spawn(async move {
@@ -166,7 +166,7 @@ pub async fn plan(
             }
         });
 
-        if connector_cache.filter(&connector_def.name, &prefix, &virt_addr).await? {
+        if connector_cache.filter(&connector_def.name, &prefix, &virt_addr).await? == FilterOutput::Resource {
             let plan_report = plan_connector(&connector_shortname, &connector, &prefix, &virt_addr).await?;
             return Ok(plan_report);
         }

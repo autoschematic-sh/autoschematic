@@ -21,7 +21,7 @@ pub mod python;
 
 pub mod sandbox;
 
-pub async fn connector_init(
+pub async fn spawn_connector(
     connector_type: &ConnectorType,
     prefix: &Path,
     env: &HashMap<String, String>,

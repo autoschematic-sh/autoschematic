@@ -4,6 +4,7 @@ use clap::{Parser, Subcommand, command};
 use sso::{login_via_github, persist_github_token};
 
 mod config;
+mod create;
 mod init;
 mod install;
 mod plan;
@@ -99,6 +100,15 @@ pub enum AutoschematicSubcommand {
         #[arg(short, long, value_name = "subpath")]
         subpath: Option<String>,
     },
+    Create {
+        /// Optional path (can be a glob) to filter the changeset.
+        #[arg(short, long, value_name = "prefix")]
+        prefix: Option<String>,
+
+        /// Optional: run for a single connector by name
+        #[arg(short, long, value_name = "connector")]
+        connector: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -141,6 +151,12 @@ async fn main() -> anyhow::Result<()> {
             subpath,
         } => {
             apply::apply(&prefix, &connector, &subpath).await?;
+        }
+        AutoschematicSubcommand::Create {
+            prefix,
+            connector,
+        } => {
+            create::create(&prefix, &connector).await?;
         }
     };
 

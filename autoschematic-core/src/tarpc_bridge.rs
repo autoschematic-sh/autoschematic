@@ -25,14 +25,19 @@ use tokio::{
 use tracing_subscriber::EnvFilter;
 
 use crate::{
-    connector::{Connector, ConnectorOutbox, GetResourceOutput, OpExecOutput, OpPlanOutput, SkeletonOutput, VirtToPhyOutput},
+    connector::{
+        Connector, ConnectorOutbox, FilterOutput, GetResourceOutput, OpExecOutput, OpPlanOutput, SkeletonOutput,
+        VirtToPhyOutput,
+    },
     diag::DiagnosticOutput,
     error::ErrorMessage,
 };
 
 #[tarpc::service]
 pub trait TarpcConnector {
-    async fn filter(addr: PathBuf) -> Result<bool, ErrorMessage>;
+    async fn init() -> Result<(), ErrorMessage>;
+
+    async fn filter(addr: PathBuf) -> Result<FilterOutput, ErrorMessage>;
 
     /// List all "extant" (E.G., currently existing in AWS) object paths, whether they exist in local config or not
     //
@@ -69,7 +74,11 @@ pub struct ConnectorServer {
 }
 
 impl TarpcConnector for ConnectorServer {
-    async fn filter(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<bool, ErrorMessage> {
+    async fn init(self, _context: ::tarpc::context::Context) -> Result<(), ErrorMessage> {
+        Ok(Connector::init(&*self.connector.lock().await).await?)
+    }
+
+    async fn filter(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<FilterOutput, ErrorMessage> {
         Ok(Connector::filter(&*self.connector.lock().await, &addr).await?)
     }
 
@@ -151,7 +160,11 @@ impl TarpcConnector for ConnectorServer {
 }
 
 impl<C: Connector> TarpcConnector for C {
-    async fn filter(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<bool, ErrorMessage> {
+    async fn init(self, _context: ::tarpc::context::Context) -> Result<(), ErrorMessage> {
+        Ok(Connector::init(&self).await?)
+    }
+
+    async fn filter(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<FilterOutput, ErrorMessage> {
         Ok(Connector::filter(&self, &addr).await?)
     }
 
@@ -211,11 +224,22 @@ impl<C: Connector> TarpcConnector for C {
         Ok(Connector::get_skeletons(&self).await?)
     }
 
-    async fn eq(self, _context: tarpc::context::Context, addr: PathBuf, a: OsString, b: OsString) -> Result<bool, ErrorMessage> {
+    async fn eq(
+        self,
+        _context: tarpc::context::Context,
+        addr: PathBuf,
+        a: OsString,
+        b: OsString,
+    ) -> Result<bool, ErrorMessage> {
         Ok(Connector::eq(&self, &addr, &a, &b).await?)
     }
 
-    async fn diag(self, _context: tarpc::context::Context, addr: PathBuf, a: OsString) -> Result<DiagnosticOutput, ErrorMessage> {
+    async fn diag(
+        self,
+        _context: tarpc::context::Context,
+        addr: PathBuf,
+        a: OsString,
+    ) -> Result<DiagnosticOutput, ErrorMessage> {
         Ok(Connector::diag(&self, &addr, &a).await?)
     }
 }
@@ -244,7 +268,12 @@ impl Connector for TarpcConnectorClient {
         bail!("TarpcConnectorClient::new() is a stub!")
     }
 
-    async fn filter(&self, addr: &Path) -> Result<bool, anyhow::Error> {
+    async fn init(&self) -> Result<(), anyhow::Error> {
+        let res = self.init(context_1m_deadline()).await;
+        Ok(res??)
+    }
+
+    async fn filter(&self, addr: &Path) -> Result<FilterOutput, anyhow::Error> {
         let res = self.filter(context_1m_deadline(), addr.to_path_buf()).await;
         Ok(res??)
     }

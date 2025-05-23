@@ -47,7 +47,7 @@ impl ChangeSet {
 
                 let (connector, mut inbox) = self
                     .connector_cache
-                    .get_or_init(&connector_def.name, &prefix_name.clone(), &connector_def.env, Some(&KEYSTORE))
+                    .get_or_spawn_connector(&connector_def.name, &prefix_name.clone(), &connector_def.env, Some(&KEYSTORE))
                     .await?;
                 let sender_trace_handle = trace_handle.clone();
                 let _reader_handle = tokio::spawn(async move {

@@ -8,12 +8,12 @@ use std::{
 };
 
 use crate::{
-    connector::{Connector, ConnectorOutbox, GetResourceOutput, OpExecOutput, OpPlanOutput, SkeletonOutput, VirtToPhyOutput},
+    connector::{Connector, ConnectorOutbox, FilterOutput, GetResourceOutput, OpExecOutput, OpPlanOutput, SkeletonOutput, VirtToPhyOutput},
     diag::DiagnosticOutput,
     error::ErrorMessage,
     keystore::KeyStore,
     secret::SealedSecret,
-    tarpc_bridge::{TarpcConnectorClient, launch_client},
+    tarpc_bridge::{launch_client, TarpcConnectorClient},
 };
 use anyhow::{Context, bail};
 use async_trait::async_trait;
@@ -92,8 +92,14 @@ impl Connector for SandboxConnectorHandle {
     async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Box<dyn Connector>, anyhow::Error> {
         <TarpcConnectorClient as Connector>::new(name, prefix, outbox).await
     }
+    async fn init(&self) -> Result<(), anyhow::Error> {
+        self.still_alive().context(format!("Before init()"))?;
+        let res = Connector::init(&self.client).await;
+        self.still_alive().context(format!("After init()"))?;
+        res
+    }
 
-    async fn filter(&self, addr: &Path) -> Result<bool, anyhow::Error> {
+    async fn filter(&self, addr: &Path) -> Result<FilterOutput, anyhow::Error> {
         self.still_alive().context(format!("Before filter({:?})", addr))?;
         let res = Connector::filter(&self.client, addr).await;
         self.still_alive().context(format!("After filter({:?})", addr))?;

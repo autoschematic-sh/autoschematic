@@ -7,10 +7,10 @@ use std::{
 use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;
 use anyhow::Context;
-use autoschematic_core::report::PlanReportOld;
 use autoschematic_core::report::PlanReportSetOld;
+use autoschematic_core::{connector::FilterOutput, report::PlanReportOld};
 use autoschematic_core::{
-    connector::{parse::connector_shortname, Connector, VirtToPhyOutput},
+    connector::{Connector, VirtToPhyOutput, parse::connector_shortname},
     glob::addr_matches_filter,
     read_outputs::template_config,
 };
@@ -18,7 +18,7 @@ use git2::Repository;
 use octocrab::params::checks::{CheckRunConclusion, CheckRunStatus};
 
 use super::ChangeSet;
-use crate::{object::Object, KEYSTORE};
+use crate::{KEYSTORE, object::Object};
 
 impl ChangeSet {
     pub async fn plan(
@@ -94,7 +94,7 @@ impl ChangeSet {
 
                 let (connector, mut inbox) = self
                     .connector_cache
-                    .get_or_init(
+                    .get_or_spawn_connector(
                         &connector_def.name,
                         &PathBuf::from(&prefix_name),
                         &connector_def.env,
@@ -143,6 +143,7 @@ impl ChangeSet {
                         .connector_cache
                         .filter(&connector_def.name, &PathBuf::from(&prefix_name), &virt_addr)
                         .await?
+                        == FilterOutput::Resource
                     {
                         // coz::progress!("plan_per_object");
                         plan_report_set.object_count += 1;

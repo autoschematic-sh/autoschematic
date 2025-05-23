@@ -8,7 +8,6 @@ use autoschematic_core::{connector::{parse::connector_shortname, Connector}, con
 use git2::{Cred, IndexAddOption, PushOptions, RemoteCallbacks, Repository};
 use secrecy::ExposeSecret;
 use tokio::sync::broadcast::error::RecvError;
-use tokio_stream::wrappers::ReceiverStream;
 
 use crate::{error::AutoschematicServerError, KEYSTORE};
 
@@ -167,7 +166,7 @@ impl ChangeSet {
 
                 let (connector, mut inbox) = self
                     .connector_cache
-                    .get_or_init(
+                    .get_or_spawn_connector(
                         &connector_def.name,
                         &PathBuf::from(&prefix_name),
                         &connector_def.env,

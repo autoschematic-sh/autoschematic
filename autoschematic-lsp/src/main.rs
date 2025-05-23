@@ -385,16 +385,28 @@ impl Backend {
                 // we need to reload the aws-s3 connector. How are you gonna
                 // swing that, eh? You're gonna need to return a variant enum in filter() that
                 // connectors use to inform the host that a file at {addr} is a config file!
-                if self.connector_cache.filter(&connector_def.name, &prefix, addr).await? {
-                    // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
-                    // let body = tokio::fs::read_to_string(addr).await?;
-                    if let Some((connector, _inbox)) = self.connector_cache.get(&connector_def.name, &prefix).await {
-                        // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
-                        res.append(&mut diag_to_lsp(connector.diag(addr, &OsString::from(body)).await?));
+                match self.connector_cache.filter(&connector_def.name, &prefix, addr).await? {
+                    // If the user edits a connector's config file,
+                    // we need to re-init the connector, and clear the filter cache for that connector!
+                    autoschematic_core::connector::FilterOutput::Config => {
+                        if let Some((connector, _inbox)) = self.connector_cache.get_connector(&connector_def.name, &prefix).await {
+                            // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
+                            res.append(&mut diag_to_lsp(connector.diag(addr, &OsString::from(body)).await?));
+                        }
                     }
-                } else {
-                    // eprintln!("{} filter: {:?} = false", connector_def.name, addr);
+                    autoschematic_core::connector::FilterOutput::Resource => {
+                        if let Some((connector, _inbox)) = self.connector_cache.get_connector(&connector_def.name, &prefix).await {
+                            // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
+                            res.append(&mut diag_to_lsp(connector.diag(addr, &OsString::from(body)).await?));
+                        }
+                    }
+                    autoschematic_core::connector::FilterOutput::None => {}
                 }
+                // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
+                // let body = tokio::fs::read_to_string(addr).await?;
+                // } else {
+                //     // eprintln!("{} filter: {:?} = false", connector_def.name, addr);
+                // }
             }
         }
 
@@ -416,7 +428,7 @@ impl Backend {
                 // connectors use to inform the host that a file at {addr} is a config file!
                 let (connector, mut inbox) = self
                     .connector_cache
-                    .get_or_init(&connector_def.name, &PathBuf::from(&prefix_name), &connector_def.env, None)
+                    .get_or_spawn_connector(&connector_def.name, &PathBuf::from(&prefix_name), &connector_def.env, None)
                     .await?;
 
                 // let sender_trace_handle = trace_handle.clone();

@@ -1,9 +1,8 @@
-
 use anyhow::bail;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{parse::connector_shortname, Connector, VirtToPhyOutput},
+    connector::{Connector, FilterOutput, VirtToPhyOutput, parse::connector_shortname},
     connector_cache::ConnectorCache,
     connector_util::build_out_path,
     keystore::KeyStore,
@@ -18,7 +17,7 @@ pub async fn apply_connector(
 ) -> anyhow::Result<Option<ApplyReport>> {
     let mut apply_report = ApplyReport::default();
     eprintln!("apply_connector");
-    
+
     for op in &plan.connector_ops {
         eprintln!("apply_connector: {:?}", op.friendly_message);
         // let Some(phy_addr) = connector.addr_virt_to_phy(&virt_addr).await? else {
@@ -107,7 +106,7 @@ pub async fn apply(
         }
 
         let (connector, mut inbox) = connector_cache
-            .get_or_init(&connector_def.name, &plan_report.prefix, &connector_def.env, keystore)
+            .get_or_spawn_connector(&connector_def.name, &plan_report.prefix, &connector_def.env, keystore)
             .await?;
 
         let _reader_handle = tokio::spawn(async move {
@@ -130,6 +129,7 @@ pub async fn apply(
         if connector_cache
             .filter(&connector_def.name, &plan_report.prefix, &plan_report.virt_addr)
             .await?
+            == FilterOutput::Resource
         {
             let apply_report = apply_connector(&connector_shortname, &connector, plan_report).await?;
             return Ok(apply_report);

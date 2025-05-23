@@ -1,7 +1,7 @@
 use std::{ffi::OsString, path::Path};
 
 use crate::{
-    config::AutoschematicConfig, connector::parse::connector_shortname, connector_cache::ConnectorCache,
+    config::AutoschematicConfig, connector::{parse::connector_shortname, FilterOutput}, connector_cache::ConnectorCache,
     error::AutoschematicError, keystore::KeyStore,
 };
 
@@ -23,10 +23,10 @@ pub async fn get(
         let _connector_shortname = connector_shortname(&connector_def.name)?;
 
         let (connector, _inbox) = connector_cache
-            .get_or_init(&connector_def.name, prefix, &connector_def.env, keystore)
+            .get_or_spawn_connector(&connector_def.name, prefix, &connector_def.env, keystore)
             .await?;
 
-        if connector.filter(addr).await? {
+        if connector.filter(addr).await? == FilterOutput::Resource {
             eprintln!("filter true");
             if let Some(body) = connector.get(addr).await? {
                 return Ok(Some(body.resource_definition));
