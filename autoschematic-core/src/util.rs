@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env::{
         consts::{ARCH, OS},
         current_dir,
@@ -9,6 +10,7 @@ use std::{
 };
 
 use git2::Repository;
+use regex::Regex;
 use ron::error::SpannedResult;
 use serde::{Serialize, de::DeserializeOwned};
 use similar::{ChangeTag, TextDiff};
@@ -62,6 +64,28 @@ pub fn optional_string_from_utf8(s: Option<OsString>) -> anyhow::Result<Option<S
     }
 }
 
+// TODO Could this be confusing as hell? This seems non-obvious!
+// However, this does mean we can use the exact same config for local and remote...
+/// Where no keystore is present, there's no way to unseal a "secret://some/path" reference.
+/// Instead, we pass through the corresponding values from environment variables.
+pub fn passthrough_secrets_from_env(env: &HashMap<String, String>) -> anyhow::Result<HashMap<String, String>> {
+    let re = Regex::new(r"^secret://(?<path>.+)$")?;
+
+    let mut out_map = HashMap::new();
+
+    for (key, value) in env {
+        if let Some(_caps) = re.captures(value) {
+            if let Ok(env_value) = std::env::var(key) {
+                out_map.insert(key.to_string(), env_value);
+            }
+        } else {
+            out_map.insert(key.to_string(), value.to_string());
+        }
+    }
+
+    Ok(out_map)
+}
+
 lazy_static::lazy_static! {
     pub static ref RON: ron::options::Options = ron::Options::default()
     .with_default_extension(ron::extensions::Extensions::UNWRAP_NEWTYPES)
@@ -69,6 +93,7 @@ lazy_static::lazy_static! {
     .with_default_extension(ron::extensions::Extensions::EXPLICIT_STRUCT_NAMES)
     .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME);
 }
+
 
 pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error> {
     let a = str::from_utf8(a.as_bytes())?;

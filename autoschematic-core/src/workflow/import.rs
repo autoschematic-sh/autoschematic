@@ -58,7 +58,6 @@ pub async fn import_resource(
             bail!("Couldn't resolve phy addr to virt: {:?}", phy_addr)
         };
 
-        tracing::error!("addr_phy_to_virt: {:?} -> {:?}", phy_addr, virt_addr);
 
         match connector
             .get(phy_addr)
@@ -74,8 +73,9 @@ pub async fn import_resource(
                     tokio::fs::create_dir_all(parent).await?;
                 }
                 // tokio::fs::wr
+                // 
+                eprintln!("\u{1b}[92m [PULL] \u{1b}[39m {}", res_path.display());
                 tokio::fs::write(&res_path, body.as_bytes()).await?;
-                tracing::info!("import completed...");
 
                 // let mut index = repo.index()?;
 
@@ -163,7 +163,6 @@ pub async fn import_all(
                     keystore,
                 )
                 .await?;
-            eprintln!("connector init completed");
             // let sender_trace_handle = trace_handle.clone();
             let _reader_handle = tokio::spawn(async move {
                 loop {
@@ -187,8 +186,6 @@ pub async fn import_all(
                 connector_shortname,
                 subpath.to_str().unwrap_or_default()
             ))?;
-
-            eprintln!("list: {:?}", phy_addrs);
 
             'phy_addr: for phy_addr in phy_addrs {
                 if !addr_matches_filter(&prefix_name, &phy_addr, &subpath) {

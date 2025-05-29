@@ -103,8 +103,9 @@ pub trait KeyStore: Send + Sync + std::fmt::Debug {
 
         Ok(String::from_utf8(plaintext)?)
     }
-    // For each entry in the hashmap,
-    // If it matches $secret://some_path/in_therepo
+    /// For each entry in the hashmap,
+    /// If it matches "secret://some_path/in_the_repo", and that secret 
+    /// is successfully unsealed to plaintext, insert it into the map.
     fn unseal_env_map(&self, env: &HashMap<String, String>) -> anyhow::Result<HashMap<String, String>> {
         let re = Regex::new(r"^secret://(?<path>.+)$")?;
 

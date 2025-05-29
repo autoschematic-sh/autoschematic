@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::{Context, bail};
+use dialoguer::Confirm;
 use rand::Rng;
 use ron::ser::PrettyConfig;
 
@@ -17,7 +18,7 @@ use autoschematic_core::{
 
 use crate::{config::load_autoschematic_config, ui};
 
-pub async fn apply(prefix: &Option<String>, connector: &Option<String>, subpath: &Option<String>) -> anyhow::Result<()> {
+pub async fn apply(prefix: Option<String>, connector: Option<String>, subpath: Option<String>) -> anyhow::Result<()> {
     let repo_root = repo_root()?;
     let config = load_autoschematic_config()?;
 
@@ -27,7 +28,7 @@ pub async fn apply(prefix: &Option<String>, connector: &Option<String>, subpath:
 
     let keystore = None;
 
-    let mut do_commit = false;
+    let mut wrote_files = false;
 
     let pre_commit_hook = repo_root.join(".git").join("pre-commit");
 
@@ -48,8 +49,15 @@ pub async fn apply(prefix: &Option<String>, connector: &Option<String>, subpath:
             println!("-----------------------------");
             println!(
                 "{}",
-                RON.to_string_pretty(&plan_report, PrettyConfig::default())
-                    .context("Formatting plan report")?
+                RON.to_string_pretty(
+                    &plan_report
+                        .connector_ops
+                        .iter()
+                        .map(|op| op.friendly_message.clone().unwrap_or(op.op_definition.clone()))
+                        .collect::<Vec<String>>(),
+                    PrettyConfig::default()
+                )
+                .context("Formatting plan report")?
             );
 
             plan_report_set.plan_reports.push(plan_report);
@@ -105,18 +113,26 @@ pub async fn apply(prefix: &Option<String>, connector: &Option<String>, subpath:
             for path in &apply_report.wrote_files {
                 git_add(&repo_root, path)?;
             }
-            do_commit = true;
+            wrote_files = true;
         }
     }
 
-    // if do_commit {
-    //     Command::new("git")
-    //         .arg("commit")
-    //         .stdin(Stdio::inherit())
-    //         .stdout(Stdio::inherit())
-    //         .output()
-    //         .expect("git commit: failed to execute");
-    // }
+    if wrote_files {
+        let do_commit = Confirm::new()
+            .with_prompt("Apply succeeded! Do you wish to run git commit to track the new state?")
+            .default(true)
+            .interact()
+            .unwrap();
+
+        if do_commit {
+            Command::new("git")
+                .arg("commit")
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .output()
+                .expect("git commit: failed to execute");
+        }
+    }
 
     Ok(())
 }

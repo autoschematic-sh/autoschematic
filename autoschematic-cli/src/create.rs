@@ -10,7 +10,7 @@ use ron::ser::PrettyConfig;
 
 use autoschematic_core::{
     config::AutoschematicConfig,
-    connector::FilterOutput,
+    connector::{FilterOutput, parse::connector_shortname},
     connector_cache::{self, ConnectorCache},
     git_util::get_staged_files,
     util::{RON, repo_root},
@@ -36,7 +36,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
 
     let prefix_def = config.prefixes.get(prefix).unwrap();
 
-    let connector_names: Vec<&String> = prefix_def.connectors.iter().map(|a| &a.name).collect();
+    let connector_names: Vec<String> = prefix_def.connectors.iter().map(|a| connector_shortname(&a.name)).try_collect()?;
     let connector_i = Select::new()
         .with_prompt("Select connector")
         .items(&connector_names)
@@ -103,7 +103,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
     }
 
     println!("Writing {}/{}", prefix.display(), output_path.display());
-    
+
     tokio::fs::create_dir_all(prefix.join(&output_path).parent().unwrap()).await?;
 
     tokio::fs::write(prefix.join(output_path), skeleton.body.as_bytes()).await?;

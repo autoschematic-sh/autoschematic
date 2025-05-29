@@ -1,18 +1,20 @@
+#![feature(iterator_try_collect)]
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, command};
 use sso::{login_via_github, persist_github_token};
 
+mod apply;
 mod config;
 mod create;
+mod import;
 mod init;
 mod install;
 mod plan;
-mod apply;
 mod seal;
 mod sso;
-mod validate;
 mod ui;
+mod validate;
 
 #[derive(Parser, Debug)]
 #[command(name = "autoschematic")]
@@ -100,6 +102,24 @@ pub enum AutoschematicSubcommand {
         #[arg(short, long, value_name = "subpath")]
         subpath: Option<String>,
     },
+    /// Import remote resources into
+    Import {
+        /// Optional path (can be a glob) to filter the changeset.
+        #[arg(short, long, value_name = "prefix")]
+        prefix: Option<String>,
+
+        /// Optional: run for a single connector by name
+        #[arg(short, long, value_name = "connector")]
+        connector: Option<String>,
+
+        /// Optional path (can be a glob) to filter which resources are imported.
+        #[arg(short, long, value_name = "subpath")]
+        subpath: Option<String>,
+
+        /// If set, overwrite local files that exist with their remote state when imported.
+        #[arg(long, value_name = "overwrite", default_value_t = false)]
+        overwrite: bool,
+    },
     Create {
         /// Optional path (can be a glob) to filter the changeset.
         #[arg(short, long, value_name = "prefix")]
@@ -150,12 +170,17 @@ async fn main() -> anyhow::Result<()> {
             connector,
             subpath,
         } => {
-            apply::apply(&prefix, &connector, &subpath).await?;
+            apply::apply(prefix, connector, subpath).await?;
         }
-        AutoschematicSubcommand::Create {
+        AutoschematicSubcommand::Import {
             prefix,
             connector,
+            subpath,
+            overwrite,
         } => {
+            import::import(prefix, connector, subpath, overwrite).await?;
+        }
+        AutoschematicSubcommand::Create { prefix, connector } => {
             create::create(&prefix, &connector).await?;
         }
     };

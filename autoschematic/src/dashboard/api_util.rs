@@ -1,4 +1,3 @@
-
 use actix_session::Session;
 use anyhow::bail;
 use autoschematic_core::config::AutoschematicConfig;
@@ -9,8 +8,9 @@ use secrecy::{ExposeSecret, SecretBox};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    RON,
     credentials::{octocrab_installation_client, octocrab_user_client},
-    error::AutoschematicServerError, RON,
+    error::AutoschematicServerError,
 };
 
 pub async fn get_self(access_token: &str) -> Result<Response, AutoschematicServerError> {
@@ -30,9 +30,7 @@ pub async fn get_self(access_token: &str) -> Result<Response, AutoschematicServe
     Ok(res)
 }
 
-pub async fn has_valid_session(
-    session: &Session,
-) -> Result<Option<(String, String)>, actix_web::Error> {
+pub async fn has_valid_session(session: &Session) -> Result<Option<(String, String)>, actix_web::Error> {
     if let (Some(access_token), Some(github_username)) = (
         session.get::<String>("access_token")?,
         session.get::<String>("github_username")?,
@@ -69,10 +67,7 @@ pub async fn is_repo_collaborator(
 ) -> Result<bool, AutoschematicServerError> {
     let client = reqwest::Client::new();
 
-    let url = format!(
-        "https://api.github.com/repos/{}/{}/collaborators/{}",
-        owner, repo, username
-    );
+    let url = format!("https://api.github.com/repos/{}/{}/collaborators/{}", owner, repo, username);
 
     match client
         .get(url)
@@ -109,12 +104,7 @@ pub struct PrInfo {
     pub author: String,
 }
 
-pub async fn get_pr_info(
-    access_token: &str,
-    owner: &str,
-    repo: &str,
-    pr: u64,
-) -> Result<PrInfo, AutoschematicServerError> {
+pub async fn get_pr_info(access_token: &str, owner: &str, repo: &str, pr: u64) -> Result<PrInfo, AutoschematicServerError> {
     let client = octocrab::Octocrab::builder()
         .user_access_token(access_token)
         .build()
@@ -169,17 +159,13 @@ pub async fn get_installations(jwt: &SecretBox<str>) -> anyhow::Result<Vec<Insta
     let mut install_results = Vec::new();
     for installation in installations {
         if let Some(Some(id)) = installation.get("id").map(|id| id.as_u64()) {
-            let (install_client, install_token) =
-                octocrab_installation_client(InstallationId(id)).await?;
+            let (install_client, install_token) = octocrab_installation_client(InstallationId(id)).await?;
 
             let res: serde_json::Value = client
                 .get("https://api.github.com/installation/repositories")
                 .header("User-Agent", "autoschematic")
                 .header("Accept", "application/vnd.github+json")
-                .header(
-                    "Authorization",
-                    format!("Bearer {}", install_token.expose_secret()),
-                )
+                .header("Authorization", format!("Bearer {}", install_token.expose_secret()))
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .send()
                 .await?
@@ -221,10 +207,9 @@ pub async fn get_installations(jwt: &SecretBox<str>) -> anyhow::Result<Vec<Insta
 
                 let contents = config_content.take_items();
                 let c = &contents[0];
-                let decoded_content = c.decoded_content().unwrap();
+                let decoded_content = c.decoded_content().unwrap_or_default();
 
-                let config: SpannedResult<AutoschematicConfig> =
-                    RON.from_str(&decoded_content);
+                let config: SpannedResult<AutoschematicConfig> = RON.from_str(&decoded_content);
 
                 match config {
                     Ok(config) => {
@@ -245,9 +230,7 @@ pub async fn get_installations(jwt: &SecretBox<str>) -> anyhow::Result<Vec<Insta
     Ok(install_results)
 }
 
-pub async fn get_installations_for_user(
-    user_access_token: &str,
-) -> anyhow::Result<Vec<InstallationInfo>> {
+pub async fn get_installations_for_user(user_access_token: &str) -> anyhow::Result<Vec<InstallationInfo>> {
     let client = reqwest::Client::new();
 
     let url = format!("https://api.github.com/user/installations");
@@ -271,10 +254,7 @@ pub async fn get_installations_for_user(
     for installation in installations {
         if let Some(id) = installation.get("id").and_then(|id| id.as_u64()) {
             let res: serde_json::Value = client
-                .get(format!(
-                    "https://api.github.com/user/installations/{}/repositories",
-                    id
-                ))
+                .get(format!("https://api.github.com/user/installations/{}/repositories", id))
                 .header("User-Agent", "autoschematic")
                 .header("Accept", "application/vnd.github+json")
                 .header("Authorization", format!("Bearer {}", user_access_token))
@@ -339,7 +319,6 @@ pub async fn get_config_for_repo(
         return Ok(None);
     };
 
-
     let config_content = user_client
         .repos(owner, repo)
         .get_content()
@@ -348,12 +327,11 @@ pub async fn get_config_for_repo(
         .send()
         .await;
 
-
-    let contents = config_content.unwrap().take_items();
+    let contents = config_content?.take_items();
     let c = &contents[0];
-    let decoded_content = c.decoded_content().unwrap();
+    let decoded_content = c.decoded_content().unwrap_or_default();
 
-    let config: AutoschematicConfig = RON.from_str(&decoded_content).unwrap();
+    let config: AutoschematicConfig = RON.from_str(&decoded_content)?;
 
     // tracing::error!("get_content()=> {:?}", config_content);
 

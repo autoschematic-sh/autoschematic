@@ -1,35 +1,29 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use actix_session::Session;
-use actix_web::{web, HttpRequest, HttpResponse};
-use actix_ws::AggregatedMessage;
+use actix_web::{HttpRequest, HttpResponse, web};
+use actix_ws::{AggregatedMessage, Closed};
 use futures::StreamExt;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    task::{
-        message::TaskRegistryMessage, registry::TaskRegistryKey, state::TaskState,
-        subscribe_task_state, try_send_task_registry_message,
-    },
-    error::{self, AutoschematicServerError, AutoschematicServerErrorType},
-    tracestore::{RepoKey, RunKey},
     TASK_REGISTRY, TRACESTORE,
+    error::{self, AutoschematicServerError, AutoschematicServerErrorType},
+    task::{
+        message::TaskRegistryMessage, registry::TaskRegistryKey, state::TaskState, subscribe_task_state,
+        try_send_task_registry_message,
+    },
+    tracestore::{RepoKey, RunKey},
 };
 
 use super::{
-    api_util::{
-        get_config_for_repo, get_installations_for_user, get_pr_info,
-        has_valid_session, is_repo_collaborator,
-    },
     TEMPLATES,
+    api_util::{get_config_for_repo, get_installations_for_user, get_pr_info, has_valid_session, is_repo_collaborator},
 };
 
-pub async fn dashboard(
-    session: Session,
-    param: web::Path<(String, String, u64)>,
-) -> Result<HttpResponse, actix_web::Error> {
+pub async fn dashboard(session: Session, param: web::Path<(String, String, u64)>) -> Result<HttpResponse, actix_web::Error> {
     if let Some((access_token, github_username)) = has_valid_session(&session).await? {
         let (owner, repo, pr) = param.into_inner();
 
@@ -88,11 +82,11 @@ pub async fn dashboard(
                 }
                 .into());
             };
-            let rendered = templates.render("dashboard.html", &context).map_err(|e| {
-                error::AutoschematicServerError {
+            let rendered = templates
+                .render("dashboard.html", &context)
+                .map_err(|e| error::AutoschematicServerError {
                     kind: AutoschematicServerErrorType::InternalError(e.into()),
-                }
-            })?;
+                })?;
             Ok(HttpResponse::Ok().content_type("text/html").body(rendered))
         } else {
             Ok(HttpResponse::NotFound().finish())
@@ -121,12 +115,10 @@ pub async fn install_list(session: Session) -> Result<HttpResponse, actix_web::E
     //     AutoschematicError::from(e)
     // })?;
 
-    let installs = get_installations_for_user(&access_token)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to get installations: {}", e);
-            AutoschematicServerError::from(e)
-        })?;
+    let installs = get_installations_for_user(&access_token).await.map_err(|e| {
+        tracing::error!("Failed to get installations: {}", e);
+        AutoschematicServerError::from(e)
+    })?;
 
     // let mut allowed_installs = Vec::new();
 
@@ -159,9 +151,7 @@ pub async fn install_list(session: Session) -> Result<HttpResponse, actix_web::E
     //     .map_err(|e| error::AutoschematicError {
     //         kind: AutoschematicErrorType::InternalError(e.into()),
     //     })?;
-    Ok(HttpResponse::Ok()
-        .content_type("application/json")
-        .json(installs))
+    Ok(HttpResponse::Ok().content_type("application/json").json(installs))
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -175,10 +165,7 @@ pub struct PrefixListing {
     tasks: Vec<TaskListing>,
 }
 
-pub async fn repo_view(
-    session: Session,
-    param: web::Path<(String, String, u64)>,
-) -> Result<HttpResponse, actix_web::Error> {
+pub async fn repo_view(session: Session, param: web::Path<(String, String, u64)>) -> Result<HttpResponse, actix_web::Error> {
     let (owner, repo, installation_id) = param.into_inner();
 
     if let Some((access_token, github_username)) = has_valid_session(&session).await? {
@@ -188,7 +175,6 @@ pub async fn repo_view(
         if let Ok(Some(config)) = get_config_for_repo(&owner, &repo, &access_token).await {
             // context.insert("config_content", &config);
             for (prefix_name, prefix) in config.prefixes {
-
                 let mut prefix_listing = PrefixListing {
                     name: prefix_name.clone(),
                     tasks: Vec::new(),
@@ -224,11 +210,8 @@ pub async fn repo_view(
                 prefix_listings.push(prefix_listing);
             }
         } else {
-        }
-;
-        Ok(HttpResponse::Ok()
-            .content_type("application/json")
-            .json(prefix_listings))
+        };
+        Ok(HttpResponse::Ok().content_type("application/json").json(prefix_listings))
     } else {
         Ok(HttpResponse::Unauthorized().finish())
     }
@@ -248,32 +231,25 @@ pub async fn dashboard_list(session: Session) -> Result<HttpResponse, actix_web:
         // User is authenticated, render dashboard
         let mut context = tera::Context::new();
 
-        let repos = trace_store
-            .list_repos()
-            .await
-            .map_err(|e| error::AutoschematicServerError {
-                kind: AutoschematicServerErrorType::InternalError(e.into()),
-            })?;
+        let repos = trace_store.list_repos().await.map_err(|e| error::AutoschematicServerError {
+            kind: AutoschematicServerErrorType::InternalError(e.into()),
+        })?;
 
         let mut allowed_repos = Vec::new();
         for repo in repos {
-            if is_repo_collaborator(&access_token, &github_username, &repo.owner, &repo.repo)
-                .await?
-            {
+            if is_repo_collaborator(&access_token, &github_username, &repo.owner, &repo.repo).await? {
                 let mut pr_ids: HashSet<u64> = HashSet::new();
                 let mut prs = Vec::new();
-                let runs =
-                    trace_store
-                        .list_runs(&repo)
-                        .await
-                        .map_err(|e| error::AutoschematicServerError {
-                            kind: AutoschematicServerErrorType::InternalError(e.into()),
-                        })?;
+                let runs = trace_store
+                    .list_runs(&repo)
+                    .await
+                    .map_err(|e| error::AutoschematicServerError {
+                        kind: AutoschematicServerErrorType::InternalError(e.into()),
+                    })?;
 
                 for run in runs {
                     if !pr_ids.contains(&run.pr) {
-                        let pr_info =
-                            get_pr_info(&access_token, &repo.owner, &repo.repo, run.pr).await?;
+                        let pr_info = get_pr_info(&access_token, &repo.owner, &repo.repo, run.pr).await?;
                         prs.push((run.pr, pr_info));
                         pr_ids.insert(run.pr);
                     }
@@ -310,10 +286,7 @@ pub async fn dashboard_list(session: Session) -> Result<HttpResponse, actix_web:
     }
 }
 
-async fn repo_runs_subscribe(
-    req: HttpRequest,
-    stream: web::Payload,
-) -> Result<HttpResponse, actix_web::Error> {
+async fn repo_runs_subscribe(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, actix_web::Error> {
     let (res, session, stream) = actix_ws::handle(&req, stream)?;
     let stream = stream
         .aggregate_continuations()
@@ -364,12 +337,13 @@ pub async fn log_subscribe(
                 run.logs.clone()
             };
 
-            let log_receiver = trace_store
-                .subscribe_run_logs(&repo_key, &run_key)
-                .await
-                .map_err(|e| error::AutoschematicServerError {
-                    kind: AutoschematicServerErrorType::InternalError(e.into()),
-                })?;
+            let log_receiver =
+                trace_store
+                    .subscribe_run_logs(&repo_key, &run_key)
+                    .await
+                    .map_err(|e| error::AutoschematicServerError {
+                        kind: AutoschematicServerErrorType::InternalError(e.into()),
+                    })?;
 
             let mut stream = stream
                 .aggregate_continuations()
@@ -380,7 +354,9 @@ pub async fn log_subscribe(
             actix_web::rt::spawn(async move {
                 //
                 for log in logs {
-                    ws_session.binary(log).await.unwrap();
+                    if let Err(Closed) = ws_session.binary(log).await {
+                        return;
+                    }
                 }
 
                 if let Some(mut log_receiver) = log_receiver {
@@ -388,7 +364,9 @@ pub async fn log_subscribe(
                         let res = log_receiver.recv().await;
                         match res {
                             Ok(log) => {
-                                ws_session.binary(log).await.unwrap();
+                                if let Err(Closed) = ws_session.binary(log).await {
+                                    return;
+                                }
                             }
                             Err(e) => {
                                 tracing::error!("log_receiver: {}", e);
@@ -404,17 +382,19 @@ pub async fn log_subscribe(
                     match msg {
                         Ok(AggregatedMessage::Text(text)) => {
                             // echo text message
-                            ws_session.text(text).await.unwrap();
+                            // ws_session.text(text).await.unwrap();
                         }
 
                         Ok(AggregatedMessage::Binary(bin)) => {
                             // echo binary message
-                            ws_session.binary(bin).await.unwrap();
+                            // ws_session.binary(bin).await.unwrap();
                         }
 
                         Ok(AggregatedMessage::Ping(msg)) => {
                             // respond to PING frame with PONG frame
-                            ws_session.pong(&msg).await.unwrap();
+                            if let Err(Closed) = ws_session.pong(&msg).await {
+                                return;
+                            }
                         }
 
                         _ => {}
@@ -433,37 +413,6 @@ pub async fn log_subscribe(
         //     .append_header(("Location", "/api/login"))
         //     .finish())
     }
-    // let mut stream = stream
-    //     .aggregate_continuations()
-    //     // aggregate continuation frames up to 1MiB
-    //     .max_continuation_size(2_usize.pow(20));
-
-    // // start task but don't wait for it
-    // actix_web::rt::spawn(async move {
-    //     // receive messages from websocket
-    //     while let Some(msg) = stream.next().await {
-    //         match msg {
-    //             Ok(AggregatedMessage::Text(text)) => {
-    //                 // echo text message
-    //                 session.text(text).await.unwrap();
-    //             }
-
-    //             Ok(AggregatedMessage::Binary(bin)) => {
-    //                 // echo binary message
-    //                 session.binary(bin).await.unwrap();
-    //             }
-
-    //             Ok(AggregatedMessage::Ping(msg)) => {
-    //                 // respond to PING frame with PONG frame
-    //                 session.pong(&msg).await.unwrap();
-    //             }
-
-    //             _ => {}
-    //         }
-    //     }
-    // });
-
-    // respond immediately with response connected to WS session
 }
 
 pub async fn spawn_task(
@@ -481,18 +430,11 @@ pub async fn spawn_task(
 
     let (owner, repo, installation_id, prefix, name) = param.into_inner();
 
-    crate::task::spawn_task(
-        &owner,
-        &repo,
-        &PathBuf::from(prefix),
-        &name,
-        installation_id,
-        arg.0
-    )
-    .await
-    .map_err(|e| error::AutoschematicServerError {
-        kind: AutoschematicServerErrorType::InternalError(e.into()),
-    })?;
+    crate::task::spawn_task(&owner, &repo, &PathBuf::from(prefix), &name, installation_id, arg.0)
+        .await
+        .map_err(|e| error::AutoschematicServerError {
+            kind: AutoschematicServerErrorType::InternalError(e.into()),
+        })?;
 
     Ok(HttpResponse::Created().finish())
 }
@@ -548,12 +490,11 @@ pub async fn task_state_subscribe(
             task_name,
         };
 
-        let mut receiver =
-            subscribe_task_state(&registry_key)
-                .await
-                .map_err(|e| error::AutoschematicServerError {
-                    kind: AutoschematicServerErrorType::InternalError(e.into()),
-                })?;
+        let mut receiver = subscribe_task_state(&registry_key)
+            .await
+            .map_err(|e| error::AutoschematicServerError {
+                kind: AutoschematicServerErrorType::InternalError(e.into()),
+            })?;
 
         let stream = stream
             .aggregate_continuations()
@@ -566,10 +507,7 @@ pub async fn task_state_subscribe(
                 match res {
                     Ok(msg) => match serde_json::to_string(&msg) {
                         Ok(payload) => {
-                            ws_session
-                                .binary(payload)
-                                .await
-                                .unwrap();
+                            ws_session.binary(payload).await.unwrap();
                         }
                         Err(e) => {
                             tracing::error!("failed to deserialize")

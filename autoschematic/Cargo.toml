@@ -87,5 +87,5 @@ actix-files = "0.6.6"
 indexmap = { version = "2.7.1", features = ["serde"] }
 walkdir = "2.5.0"
 tokio-stream = "0.1.17"
-# console-subscriber = "0.4.1"
+console-subscriber = "0.4.1"
 # coz = "0.1.3"

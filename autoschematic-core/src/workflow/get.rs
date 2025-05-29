@@ -15,6 +15,7 @@ pub async fn get(
     let Some(prefix_str) = prefix.to_str() else {
         return Ok(None);
     };
+
     let Some(prefix_def) = autoschematic_config.prefixes.get(prefix_str) else {
         return Ok(None);
     };

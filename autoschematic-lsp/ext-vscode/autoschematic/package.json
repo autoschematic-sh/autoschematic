@@ -1,7 +1,9 @@
 {
   "name": "autoschematic",
   "displayName": "Autoschematic",
-  "description": "A Visual Studio Code extension for Autoschematic.",
+  "publisher": "Autoschematic",
+  "description": "Language Server support and Ctrl-P shortcuts for Autoschematic.",
+  "repository": "https://github.com/autoschematic-sh/autoschematic",
   "version": "0.4.0",
   "engines": {
     "vscode": "^1.99.0"
@@ -9,7 +11,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": ["onLanguage:ron"],
+  "activationEvents": [
+    "onLanguage:ron"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -59,6 +63,7 @@
     "@typescript-eslint/parser": "^8.28.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
+    "esbuild": "^0.25.4",
     "eslint": "^9.23.0",
     "typescript": "^5.8.2"
   },

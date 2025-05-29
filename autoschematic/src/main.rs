@@ -14,7 +14,6 @@
 
 #![deny(unused_must_use)]
 
-mod task;
 mod bundle;
 mod changeset;
 mod changeset_cache;
@@ -28,37 +27,42 @@ mod github_util;
 mod object;
 mod repolock;
 mod secret;
+mod task;
 mod template;
 mod tracestore;
 mod url_builder;
 mod util;
 
 use actix_files::NamedFile;
-use actix_session::{storage::CookieSessionStore, Session, SessionMiddleware};
-use task::registry::{TaskRegistry};
+use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use anyhow::Context;
-use autoschematic_core::{binary_cache::BinaryCache, keystore::{keystore_init, KeyStore}};
+use autoschematic_core::{
+    binary_cache::BinaryCache,
+    keystore::{KeyStore, keystore_init},
+};
 use dashboard::api_util::get_self;
 use error::{AutoschematicServerError, AutoschematicServerErrorType};
 use indexmap::IndexMap;
 use octocrab::models::webhook_events::WebhookEvent;
 use once_cell::{self, sync::OnceCell};
-use repolock::{repolockstore_init, RepoLockStore};
+use repolock::{RepoLockStore, repolockstore_init};
 use serde::Deserialize;
 use serde_json;
-use tracing_subscriber::EnvFilter;
-use std::{
-    env,
-    path::PathBuf,
-};
+use std::{env, path::PathBuf};
+use task::registry::TaskRegistry;
 use tera::Tera;
 use tokio::sync::RwLock;
 use tracestore::{InMemTraceStore, TraceStore};
+use tracing_subscriber::EnvFilter;
 use url_builder::URLBuilder;
 use util::validate_github_hmac;
 
 use actix_web::{
-    cookie::Key, dev::{ServiceRequest, ServiceResponse}, middleware::Logger, web::{self}, App, Error, HttpRequest, HttpResponse, HttpServer, Responder
+    App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
+    cookie::Key,
+    dev::{ServiceRequest, ServiceResponse},
+    middleware::Logger,
+    web::{self},
 };
 
 static DOMAIN: OnceCell<String> = OnceCell::new();
@@ -82,13 +86,9 @@ lazy_static::lazy_static! {
 pub fn main() {
     actix_web::rt::System::with_tokio_rt(|| {
         // build system with a multi-thread tokio runtime.
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap()
+        tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap()
     })
-    .block_on(async_main())
-    .unwrap();
+    .block_on(async_main()).unwrap();
 }
 
 async fn async_main() -> anyhow::Result<()> {
@@ -102,33 +102,27 @@ async fn async_main() -> anyhow::Result<()> {
         .init();
     // console_subscriber::;
 
-
     // Install crypto provider for TLS
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Failed to install rustls crypto provider");
 
     // Load critical configuration
-    let webhook_domain = env::var("WEBHOOK_DOMAIN")
-        .context("Missing WEBHOOK_DOMAIN environment variable")
-        .unwrap();
+    let webhook_domain = env::var("WEBHOOK_DOMAIN").context("Missing WEBHOOK_DOMAIN environment variable")?;
+
     DOMAIN.set(webhook_domain.clone()).unwrap();
 
     let session_key = env::var("SESSION_KEY")
         .context("Missing SESSION_KEY environment variable")
-        .map(|key| base64::decode(key).expect("Invalid SESSION_KEY format"))
-        .unwrap();
-
+        .map(|key| base64::decode(key).expect("Invalid SESSION_KEY format"))?;
 
     let repolockstore = env::var("KEYSTORE")
         .context("Missing KEYSTORE environment variable")
-        .map(|path| repolockstore_init(&path).expect("Failed to init keystore"))
-        .unwrap();
+        .map(|path| repolockstore_init(&path).expect("Failed to init keystore"))?;
+
     REPOLOCKSTORE.set(repolockstore).unwrap();
 
-    TRACESTORE
-        .set(Box::new(InMemTraceStore::default()))
-        .unwrap();
+    TRACESTORE.set(Box::new(InMemTraceStore::default())).unwrap();
 
     TASK_REGISTRY
         .set(TaskRegistry {
@@ -136,47 +130,30 @@ async fn async_main() -> anyhow::Result<()> {
         })
         .unwrap();
 
-    let bincache_folder =
-        env::var("BINARY_CACHE_DIR").unwrap_or(String::from("/tmp/autoschematic_bincache"));
+    let bincache_folder = env::var("BINARY_CACHE_DIR").unwrap_or(String::from("/tmp/autoschematic_bincache"));
+
     BINARYCACHE
         .set(BinaryCache::new(&PathBuf::from(bincache_folder)).unwrap())
         .unwrap();
 
-    dashboard::TEMPLATES
-        .set(Tera::new("dashboard/**/*.html").unwrap())
-        .unwrap();
+    dashboard::TEMPLATES.set(Tera::new("dashboard/**/*.html").unwrap()).unwrap();
 
     let _webhook_secret = env::var("WEBHOOK_SECRET")
         .context("Missing WEBHOOK_SECRET environment variable")
         .unwrap();
 
-    tracing::info!(
-        "Service configured with webhook URL: https://{}",
-        webhook_domain
-    );
-    tracing::info!(
-        "Visit https://{}/create-app to create a Github App",
-        webhook_domain
-    );
+    tracing::info!("Service configured with webhook URL: https://{}", webhook_domain);
+    tracing::info!("Visit https://{}/create-app to create a Github App", webhook_domain);
 
-    // Set up the Actix Web server with secure session handling and logging
     Ok(HttpServer::new(move || {
         App::new()
             .wrap(Logger::new("%r %s %b %D ms %a %{User-Agent}i"))
-            .wrap(SessionMiddleware::new(
-                CookieSessionStore::default(),
-                Key::from(&session_key), // Use persistent key from environment
-            ))
-            // .route("/", web::get().to(root))
+            .wrap(SessionMiddleware::new(CookieSessionStore::default(), Key::from(&session_key)))
             .route("/api/create-app", web::get().to(create_app))
             .route("/api/webhook", web::post().to(github_webhook))
             .route("/api/oauth", web::post().to(oauth))
             .route("/api/oauth", web::get().to(oauth))
             .route("/api/login", web::get().to(login))
-            // .route(
-            //     "/dashboard/",
-            //     web::get().to(dashboard::routes::dashboard_list),
-            // )
             .route("/api/repo/", web::get().to(dashboard::routes::install_list))
             .route(
                 "/api/repo/{owner}/{repo}/{installation_id}/view",
@@ -208,8 +185,7 @@ async fn async_main() -> anyhow::Result<()> {
                         let file = NamedFile::open_async("./dashboard-react/dist/index.html").await?;
                         let res = file.into_response(&req);
                         Ok(ServiceResponse::new(req, res))
-                    }))
-                    
+                    })),
             )
     })
     .bind("127.0.0.1:8086")?
@@ -218,7 +194,6 @@ async fn async_main() -> anyhow::Result<()> {
 }
 
 fn dashboard_app() -> actix_web::Result<actix_files::NamedFile> {
-    // 1.
     let path: PathBuf = PathBuf::from("./dashboard-react/dist/index.html");
     Ok(actix_files::NamedFile::open(path)?)
 }
@@ -229,10 +204,7 @@ async fn root() -> impl Responder {
 
 //
 async fn login() -> Result<HttpResponse, actix_web::Error> {
-    let domain = DOMAIN
-        .get()
-        .context("Missing WEBHOOK_DOMAIN environment variable")
-        .unwrap();
+    let domain = DOMAIN.get().context("Missing WEBHOOK_DOMAIN environment variable").unwrap();
 
     let client_id = env::var("GITHUB_CLIENT_ID").map_err(|_| {
         tracing::error!("GITHUB_CLIENT_ID not configured");
@@ -250,9 +222,7 @@ async fn login() -> Result<HttpResponse, actix_web::Error> {
         "https://github.com/login/oauth/authorize?client_id={}&redirect_uri={}&scope=repo",
         client_id, redirect_uri
     );
-    Ok(HttpResponse::Found()
-        .append_header(("Location", authorize_url))
-        .finish())
+    Ok(HttpResponse::Found().append_header(("Location", authorize_url)).finish())
 }
 
 async fn list_pubkeys() -> Result<HttpResponse, Error> {
@@ -290,10 +260,7 @@ async fn get_pubkey(param: web::Path<String>) -> Result<HttpResponse, Error> {
 /// - X-GitHub-Event: Event type (required)
 /// - X-Hub-Signature-256: HMAC signature (required)
 const DEFAULT_CONFIG_LIMIT: usize = 262_144; // 2^18 bytes (~256kB)
-async fn github_webhook(
-    req: HttpRequest,
-    payload: web::Payload,
-) -> Result<HttpResponse, AutoschematicServerError> {
+async fn github_webhook(req: HttpRequest, payload: web::Payload) -> Result<HttpResponse, AutoschematicServerError> {
     tracing::debug!("Received webhook request");
 
     // Extract and validate required headers
@@ -323,8 +290,8 @@ async fn github_webhook(
     // tracing::info!("Processing {} event", event_header);
 
     // Parse the webhook event
-    let webhook_event = WebhookEvent::try_from_header_and_body(event_header, &body_bytes)
-        .map_err(AutoschematicServerError::from)?;
+    let webhook_event =
+        WebhookEvent::try_from_header_and_body(event_header, &body_bytes).map_err(AutoschematicServerError::from)?;
 
     // Dispatch the event to the handler
     match event_handlers::dispatch(webhook_event).await {
@@ -400,18 +367,15 @@ async fn oauth(query: web::Query<AuthRequest>, session: Session) -> Result<HttpR
         AutoschematicServerError::from(e)
     })?;
 
-    let access_token = res_json
-        .get("access_token")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            tracing::error!("OAuth response missing access_token");
-            AutoschematicServerError {
-                kind: AutoschematicServerErrorType::ConfigurationError {
-                    name: "access_token".to_string(),
-                    message: "GitHub OAuth response missing access token".to_string(),
-                },
-            }
-        })?;
+    let access_token = res_json.get("access_token").and_then(|v| v.as_str()).ok_or_else(|| {
+        tracing::error!("OAuth response missing access_token");
+        AutoschematicServerError {
+            kind: AutoschematicServerErrorType::ConfigurationError {
+                name: "access_token".to_string(),
+                message: "GitHub OAuth response missing access token".to_string(),
+            },
+        }
+    })?;
 
     let res = get_self(access_token).await?;
 
@@ -433,17 +397,12 @@ async fn oauth(query: web::Query<AuthRequest>, session: Session) -> Result<HttpR
     session.insert("github_username", username.to_string())?;
 
     // Redirect to dashboard
-    Ok(HttpResponse::Found()
-        .append_header(("Location", "/"))
-        .finish())
+    Ok(HttpResponse::Found().append_header(("Location", "/")).finish())
 }
 
 async fn create_app() -> Result<HttpResponse, AutoschematicServerError> {
     // Retrieve the webhook URL from environment variables
-    let domain = DOMAIN
-        .get()
-        .context("Missing WEBHOOK_DOMAIN environment variable")
-        .unwrap();
+    let domain = DOMAIN.get().context("Missing WEBHOOK_DOMAIN environment variable").unwrap();
 
     let webhook_url = format!("https://{}", domain);
 

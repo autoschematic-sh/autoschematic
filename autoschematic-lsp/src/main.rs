@@ -21,6 +21,8 @@ use tokio::sync::RwLock;
 use tower_lsp_server::{Client, LanguageServer, LspService, Server, jsonrpc::Error as LspError, lsp_types};
 use util::{diag_to_lsp, lsp_error, lsp_param_to_path};
 
+pub mod parse;
+// pub mod path_at;
 pub mod util;
 
 struct Backend {
@@ -82,142 +84,17 @@ impl LanguageServer for Backend {
         let keystore = None;
         eprintln!("execute_command: {:?}", params);
         match params.command.as_str() {
-            "import" => {
-                self.try_load_config().await;
-                if let Some(ref autoschematic_config) = *self.autoschematic_config.read().await {
-                    match import_all(
-                        autoschematic_config,
-                        &self.connector_cache,
-                        keystore,
-                        None,
-                        None,
-                        None,
-                        overwrite_existing,
-                    )
-                    .await
-                    {
-                        Ok(_) => {}
-                        Err(e) => {
-                            eprintln!("{}", e);
-                            return Err(lsp_error(e.into()));
-                        }
-                    }
-                }
-            }
             "relaunch" => {
                 *self.autoschematic_config.write().await = None;
                 self.connector_cache.clear().await;
-                self.try_load_config().await;
-            }
-            "plan" => {
-                eprintln!("{:?}", params);
-                self.try_load_config().await;
-                let Some(path) = lsp_param_to_path(params) else {
-                    eprintln!("No path");
-                    return Ok(None);
-                };
-
-                let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
-                    eprintln!("No config set");
-                    return Ok(None);
-                };
-
-                let connector_filter = None;
-
-                eprintln!("starting plan..");
-                match plan(
-                    autoschematic_config,
-                    &self.connector_cache,
-                    keystore,
-                    &connector_filter,
-                    &path,
-                )
-                .await
-                {
-                    Ok(plan_report) => {
-                        eprintln!("plan success: {:?}", plan_report.clone().unwrap_or_default());
-                        match serde_json::to_value(plan_report) {
-                            Ok(val) => {
-                                return Ok(Some(val));
-                            }
-                            Err(e) => {
-                                eprintln!("{}", e);
-                                return Err(lsp_error(e.into()));
-                            }
-                        }
-                    }
+                match self.try_reload_config().await {
+                    Ok(_) => {}
                     Err(e) => {
                         eprintln!("{}", e);
                         return Err(lsp_error(e.into()));
                     }
                 }
             }
-            "apply" => {
-                let Some(path) = lsp_param_to_path(params) else {
-                    return Ok(None);
-                };
-
-                let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
-                    eprintln!("No config set");
-                    return Ok(None);
-                };
-
-                let connector_filter = None;
-
-                match plan(
-                    autoschematic_config,
-                    &self.connector_cache,
-                    keystore,
-                    &connector_filter,
-                    &path,
-                )
-                .await
-                {
-                    Ok(Some(plan_report)) => {
-                        match apply(
-                            autoschematic_config,
-                            &self.connector_cache,
-                            keystore,
-                            &connector_filter,
-                            &plan_report,
-                        )
-                        .await
-                        {
-                            Ok(apply_report) => {
-                                eprintln!("apply success: {:?}", apply_report.clone().unwrap_or_default());
-                                match serde_json::to_value(apply_report) {
-                                    Ok(val) => {
-                                        return Ok(Some(val));
-                                    }
-                                    Err(e) => {
-                                        eprintln!("{}", e);
-                                        return Err(lsp_error(e.into()));
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!("{}", e);
-                                return Err(lsp_error(e.into()));
-                            }
-                        }
-                    }
-                    Ok(None) => {}
-                    // match serde_json::to_value(plan_report) {
-                    //     Ok(val) => {
-                    //         return Ok(Some(val));
-                    //     }
-                    //     Err(e) => {
-                    //         eprintln!("{}", e);
-                    //         return Err(lsp_error(e.into()));
-                    //     }
-                    // }},
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        return Err(lsp_error(e.into()));
-                    }
-                }
-            }
-
             "get" => {
                 let Some(path) = lsp_param_to_path(params) else {
                     eprintln!("Path is None!");
@@ -303,22 +180,26 @@ impl LanguageServer for Backend {
 // }
 
 impl Backend {
-    async fn try_load_config(&self) {
+    async fn try_load_config(&self) -> anyhow::Result<()> {
         let need_reload = self.autoschematic_config.read().await.is_none();
 
         if need_reload {
-            self.try_reload_config().await;
+            self.try_reload_config().await?;
         }
+
+        Ok(())
     }
-    async fn try_reload_config(&self) {
+    async fn try_reload_config(&self) -> anyhow::Result<()> {
         let config: Option<AutoschematicConfig> = if PathBuf::from("autoschematic.ron").is_file() {
             match tokio::fs::read_to_string("autoschematic.ron").await {
                 Ok(config_body) => match RON.from_str(&config_body) {
                     Ok(new_config) => {
                         if let Some(current_config) = &*self.autoschematic_config.read().await {
                             if new_config != *current_config {
-                                self.load_connectors().await;
+                                self.load_connectors().await?;
                             }
+                        } else {
+                            self.load_connectors().await?;
                         }
                         Some(new_config)
                     }
@@ -343,6 +224,8 @@ impl Backend {
         };
 
         *self.autoschematic_config.write().await = config;
+
+        Ok(())
     }
 
     async fn validate(&self, uri: &Uri, text: &str) {
@@ -389,13 +272,17 @@ impl Backend {
                     // If the user edits a connector's config file,
                     // we need to re-init the connector, and clear the filter cache for that connector!
                     autoschematic_core::connector::FilterOutput::Config => {
-                        if let Some((connector, _inbox)) = self.connector_cache.get_connector(&connector_def.name, &prefix).await {
+                        if let Some((connector, _inbox)) =
+                            self.connector_cache.get_connector(&connector_def.name, &prefix).await
+                        {
                             // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
                             res.append(&mut diag_to_lsp(connector.diag(addr, &OsString::from(body)).await?));
                         }
                     }
                     autoschematic_core::connector::FilterOutput::Resource => {
-                        if let Some((connector, _inbox)) = self.connector_cache.get_connector(&connector_def.name, &prefix).await {
+                        if let Some((connector, _inbox)) =
+                            self.connector_cache.get_connector(&connector_def.name, &prefix).await
+                        {
                             // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
                             res.append(&mut diag_to_lsp(connector.diag(addr, &OsString::from(body)).await?));
                         }
@@ -523,20 +410,20 @@ impl Backend {
 
         match path.to_str().unwrap_or_default() {
             "autoschematic.ron" => {
-                self.try_reload_config().await;
+                // self.try_reload_config().await;
 
                 if let Some(diag) = self.check::<AutoschematicConfig>(text).await? {
                     res.push(diag);
                 }
 
-                if let Err(e) = self.load_connectors().await {
-                    res.push(Diagnostic {
-                        range: Range::new(Position::new(0, 0), Position::new(0, 0)),
-                        severity: Some(DiagnosticSeverity::ERROR),
-                        message: format!("{}", e),
-                        ..Default::default()
-                    });
-                }
+                // if let Err(e) = self.load_connectors().await {
+                //     res.push(Diagnostic {
+                //         range: Range::new(Position::new(0, 0), Position::new(0, 0)),
+                //         severity: Some(DiagnosticSeverity::ERROR),
+                //         message: format!("{}", e),
+                //         ..Default::default()
+                //     });
+                // }
             }
             "autoschematic.rbac.ron" => {
                 if let Some(diag) = self.check::<AutoschematicRbacConfig>(text).await? {

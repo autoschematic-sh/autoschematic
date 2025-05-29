@@ -9,46 +9,46 @@ import { ExecuteCommandRequest, LanguageClient, LanguageClientOptions, RevealOut
  * @returns Promise<boolean> True if the command exists, false otherwise
  */
 async function commandExists(command: string): Promise<boolean> {
-    const exec = util.promisify(child_process.exec);
-    
-    try {
-        // Different check commands based on platform
-        const checkCommand = process.platform === 'win32'
-            ? `where ${command}`
-            : `which ${command}`;
-            
-        await exec(checkCommand);
-        return true;
-    } catch (error) {
-        return false;
-    }
+	const exec = util.promisify(child_process.exec);
+
+	try {
+		// Different check commands based on platform
+		const checkCommand = process.platform === 'win32'
+			? `where ${command}`
+			: `which ${command}`;
+
+		await exec(checkCommand);
+		return true;
+	} catch (error) {
+		return false;
+	}
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-    // Check if autoschematic-lsp is installed
-    const lspExists = await commandExists('autoschematic-lsp');
-    
-    if (!lspExists) {
-        const action = await vscode.window.showInformationMessage(
-            "Autoschematic doesn't appear to be installed yet. Would you like to `cargo install` it?",
-            "Yes", "No"
-        );
-        
-        if (action === "Yes") {
-            // Open a terminal and run cargo install
-            const terminal = vscode.window.createTerminal('Autoschematic Install');
-            terminal.sendText('cargo install --locked autoschematic');
-            terminal.show();
-            vscode.window.showInformationMessage(
-                "Installing Autoschematic. The extension will be ready after installation completes."
-            );
-            return; // Exit activation until installation completes
-        } else {
-            // User declined installation
-            return; // Exit activation
-        }
-    }
-    
+	// Check if autoschematic-lsp is installed
+	const lspExists = await commandExists('autoschematic-lsp');
+
+	if (!lspExists) {
+		const action = await vscode.window.showInformationMessage(
+			"Autoschematic doesn't appear to be installed yet. Would you like to `cargo install` it?",
+			"Yes", "No"
+		);
+
+		if (action === "Yes") {
+			// Open a terminal and run cargo install
+			const terminal = vscode.window.createTerminal('Autoschematic Install');
+			terminal.sendText('cargo install --locked autoschematic');
+			terminal.show();
+			vscode.window.showInformationMessage(
+				"Installing Autoschematic. The extension will be ready after installation completes."
+			);
+			return; // Exit activation until installation completes
+		} else {
+			// User declined installation
+			return; // Exit activation
+		}
+	}
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('autoschematic.compareWithRemote', async (fileUri) => {
 			if (!fileUri) {
@@ -68,7 +68,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					arguments: [fileUri.path]
 				});
 
-				const remoteUri = fileUri.with({ scheme: 'autoschematic-remote', path: fileUri.path + '.remote' });
+				const remoteUri = fileUri.with({ scheme: 'autoschematic-remote', path: fileUri.path });
 
 				const diffTitle = `Compare ${fileUri.path.split('/').pop()} with Remote`;
 

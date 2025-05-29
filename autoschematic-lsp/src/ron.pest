@@ -1,0 +1,150 @@
+// ────────────────────────────────
+//  RON (Rusty Object Notation)
+//  PEG grammar for pest ≥2.7
+// ────────────────────────────────
+//  Notes
+//  • Silent rules (suffix “_”) are skipped automatically.
+//  • Top-level rule is  ron.
+//  • Raw strings accept any number of `#` up to 16; expand if you
+//    need more.  Keeping them bounded lets the PEG stay regular.
+//  • Identifiers rely on Unicode XID_Start/XID_Continue classes,
+//    which pest exposes as built-ins. 
+// ────────────────────────────────
+
+//////////////////////////////////
+//  LEXICAL LAYER              //
+//////////////////////////////////
+
+// ── whitespace & comments ──
+WHITESPACE = _{ " " | "\t" | "\n" | "\r"
+              | "\u{000B}" | "\u{000C}" | "\u{0085}"
+              | "\u{200E}" | "\u{200F}" | "\u{2028}" | "\u{2029}" }
+
+LINE_COMMENT  = _{ "//" ~ (!NEWLINE ~ ANY)* ~ (NEWLINE | EOI) }
+BLOCK_COMMENT = _{ "/*" ~ (BLOCK_COMMENT | (!"*/" ~ ANY))* ~ "*/" }
+COMMENT       = _{ LINE_COMMENT | BLOCK_COMMENT }
+
+NEWLINE = _{ "\n" | "\r\n" }
+
+//////////////////////////////////
+//  ATOMS                      //
+//////////////////////////////////
+
+// ── digits ──
+digit              = _{ '0'..'9' }
+digit_binary       = _{ "0" | "1"          }
+digit_octal        = _{ '0'..'7'           }
+digit_hexadecimal  = _{ digit | 'a'..'f' | 'A'..'F' }
+
+// ── integer & float suffix helpers ──
+sign               =  { "+" | "-" }
+int_suffix         =  { ( "i" | "u" ) ~ ( "8" | "16" | "32" | "64" | "128" ) }
+float_suffix       =  { "f" ~ ( "32" | "64" ) }
+
+// ── escapes ──
+escape_ascii   = _{ "'" | "\"" | "\\" | "n" | "r" | "t" | "0" }
+escape_byte    = _{ "x" ~ digit_hexadecimal ~ digit_hexadecimal }
+escape_unicode = _{ "u" ~ digit_hexadecimal{4,6} }
+
+// ── identifier ──
+ident_std  =  @{ ( "_" | XID_START ) ~ XID_CONTINUE* }
+ident_raw  =  @{ "r#" ~ ( XID_CONTINUE | "." | "+" | "-" )+ }
+ident      =   { ident_raw | ident_std }
+
+// ── helpers ──
+comma  = _{ "," }
+
+//////////////////////////////////
+//  LITERALS                   //
+//////////////////////////////////
+
+// ── unsigned integers ──
+unsigned_binary      = { "0b" ~ digit_binary ~ ( digit_binary | "_" )* }
+unsigned_octal       = { "0o" ~ digit_octal  ~ ( digit_octal  | "_" )* }
+unsigned_hexadecimal = { "0x" ~ digit_hexadecimal ~ ( digit_hexadecimal | "_" )* }
+unsigned_decimal     = { digit ~ ( digit | "_" )* }
+unsigned             = { unsigned_binary
+                       | unsigned_octal
+                       | unsigned_hexadecimal
+                       | unsigned_decimal }
+
+// ── integer ──
+integer = { sign? ~ unsigned ~ int_suffix? }
+
+// ── float ──
+float_int  = { digit ~ ( digit | "_" )* }
+float_std  = { float_int ~ "." ~ ( digit ~ ( digit | "_" )* )? }
+float_frac = { "." ~ digit ~ ( digit | "_" )* }
+float_exp  = { ( "e" | "E" ) ~ sign? ~ digit ~ ( digit | "_" )* }
+float_num  = { ( float_std | float_frac | float_int ) ~ float_exp? }
+float      = { sign? ~ ( "inf" | "NaN" | float_num ) ~ float_suffix? }
+
+// ── byte ──
+ascii_char   = _{ !( "'" | "\\" ) ~ ANY }
+byte_content = { ascii_char | "\\" ~ ( escape_ascii | escape_byte ) }
+byte         = { "b'" ~ byte_content ~ "'" }
+
+// ── char ──
+char_body = { !( "'" | "\\" ) ~ ANY | "\\" ~ ( "\\" | "'" ) }
+char       = { "'" ~ char_body ~ "'" }
+
+// ── string (standard) ──
+string_char   = _{ !( "\"" | "\\" ) ~ ANY }
+string_escape =  { "\\" ~ ( escape_ascii | escape_byte | escape_unicode ) }
+string_std    =  { "\"" ~ ( string_char | string_escape )* ~ "\"" }
+
+// ── raw string (up to 16 #) ──
+//hashes        = _{ "#"*<0,16> }     // bounded to keep parsing regular
+hashes             = _{ "#"{0,16} }
+string_raw    =  { "r" ~ hashes ~ "\"" ~ ( !("\"" ~ hashes) ~ ANY )* ~ "\"" ~ hashes }
+
+// ── byte string ──
+byte_string_std = { "b" ~ string_std }
+byte_string_raw = { "br" ~ hashes ~ "\"" ~ ( !("\"" ~ hashes) ~ ANY )* ~ "\"" ~ hashes }
+byte_string     = { byte_string_std | byte_string_raw }
+
+// ── bool ──
+bool = { "true" | "false" }
+
+//////////////////////////////////
+//  COMPOSITES                 //
+//////////////////////////////////
+
+// ── option ──
+option_some = { "Some" ~ "(" ~ value ~ ")" }
+option      = { "None" | option_some }
+
+// ── collections ──
+list       = { "[" ~ ( value ~ ( comma ~ value )* ~ comma? )? ~ "]" }
+map_entry  = { value ~ ":" ~ value }
+map        = { "{" ~ ( map_entry ~ ( comma ~ map_entry )* ~ comma? )? ~ "}" }
+tuple      = { "(" ~ ( value ~ ( comma ~ value )* ~ comma? )? ~ ")" }
+
+// ── structs ──
+named_field  =  { ident ~ ":" ~ value }
+unit_struct  =  { ident | "()" }
+tuple_struct =  { ident? ~ tuple }
+named_struct =  { ident? ~ "(" ~ ( named_field ~ ( comma ~ named_field )* ~ comma? )? ~ ")" }
+struct       =  { unit_struct | tuple_struct | named_struct }
+
+// ── enums ──
+enum_variant_unit   = { ident }
+enum_variant_tuple  = { ident ~ tuple }
+enum_variant_named  = { ident ~ "(" ~ ( named_field ~ ( comma ~ named_field )* ~ comma? )? ~ ")" }
+enum_variant        = { enum_variant_named | enum_variant_tuple | enum_variant_unit }
+
+// ── top-level “value” union ──
+value = { integer | byte | float | string_std | string_raw | byte_string
+        | char | bool | option | list | map
+        | tuple | struct | enum_variant }
+
+// ── extensions (“#![enable(foo, bar)]”) ──
+extension_name   = { ident }
+extensions_inner = { "enable" ~ "(" ~ extension_name ~ ( comma ~ extension_name )* ~ comma? ~ ")" }
+extensions       = { "#!" ~ "[" ~ extensions_inner ~ "]" }
+
+//////////////////////////////////
+//  ENTRY POINT                //
+//////////////////////////////////
+
+ron = { SOI ~ extensions? ~ value ~ EOI }

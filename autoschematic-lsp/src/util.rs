@@ -42,6 +42,12 @@ pub fn diag_to_lsp(diag_output: DiagnosticOutput) -> Vec<lsp_types::Diagnostic> 
     res
 }
 
+pub fn lsp_bail(msg: &str) -> tower_lsp_server::jsonrpc::Error {
+    let mut err = jsonrpc::Error::internal_error();
+    err.data = Some(serde_json::Value::String(msg.into()));
+    err
+}
+
 pub fn lsp_error(e: anyhow::Error) -> tower_lsp_server::jsonrpc::Error {
     let mut err = jsonrpc::Error::internal_error();
     let msg = format!("{}", e);

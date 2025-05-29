@@ -8,12 +8,16 @@ use std::{
 };
 
 use crate::{
-    connector::{Connector, ConnectorOutbox, FilterOutput, GetResourceOutput, OpExecOutput, OpPlanOutput, SkeletonOutput, VirtToPhyOutput},
+    connector::{
+        Connector, ConnectorOutbox, FilterOutput, GetResourceOutput, OpExecOutput, OpPlanOutput, SkeletonOutput,
+        VirtToPhyOutput,
+    },
     diag::DiagnosticOutput,
     error::ErrorMessage,
     keystore::KeyStore,
     secret::SealedSecret,
-    tarpc_bridge::{launch_client, TarpcConnectorClient},
+    tarpc_bridge::{TarpcConnectorClient, launch_client},
+    util::passthrough_secrets_from_env,
 };
 use anyhow::{Context, bail};
 use async_trait::async_trait;
@@ -240,20 +244,22 @@ pub async fn launch_server_binary_sandboxed(
     let error_dump = random_error_dump_path();
 
     if let Some(keystore) = keystore {
-        env = keystore.unseal_env_map(&env).unwrap();
+        env = keystore.unseal_env_map(&env)?;
+    } else {
+        env = passthrough_secrets_from_env(&env)?;
     }
 
     //
     // The cloned child is started in a new mount namespace
     let mut flags = CloneFlags::CLONE_NEWNS;
     // let mut flags = CloneFlags::CLONE_NEWNS;
-    // // Create the process in a new cgroup namespace.
+    // Create the process in a new cgroup namespace.
     flags.insert(CloneFlags::CLONE_NEWCGROUP);
-    // // Create the process in a new IPC namespace.
+    // Create the process in a new IPC namespace.
     flags.insert(CloneFlags::CLONE_NEWIPC);
-    // // Create the process in a new user namespace.
+    // Create the process in a new user namespace.
     flags.insert(CloneFlags::CLONE_NEWUSER);
-    // // Create the process in a new PID namespace.
+    // Create the process in a new PID namespace.
     flags.insert(CloneFlags::CLONE_NEWPID);
     // Create the process in a new UTS namespace.
     flags.insert(CloneFlags::CLONE_NEWUTS);
@@ -263,8 +269,6 @@ pub async fn launch_server_binary_sandboxed(
 
     let (stdout_r, stdout_w) = (stdout_r, stdout_w);
     let (stderr_r, stderr_w) = (stderr_r, stderr_w);
-    // let (stdout_r, stdout_w) = (stdout_r.into_raw_fd(), stdout_w.into_raw_fd());
-    // let (stderr_r, stderr_w) = (stderr_r.into_raw_fd(), stderr_w.into_raw_fd());
 
     tracing::info!("Launching sandboxed binary at {:?}", binary);
 
