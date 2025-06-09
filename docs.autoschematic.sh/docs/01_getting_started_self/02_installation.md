@@ -3,13 +3,13 @@
 If all you need is the Autoschematic CLI (for sealing secrets and config tasks), 
 the quickest way is using cargo:
 ```
-cargo install autoschematic-cli
+cargo install autoschematic
 ```
 
 Note that all packages update in lockstep against the server version. Therefore, if you are
-on server version 0.4.0, you should run:
+on server version 0.5.0, you should run:
 ```
-cargo install autoschematic-cli@0.4.0
+cargo install autoschematic@0.5.0
 ```
 
 ## Using Docker

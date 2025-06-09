@@ -4,7 +4,7 @@ name = "autoschematic-server"
 description = "A platform for declarative Ops systems, built around Git."
 repository = "https://github.com/autoschematic-sh/autoschematic"
 license = "MIT"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 
 [features]
@@ -19,9 +19,8 @@ debug = 1
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-autoschematic-core = { path = "../autoschematic-core", version = "0.4.0", features = [
+autoschematic-core = { path = "../autoschematic-core", version = "0.5.0", features = [
 ] }
-# autoschematic = { path = "../autoschematic-cli", version = "0.4.0" }
 anyhow = { version = "1.0.97", features = ["backtrace"] }
 askama = "0.14.0"
 async-trait = "0.1.81"
