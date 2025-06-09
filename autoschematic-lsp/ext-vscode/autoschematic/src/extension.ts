@@ -3,6 +3,8 @@ import * as child_process from 'child_process';
 import * as util from 'util';
 import { ExecuteCommandRequest, LanguageClient, LanguageClientOptions, RevealOutputChannelOn, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 
+import * as connectorView from './connectorView';
+
 /**
  * Checks if a command exists in the system PATH
  * @param command The command to check
@@ -49,56 +51,87 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand('autoschematic.compareWithRemote', async (fileUri) => {
-			if (!fileUri) {
-				vscode.window.showErrorMessage('No file selected for comparison');
-				return;
+	// Register a context menu command that is conditionally visible
+	vscode.commands.registerCommand('autoschematic.compareWithRemote', async (fileUri) => {
+		if (!fileUri) {
+			vscode.window.showErrorMessage('No file selected for comparison');
+			return;
+		}
+
+		try {
+			// Read the content of the selected file
+			// const document = await vscode.workspace.openTextDocument(fileUri);
+			// const originalContent = document.getText();
+
+			// Create the remote content (currently a placeholder)
+			//
+			const remoteContent = await client.sendRequest(ExecuteCommandRequest.type, {
+				command: "get",
+				arguments: [fileUri.path]
+			});
+
+			const remoteUri = fileUri.with({ scheme: 'autoschematic-remote', path: fileUri.path });
+
+			const diffTitle = `Compare ${fileUri.path.split('/').pop()} with Remote`;
+			console.log("remotecontent", remoteContent);
+
+			// Register a content provider for our custom scheme
+			const provider = vscode.workspace.registerTextDocumentContentProvider('autoschematic-remote', {
+				provideTextDocumentContent(uri: vscode.Uri): string {
+					console.log("remotecontent", remoteContent);
+					return remoteContent;
+				}
+			});
+
+			context.subscriptions.push(provider);
+
+			connectorView.activate(context);
+
+			vscode.commands.executeCommand('vscode.diff',
+				fileUri, // Original file URI
+				remoteUri, // Modified file URI (virtual)
+				diffTitle, // Title for the diff editor
+				{ preview: true } // Options
+			);
+			;
+		} catch (error) {
+			vscode.window.showErrorMessage(`Error comparing with remote: ${error}`);
+		}
+	});
+
+	// Update context menu visibility based on filter() result
+	vscode.commands.registerCommand('autoschematic.setCompareWithRemoteContext', async (fileUri) => {
+		if (!fileUri) {
+			vscode.commands.executeCommand('setContext', 'autoschematic.compareWithRemoteEnabled', false);
+			return;
+		}
+
+		try {
+			// Call the filter() function from the LSP
+			const filterResult = await client.sendRequest(ExecuteCommandRequest.type, {
+				command: "filter",
+				arguments: [fileUri.path]
+			});
+
+			console.log("Filter: ", fileUri.path, " result:", filterResult);
+
+			if (filterResult === true) {
+				vscode.commands.executeCommand('setContext', 'autoschematic.compareWithRemoteEnabled', true);
 			}
+		} catch (error) {
+			vscode.window.showErrorMessage(`Error calling filter function: ${error}`);
+			vscode.commands.executeCommand('setContext', 'autoschematic.compareWithRemoteEnabled', false);
+		}
+	});
 
-			try {
-				// Read the content of the selected file
-				// const document = await vscode.workspace.openTextDocument(fileUri);
-				// const originalContent = document.getText();
-
-				// Create the remote content (currently a placeholder)
-				//
-				const remoteContent = await client.sendRequest(ExecuteCommandRequest.type, {
-					command: "get",
-					arguments: [fileUri.path]
-				});
-
-				const remoteUri = fileUri.with({ scheme: 'autoschematic-remote', path: fileUri.path });
-
-				const diffTitle = `Compare ${fileUri.path.split('/').pop()} with Remote`;
-
-				// Register a content provider for our custom scheme
-				const provider = vscode.workspace.registerTextDocumentContentProvider('autoschematic-remote', {
-					provideTextDocumentContent(uri: vscode.Uri): string {
-						console.log(remoteContent);
-						return remoteContent;
-					}
-				});
-
-				context.subscriptions.push(provider);
-
-				vscode.commands.executeCommand('vscode.diff',
-					fileUri, // Original file URI
-					remoteUri, // Modified file URI (virtual)
-					diffTitle, // Title for the diff editor
-					{ preview: true } // Options
-				);
-				;
-			} catch (error) {
-				vscode.window.showErrorMessage(`Error comparing with remote: ${error}`);
-			}
-		})
-	);
-
+	// Subscribe to file open and change events
+	context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(document => {
+		vscode.commands.executeCommand('autoschematic.setCompareWithRemoteContext', document.uri);
+	}));
 
 	const serverOptions: ServerOptions = {
-		run: { command: 'autoschematic-lsp', transport: TransportKind.stdio },
-		debug: { command: 'autoschematic-lsp', transport: TransportKind.stdio }
+		run: { command: '/home/pete/prog/autoschematic/target/release/autoschematic-lsp', transport: TransportKind.stdio },
+		debug: { command: '/home/pete/prog/autoschematic/target/release/autoschematic-lsp', transport: TransportKind.stdio }
 	};
 
 	const clientOptions: LanguageClientOptions = {

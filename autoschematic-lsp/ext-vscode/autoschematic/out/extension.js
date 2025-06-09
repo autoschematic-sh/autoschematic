@@ -1,22 +1,22 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function (o, m, k, k2) {
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
     if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function () { return m[k]; } };
+      desc = { enumerable: true, get: function() { return m[k]; } };
     }
     Object.defineProperty(o, k2, desc);
-}) : (function (o, m, k, k2) {
+}) : (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     o[k2] = m[k];
 }));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function (o, v) {
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
     Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function (o, v) {
+}) : function(o, v) {
     o["default"] = v;
 });
 var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function (o) {
+    var ownKeys = function(o) {
         ownKeys = Object.getOwnPropertyNames || function (o) {
             var ar = [];
             for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
@@ -38,6 +38,7 @@ const vscode = __importStar(require("vscode"));
 const child_process = __importStar(require("child_process"));
 const util = __importStar(require("util"));
 const node_1 = require("vscode-languageclient/node");
+const connectorView = __importStar(require("./connectorView"));
 /**
  * Checks if a command exists in the system PATH
  * @param command The command to check
@@ -75,7 +76,8 @@ async function activate(context) {
             return; // Exit activation
         }
     }
-    context.subscriptions.push(vscode.commands.registerCommand('autoschematic.compareWithRemote', async (fileUri) => {
+    // Register a context menu command that is conditionally visible
+    vscode.commands.registerCommand('autoschematic.compareWithRemote', async (fileUri) => {
         if (!fileUri) {
             vscode.window.showErrorMessage('No file selected for comparison');
             return;
@@ -92,28 +94,56 @@ async function activate(context) {
             });
             const remoteUri = fileUri.with({ scheme: 'autoschematic-remote', path: fileUri.path });
             const diffTitle = `Compare ${fileUri.path.split('/').pop()} with Remote`;
+            console.log("remotecontent", remoteContent);
             // Register a content provider for our custom scheme
             const provider = vscode.workspace.registerTextDocumentContentProvider('autoschematic-remote', {
                 provideTextDocumentContent(uri) {
-                    console.log(remoteContent);
+                    console.log("remotecontent", remoteContent);
                     return remoteContent;
                 }
             });
             context.subscriptions.push(provider);
+            connectorView.activate(context);
             vscode.commands.executeCommand('vscode.diff', fileUri, // Original file URI
-                remoteUri, // Modified file URI (virtual)
-                diffTitle, // Title for the diff editor
-                { preview: true } // Options
+            remoteUri, // Modified file URI (virtual)
+            diffTitle, // Title for the diff editor
+            { preview: true } // Options
             );
             ;
         }
         catch (error) {
             vscode.window.showErrorMessage(`Error comparing with remote: ${error}`);
         }
+    });
+    // Update context menu visibility based on filter() result
+    vscode.commands.registerCommand('autoschematic.setCompareWithRemoteContext', async (fileUri) => {
+        if (!fileUri) {
+            vscode.commands.executeCommand('setContext', 'autoschematic.compareWithRemoteEnabled', false);
+            return;
+        }
+        try {
+            // Call the filter() function from the LSP
+            const filterResult = await client.sendRequest(node_1.ExecuteCommandRequest.type, {
+                command: "filter",
+                arguments: [fileUri.path]
+            });
+            console.log("Filter: ", fileUri.path, " result:", filterResult);
+            if (filterResult === true) {
+                vscode.commands.executeCommand('setContext', 'autoschematic.compareWithRemoteEnabled', true);
+            }
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Error calling filter function: ${error}`);
+            vscode.commands.executeCommand('setContext', 'autoschematic.compareWithRemoteEnabled', false);
+        }
+    });
+    // Subscribe to file open and change events
+    context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(document => {
+        vscode.commands.executeCommand('autoschematic.setCompareWithRemoteContext', document.uri);
     }));
     const serverOptions = {
-        run: { command: 'autoschematic-lsp', transport: node_1.TransportKind.stdio },
-        debug: { command: 'autoschematic-lsp', transport: node_1.TransportKind.stdio }
+        run: { command: '/home/pete/prog/autoschematic/target/release/autoschematic-lsp', transport: node_1.TransportKind.stdio },
+        debug: { command: '/home/pete/prog/autoschematic/target/release/autoschematic-lsp', transport: node_1.TransportKind.stdio }
     };
     const clientOptions = {
         documentSelector: [

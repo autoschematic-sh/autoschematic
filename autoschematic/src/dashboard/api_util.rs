@@ -4,6 +4,7 @@ use autoschematic_core::config::AutoschematicConfig;
 use octocrab::models::InstallationId;
 use reqwest::Response;
 use ron::error::SpannedResult;
+use ron_pfnsec_fork as ron;
 use secrecy::{ExposeSecret, SecretBox};
 use serde::{Deserialize, Serialize};
 

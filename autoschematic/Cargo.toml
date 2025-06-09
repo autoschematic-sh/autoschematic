@@ -19,7 +19,8 @@ debug = 1
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-autoschematic-core = { path = "../autoschematic-core", version = "0.4.0", features = []}
+autoschematic-core = { path = "../autoschematic-core", version = "0.4.0", features = [
+] }
 autoschematic-cli = { path = "../autoschematic-cli", version = "0.4.0" }
 anyhow = { version = "1.0.97", features = ["backtrace"] }
 askama = "0.14.0"
@@ -39,7 +40,8 @@ reqwest = { version = "0.12", default-features = false, features = [
     "json",
     "blocking",
 ] }
-ron = { path = "../../ron", version = "0.10.1" }
+#ron = { path = "../../ron", version = "0.10.1" }
+ron-pfnsec-fork = "0.11.0"
 secrecy = "0.10.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.117"
@@ -60,7 +62,10 @@ lazy_static = "1.5.0"
 clap = { version = "4.5.23", features = ["derive"] }
 libc = "0.2.169"
 hyper = "1.6.0"
-rustls = { version = "0.23.22", default-features = false, features = ["std", "ring"] }
+rustls = { version = "0.23.22", default-features = false, features = [
+    "std",
+    "ring",
+] }
 ecdsa = "0.16.8"
 signature = "2.2.0"
 hex = "0.4.3"

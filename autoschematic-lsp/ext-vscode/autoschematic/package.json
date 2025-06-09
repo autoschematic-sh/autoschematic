@@ -18,18 +18,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "autoschematic.import",
-        "title": "Autoschematic: Import"
-      },
-      {
-        "command": "autoschematic.plan",
-        "title": "Autoschematic: Plan"
-      },
-      {
-        "command": "autoschematic.apply",
-        "title": "Autoschematic: Apply"
-      },
-      {
         "command": "autoschematic.relaunch",
         "title": "Autoschematic: Relaunch"
       },
@@ -42,9 +30,34 @@
       "explorer/context": [
         {
           "command": "autoschematic.compareWithRemote",
-          "group": "navigation"
+          "group": "navigation@99",
+          "when": "autoschematic.compareWithRemoteEnabled"
         }
       ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "autoschematicStatusView",
+          "name": "Autoschematic Status"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "ron",
+        "extensions": [
+          ".ron"
+        ],
+        "aliases": [
+          "RON"
+        ]
+      }
+    ],
+    "configurationDefaults": {
+      "[ron]": {
+        "editor.defaultFormatter": "Autoschematic.autoschematic"
+      }
     }
   },
   "scripts": {

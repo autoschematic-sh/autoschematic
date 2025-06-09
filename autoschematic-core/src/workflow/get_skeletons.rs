@@ -1,7 +1,5 @@
 use std::{ffi::OsString, path::Path};
 
-use hyper::client::conn;
-
 use crate::{
     config::{AutoschematicConfig, ConnectorDef},
     connector::{FilterOutput, SkeletonOutput, parse::connector_shortname},

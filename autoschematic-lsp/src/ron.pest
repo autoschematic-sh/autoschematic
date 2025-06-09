@@ -114,18 +114,18 @@ bool = { "true" | "false" }
 option_some = { "Some" ~ "(" ~ value ~ ")" }
 option      = { "None" | option_some }
 
-// ── collections ──
-list       = { "[" ~ ( value ~ ( comma ~ value )* ~ comma? )? ~ "]" }
-map_entry  = { value ~ ":" ~ value }
-map        = { "{" ~ ( map_entry ~ ( comma ~ map_entry )* ~ comma? )? ~ "}" }
-tuple      = { "(" ~ ( value ~ ( comma ~ value )* ~ comma? )? ~ ")" }
-
 // ── structs ──
 named_field  =  { ident ~ ":" ~ value }
 unit_struct  =  { ident | "()" }
 tuple_struct =  { ident? ~ tuple }
 named_struct =  { ident? ~ "(" ~ ( named_field ~ ( comma ~ named_field )* ~ comma? )? ~ ")" }
-struct       =  { unit_struct | tuple_struct | named_struct }
+struct       =  { named_struct | tuple_struct | unit_struct }
+
+// ── collections ──
+list       = { "[" ~ ( value ~ ( comma ~ value )* ~ comma? )? ~ "]" }
+map_entry  = { value ~ ":" ~ value }
+map        = { "{" ~ ( map_entry ~ ( comma ~ map_entry )* ~ comma? )? ~ "}" }
+tuple      = { "(" ~ ( value ~ ( comma ~ value )* ~ comma? )? ~ ")" }
 
 // ── enums ──
 enum_variant_unit   = { ident }

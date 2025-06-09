@@ -1,9 +1,7 @@
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::bail;
+use ron_pfnsec_fork as ron;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -31,7 +29,7 @@ pub async fn load_lockfile() -> anyhow::Result<AutoschematicLockfile> {
     let repo_root = util::repo_root()?;
     let lockfile_path = repo_root.join("autoschematic.lock.ron");
     if !lockfile_path.is_file() {
-        return Ok(AutoschematicLockfile::default())
+        return Ok(AutoschematicLockfile::default());
     }
     let lockfile_s = tokio::fs::read_to_string(&lockfile_path).await?;
 
@@ -39,10 +37,7 @@ pub async fn load_lockfile() -> anyhow::Result<AutoschematicLockfile> {
         Ok(it) => it,
         Err(err) => {
             return Err(error::AutoschematicError {
-                kind: AutoschematicErrorType::InternalError(anyhow::anyhow!(
-                    "Bad lockfile: {}",
-                    err
-                )),
+                kind: AutoschematicErrorType::InternalError(anyhow::anyhow!("Bad lockfile: {}", err)),
             }
             .into());
         }

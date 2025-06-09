@@ -46,6 +46,7 @@ use indexmap::IndexMap;
 use octocrab::models::webhook_events::WebhookEvent;
 use once_cell::{self, sync::OnceCell};
 use repolock::{RepoLockStore, repolockstore_init};
+use ron_pfnsec_fork as ron;
 use serde::Deserialize;
 use serde_json;
 use std::{env, path::PathBuf};
@@ -88,7 +89,8 @@ pub fn main() {
         // build system with a multi-thread tokio runtime.
         tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap()
     })
-    .block_on(async_main()).unwrap();
+    .block_on(async_main())
+    .unwrap();
 }
 
 async fn async_main() -> anyhow::Result<()> {

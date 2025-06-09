@@ -9,14 +9,13 @@ use std::{
 
 use crate::{
     connector::{
-        Connector, ConnectorOutbox, FilterOutput, GetResourceOutput, OpExecOutput, OpPlanOutput, SkeletonOutput,
-        VirtToPhyOutput,
+        Connector, ConnectorOutbox, DocIdent, FilterOutput, GetDocOutput, GetResourceOutput, OpExecOutput, OpPlanOutput, SkeletonOutput, VirtToPhyOutput
     },
     diag::DiagnosticOutput,
     error::ErrorMessage,
     keystore::KeyStore,
     secret::SealedSecret,
-    tarpc_bridge::{TarpcConnectorClient, launch_client},
+    tarpc_bridge::{launch_client, TarpcConnectorClient},
     util::passthrough_secrets_from_env,
 };
 use anyhow::{Context, bail};
@@ -161,6 +160,13 @@ impl Connector for SandboxConnectorHandle {
         self.still_alive().context(format!("Before get_skeletons()"))?;
         let res = Connector::get_skeletons(&self.client).await;
         self.still_alive().context(format!("After get_skeletons()"))?;
+        res
+    }
+
+    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocOutput>, anyhow::Error> {
+        self.still_alive().context(format!("Before get_docstring()"))?;
+        let res = Connector::get_docstring(&self.client, addr, ident).await;
+        self.still_alive().context(format!("After get_docstring()"))?;
         res
     }
 

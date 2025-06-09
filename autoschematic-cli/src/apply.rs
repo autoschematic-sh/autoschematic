@@ -7,6 +7,7 @@ use anyhow::{Context, bail};
 use dialoguer::Confirm;
 use rand::Rng;
 use ron::ser::PrettyConfig;
+use ron_pfnsec_fork as ron;
 
 use autoschematic_core::{
     config::AutoschematicConfig,

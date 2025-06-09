@@ -5,7 +5,7 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use regex::Regex;
 
 use crate::connector::{OutputMapFile, ResourceAddress};
@@ -79,10 +79,7 @@ pub fn unbuild_out_path(prefix: &Path, addr: &Path) -> anyhow::Result<PathBuf> {
     Ok(parent.join(new_filename))
 }
 
-pub fn load_resource_outputs(
-    prefix: &Path,
-    addr: &impl ResourceAddress,
-) -> anyhow::Result<Option<OutputMapFile>> {
+pub fn load_resource_outputs(prefix: &Path, addr: &impl ResourceAddress) -> anyhow::Result<Option<OutputMapFile>> {
     let addr = addr.to_path_buf();
     let output_path = build_out_path(prefix, &addr);
 
@@ -98,12 +95,10 @@ pub fn load_resource_outputs(
     }
 }
 
-// Given a "physical" addr, if its output file
-// is a symlink, reverse it to resolve it to a "virtual" addr.
-pub fn output_phy_to_virt<A: ResourceAddress>(
-    prefix: &Path,
-    addr: &A,
-) -> anyhow::Result<Option<A>> {
+/// Given a "physical" addr, if its output file
+/// is a symlink, reverse it to resolve it to a "virtual" addr.
+/// Otherwise, return the original addr (a trivial mapping)
+pub fn output_phy_to_virt<A: ResourceAddress>(prefix: &Path, addr: &A) -> anyhow::Result<Option<A>> {
     let output_path = build_out_path(prefix, &addr.to_path_buf());
 
     if output_path.exists() {
@@ -111,8 +106,7 @@ pub fn output_phy_to_virt<A: ResourceAddress>(
             let Some(parent) = output_path.parent() else {
                 bail!("output_path.parent() returned None!")
             };
-            let virt_out_path =
-                std::fs::canonicalize(parent.join(&std::fs::read_link(&output_path)?))?;
+            let virt_out_path = std::fs::canonicalize(parent.join(&std::fs::read_link(&output_path)?))?;
             // HACK ALERT HACK ALERT
             // If we change the assumption that all connectors and commands run from the root of the repository,
             // or if a connector runs cd for some reason, this will break!
@@ -133,11 +127,7 @@ pub fn get_output_or_bail(output_map: &OutputMapFile, key: &str) -> anyhow::Resu
     Ok(output.to_string())
 }
 
-pub fn load_resource_output_key(
-    prefix: &Path,
-    addr: &impl ResourceAddress,
-    key: &str,
-) -> anyhow::Result<Option<String>> {
+pub fn load_resource_output_key(prefix: &Path, addr: &impl ResourceAddress, key: &str) -> anyhow::Result<Option<String>> {
     let Some(outputs) = load_resource_outputs(prefix, addr)? else {
         return Ok(None);
     };
@@ -159,17 +149,15 @@ pub fn read_mounted_secret(prefix: &Path, secret_ref: &str) -> anyhow::Result<St
     }
 }
 
-
-/// Connectors may save time in list() by avoiding fetching 
+/// Connectors may save time in list() by avoiding fetching
 /// certain resource types if the subpath argument would filter them out
 /// from the results anyway. This is a utility function to check this case.
 /// If the subpath select
-/// For example: 
+/// For example:
 /// subpath_filter("aws/s3/us-east-1", "./") -> true
 /// subpath_filter("aws/s3/us-east-1", "aws/s3/eu-west-2") -> false
 /// subpath_filter("aws/s3/us-east-1", "aws/s3/us-east-1/buckets") -> true
 /// subpath_filter("aws/ecs/*/", "aws/s3/us-east-1/buckets") -> true
 pub fn subpath_filter(check_path: &Path, subpath: &Path) -> bool {
-
     true
 }

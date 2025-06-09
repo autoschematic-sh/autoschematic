@@ -1,28 +1,36 @@
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
+    fmt::format,
     os::unix::ffi::OsStringExt,
     path::{Path, PathBuf},
+    u32,
 };
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use autoschematic_core::{
     config::AutoschematicConfig,
     config_rbac::AutoschematicRbacConfig,
+    connector::FilterOutput,
     connector_cache::ConnectorCache,
     lockfile::AutoschematicLockfile,
     manifest::ConnectorManifest,
     util::{RON, split_prefix_addr},
-    workflow::{apply::apply, filter::filter, get::get, import::import_all, plan::plan},
+    workflow::{self, apply::apply, filter::filter, get::get, get_docstring::get_docstring, import::import_all, plan::plan},
 };
 use lsp_types::*;
+use path_at::{ident_at, path_at};
+use ron_pfnsec_fork as ron;
 use serde::de::DeserializeOwned;
 use tokio::sync::RwLock;
 use tower_lsp_server::{Client, LanguageServer, LspService, Server, jsonrpc::Error as LspError, lsp_types};
 use util::{diag_to_lsp, lsp_error, lsp_param_to_path};
 
+use crate::reindent::reindent;
+
 pub mod parse;
-// pub mod path_at;
+pub mod path_at;
+pub mod reindent;
 pub mod util;
 
 struct Backend {
@@ -34,11 +42,13 @@ struct Backend {
 
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult, LspError> {
-        self.try_reload_config().await;
+        let _ = self.try_reload_config().await;
 
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
-                // hover_provider: Some(HoverProviderCapability::Simple(true)),
+                document_formatting_provider: Some(OneOf::Left(true)),
+
+                hover_provider: Some(HoverProviderCapability::Simple(true)),
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
                 ..Default::default()
             },
@@ -74,15 +84,87 @@ impl LanguageServer for Backend {
 
     async fn hover(&self, params: HoverParams) -> tower_lsp_server::jsonrpc::Result<Option<Hover>> {
         eprintln!("{:?}", params);
+
+        let file_contents = self
+            .load_file_uri(&params.text_document_position_params.text_document.uri)
+            .await
+            .unwrap();
+
+        let line = params.text_document_position_params.position.line + 1;
+        let col = params.text_document_position_params.position.character + 1;
+
+        // let path = path_at(&file_contents, line as usize, col as usize);
+        let Ok(ident) = ident_at(&file_contents, line as usize, col as usize) else {
+            return Ok(None);
+        };
+
+        let Ok(file_path) = self.uri_to_local_path(&params.text_document_position_params.text_document.uri) else {
+            return Ok(None);
+        };
+
+        // let docstring = workflow::get_docstring
+        if let Some(ident) = ident {
+            let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+                eprintln!("No config set");
+                return Ok(None);
+            };
+
+            let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &PathBuf::from(file_path)) else {
+                eprintln!("Path not in prefix!");
+                return Ok(None);
+            };
+
+            if let Ok(Some(res)) = get_docstring(autoschematic_config, &self.connector_cache, None, &prefix, &addr, ident).await
+            {
+                eprintln!("Get_docstring returned Some! {:?}", res);
+                return Ok(Some(Hover {
+                    contents: HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::PlainText,
+                        value: format!("{}", res.markdown),
+                    }),
+                    range: None,
+                }));
+            }
+        }
+
         Ok(None)
     }
 
-    async fn execute_command(&self, params: ExecuteCommandParams) -> tower_lsp_server::jsonrpc::Result<Option<LSPAny>> {
-        self.try_load_config().await;
+    async fn formatting(&self, params: DocumentFormattingParams) -> tower_lsp_server::jsonrpc::Result<Option<Vec<TextEdit>>> {
+        eprintln!("formatting: {:#?}", params.text_document.uri);
+        // if !params.text_document.uri.as_str().ends_with(".ron") {
+        //     return Ok(None);
+        // }
 
-        let overwrite_existing = true;
+        let file_contents = self.load_file_uri(&params.text_document.uri).await.unwrap();
+
+        match reindent(&file_contents) {
+            Ok(new_contents) => Ok(Some(vec![TextEdit {
+                range: Range {
+                    start: Position { line: 0, character: 0 },
+                    end: Position {
+                        line: u32::MAX,
+                        character: u32::MAX,
+                    },
+                },
+                new_text: new_contents,
+            }])),
+            Err(e) => Err(lsp_error(e)),
+        }
+    }
+
+    async fn execute_command(&self, params: ExecuteCommandParams) -> tower_lsp_server::jsonrpc::Result<Option<LSPAny>> {
+        match self.try_load_config().await {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("{}", e);
+                return Err(lsp_error(e.into()));
+            }
+        }
+
         let keystore = None;
         eprintln!("execute_command: {:?}", params);
+
         match params.command.as_str() {
             "relaunch" => {
                 *self.autoschematic_config.write().await = None;
@@ -111,43 +193,43 @@ impl LanguageServer for Backend {
                     return Ok(None);
                 };
 
-                if let Ok(Some(res)) = get(autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await {
-                    eprintln!("Get returned Some! {:?}", res);
-                    match String::from_utf8(res.into_vec()) {
-                        Ok(s) => {
-                            return Ok(Some(serde_json::to_value(s).unwrap()));
-                        }
-                        Err(e) => {
-                            return Ok(None);
+                match get(autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await {
+                    Ok(Some(res)) => {
+                        eprintln!("Get returned Some! {:?}", res);
+                        match String::from_utf8(res.into_vec()) {
+                            Ok(s) => {
+                                return Ok(Some(serde_json::to_value(s).unwrap()));
+                            }
+                            Err(e) => {
+                                return Err(lsp_error(e.into()));
+                            }
                         }
                     }
+                    Ok(None) => return Ok(None),
+                    Err(e) => {
+                        return Err(lsp_error(e.into()));
+                    }
                 }
-
-                return Ok(None);
             }
             "filter" => {
-                if params.arguments.len() != 1 {
-                    return Ok(Some(serde_json::to_value(false).unwrap()));
-                }
-
-                let Some(path_arg) = params.arguments.get(0) else {
-                    return Ok(Some(serde_json::to_value(false).unwrap()));
-                };
-
-                let Ok(file_path) = serde_json::from_value::<String>(path_arg.clone()) else {
-                    return Ok(Some(serde_json::to_value(false).unwrap()));
+                let Some(path) = lsp_param_to_path(params) else {
+                    eprintln!("Path is None!");
+                    return Ok(None);
                 };
 
                 let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+                    eprintln!("Config not set!");
                     return Ok(Some(serde_json::to_value(false).unwrap()));
                 };
 
-                let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &PathBuf::from(file_path)) else {
+                let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &PathBuf::from(path)) else {
+                    eprintln!("Path not in prefix!");
                     return Ok(Some(serde_json::to_value(false).unwrap()));
                 };
 
                 if let Ok(res) = filter(autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await {
-                    return Ok(Some(serde_json::to_value(res).unwrap()));
+                    eprintln!("Filter: res: {:?}", res);
+                    return Ok(Some(serde_json::to_value(res == FilterOutput::Resource).unwrap()));
                 }
 
                 return Ok(Some(serde_json::to_value(false).unwrap()));
@@ -190,19 +272,11 @@ impl Backend {
         Ok(())
     }
     async fn try_reload_config(&self) -> anyhow::Result<()> {
+        eprintln!("try_reload_config");
         let config: Option<AutoschematicConfig> = if PathBuf::from("autoschematic.ron").is_file() {
             match tokio::fs::read_to_string("autoschematic.ron").await {
                 Ok(config_body) => match RON.from_str(&config_body) {
-                    Ok(new_config) => {
-                        if let Some(current_config) = &*self.autoschematic_config.read().await {
-                            if new_config != *current_config {
-                                self.load_connectors().await?;
-                            }
-                        } else {
-                            self.load_connectors().await?;
-                        }
-                        Some(new_config)
-                    }
+                    Ok(new_config) => Some(new_config),
                     Err(e) => {
                         eprintln!("Failed to parse autoschematic.ron: {}", e);
                         self.client
@@ -224,6 +298,7 @@ impl Backend {
         };
 
         *self.autoschematic_config.write().await = config;
+        self.load_connectors().await?;
 
         Ok(())
     }
@@ -302,6 +377,7 @@ impl Backend {
 
     async fn load_connectors(&self) -> anyhow::Result<()> {
         let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+            eprintln!("load_connectors: config none!");
             return Ok(());
         };
 
@@ -354,11 +430,8 @@ impl Backend {
                         let inner_error = deserializer.span_error(e.inner().clone());
                         return Ok(Some(Diagnostic {
                             range: Range::new(
-                                Position::new(
-                                    inner_error.position_start.line as u32 - 1,
-                                    inner_error.position_start.col as u32 - 1,
-                                ),
-                                Position::new(inner_error.position_end.line as u32 - 1, inner_error.position_end.col as u32),
+                                Position::new(inner_error.span.start.line as u32 - 1, inner_error.span.start.col as u32 - 1),
+                                Position::new(inner_error.span.end.line as u32 - 1, inner_error.span.end.col as u32),
                             ),
                             severity: Some(DiagnosticSeverity::ERROR),
                             // message: format!("{} at {}", e, path),
@@ -371,8 +444,8 @@ impl Backend {
             Err(e) => {
                 return Ok(Some(Diagnostic {
                     range: Range::new(
-                        Position::new(e.position_start.line as u32 - 1, e.position_start.col as u32 - 1),
-                        Position::new(e.position_end.line as u32 - 1, e.position_end.col as u32),
+                        Position::new(e.span.start.line as u32 - 1, e.span.start.col as u32 - 1),
+                        Position::new(e.span.end.line as u32 - 1, e.span.end.col as u32),
                     ),
                     severity: Some(DiagnosticSeverity::ERROR),
                     // message: format!("{} at {}", e, path),
@@ -383,6 +456,36 @@ impl Backend {
         };
 
         Ok(None)
+    }
+
+    fn uri_to_local_path(&self, uri: &Uri) -> anyhow::Result<PathBuf> {
+        let Some(scheme) = uri.scheme() else { bail!("No uri scheme") };
+
+        if !scheme.eq_lowercase("file") {
+            bail!("Unknown uri scheme {}", scheme)
+        }
+
+        let file_path = PathBuf::from(uri.path().as_str());
+
+        let Ok(file_path) = file_path.strip_prefix(std::env::current_dir().unwrap()) else {
+            bail!("Outside of working dir");
+        };
+
+        Ok(file_path.into())
+    }
+
+    async fn load_file_uri(&self, uri: &Uri) -> anyhow::Result<String> {
+        let Some(scheme) = uri.scheme() else { bail!("No uri scheme") };
+
+        if !scheme.eq_lowercase("file") {
+            bail!("Unknown uri scheme {}", scheme)
+        }
+
+        let path = PathBuf::from(uri.path().as_str());
+
+        let res = tokio::fs::read_to_string(path).await?;
+
+        Ok(res)
     }
 
     async fn try_deserialize(&self, uri: &Uri, text: &str) -> Result<Vec<Diagnostic>, anyhow::Error> {
@@ -410,7 +513,7 @@ impl Backend {
 
         match path.to_str().unwrap_or_default() {
             "autoschematic.ron" => {
-                // self.try_reload_config().await;
+                self.try_reload_config().await;
 
                 if let Some(diag) = self.check::<AutoschematicConfig>(text).await? {
                     res.push(diag);

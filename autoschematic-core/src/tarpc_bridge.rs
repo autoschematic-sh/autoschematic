@@ -26,8 +26,8 @@ use tracing_subscriber::EnvFilter;
 
 use crate::{
     connector::{
-        Connector, ConnectorOutbox, FilterOutput, GetResourceOutput, OpExecOutput, OpPlanOutput, SkeletonOutput,
-        VirtToPhyOutput,
+        Connector, ConnectorOutbox, DocIdent, FilterOutput, GetDocOutput, GetResourceOutput, OpExecOutput, OpPlanOutput,
+        SkeletonOutput, VirtToPhyOutput,
     },
     diag::DiagnosticOutput,
     error::ErrorMessage,
@@ -64,6 +64,7 @@ pub trait TarpcConnector {
     async fn addr_virt_to_phy(addr: PathBuf) -> Result<VirtToPhyOutput, ErrorMessage>;
     async fn addr_phy_to_virt(addr: PathBuf) -> Result<Option<PathBuf>, ErrorMessage>;
     async fn get_skeletons() -> Result<Vec<SkeletonOutput>, ErrorMessage>;
+    async fn get_docstring(addr: PathBuf, ident: DocIdent) -> Result<Option<GetDocOutput>, ErrorMessage>;
     async fn eq(addr: PathBuf, a: OsString, b: OsString) -> Result<bool, ErrorMessage>;
     async fn diag(addr: PathBuf, a: OsString) -> Result<DiagnosticOutput, ErrorMessage>;
 }
@@ -137,6 +138,15 @@ impl TarpcConnector for ConnectorServer {
 
     async fn get_skeletons(self, _context: ::tarpc::context::Context) -> Result<Vec<SkeletonOutput>, ErrorMessage> {
         Ok(Connector::get_skeletons(&*self.connector.lock().await).await?)
+    }
+
+    async fn get_docstring(
+        self,
+        _context: ::tarpc::context::Context,
+        addr: PathBuf,
+        ident: DocIdent,
+    ) -> Result<Option<GetDocOutput>, ErrorMessage> {
+        Ok(Connector::get_docstring(&*self.connector.lock().await, &addr, ident).await?)
     }
 
     async fn eq(
@@ -222,6 +232,15 @@ impl<C: Connector> TarpcConnector for C {
 
     async fn get_skeletons(self, _context: ::tarpc::context::Context) -> Result<Vec<SkeletonOutput>, ErrorMessage> {
         Ok(Connector::get_skeletons(&self).await?)
+    }
+
+    async fn get_docstring(
+        self,
+        _context: ::tarpc::context::Context,
+        addr: PathBuf,
+        ident: DocIdent,
+    ) -> Result<Option<GetDocOutput>, ErrorMessage> {
+        Ok(Connector::get_docstring(&self, &addr, ident).await?)
     }
 
     async fn eq(
@@ -314,6 +333,10 @@ impl Connector for TarpcConnectorClient {
 
     async fn get_skeletons(&self) -> Result<Vec<SkeletonOutput>, anyhow::Error> {
         Ok(self.get_skeletons(context_1m_deadline()).await??)
+    }
+
+    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocOutput>, anyhow::Error> {
+        Ok(self.get_docstring(context_1m_deadline(), addr.to_path_buf(), ident).await??)
     }
 
     async fn eq(&self, addr: &Path, a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error> {

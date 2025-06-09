@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use anyhow::bail;
-use ron::ser::PrettyConfig;
 
 use autoschematic_core::{
     config::AutoschematicConfig,

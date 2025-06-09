@@ -12,6 +12,7 @@ use std::{
 use git2::Repository;
 use regex::Regex;
 use ron::error::SpannedResult;
+use ron_pfnsec_fork as ron;
 use serde::{Serialize, de::DeserializeOwned};
 use similar::{ChangeTag, TextDiff};
 
@@ -94,7 +95,6 @@ lazy_static::lazy_static! {
     .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME);
 }
 
-
 pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error> {
     let a = str::from_utf8(a.as_bytes())?;
     let b = str::from_utf8(b.as_bytes())?;
@@ -123,12 +123,12 @@ pub fn ron_check_syntax<T: DeserializeOwned>(text: &OsStr) -> Result<DiagnosticO
                         diagnostics: vec![Diagnostic {
                             span: DiagnosticSpan {
                                 start: DiagnosticPosition {
-                                    line: inner_error.position_start.line as u32,
-                                    col: inner_error.position_start.col as u32,
+                                    line: inner_error.span.start.line as u32,
+                                    col: inner_error.span.start.col as u32,
                                 },
                                 end: DiagnosticPosition {
-                                    line: inner_error.position_end.line as u32,
-                                    col: inner_error.position_end.col as u32,
+                                    line: inner_error.span.end.line as u32,
+                                    col: inner_error.span.end.col as u32,
                                 },
                             },
                             severity: DiagnosticSeverity::ERROR as u8,
@@ -143,12 +143,12 @@ pub fn ron_check_syntax<T: DeserializeOwned>(text: &OsStr) -> Result<DiagnosticO
                 diagnostics: vec![Diagnostic {
                     span: DiagnosticSpan {
                         start: DiagnosticPosition {
-                            line: e.position_start.line as u32,
-                            col: e.position_start.col as u32,
+                            line: e.span.start.line as u32,
+                            col: e.span.start.col as u32,
                         },
                         end: DiagnosticPosition {
-                            line: e.position_end.line as u32,
-                            col: e.position_end.col as u32,
+                            line: e.span.end.line as u32,
+                            col: e.span.end.col as u32,
                         },
                     },
                     severity: DiagnosticSeverity::ERROR as u8,
