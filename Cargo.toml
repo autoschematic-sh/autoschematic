@@ -2,8 +2,8 @@
 
 members = [
     "autoschematic",
+    "autoschematic-server",
     "autoschematic-core",
-    "autoschematic-cli",
     "autoschematic-lsp",
     "connectors/autoschematic-connector-python-host",
 ]
