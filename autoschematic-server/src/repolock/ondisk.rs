@@ -2,7 +2,6 @@ use std::{
     fs::{File, OpenOptions},
     path::{Path, PathBuf},
     rc::Rc,
-    sync::Arc,
 };
 
 use anyhow::bail;
@@ -32,7 +31,7 @@ impl RepoLockStore for OnDiskLockStore {
 
     fn try_lock(&self, path: &Path) -> anyhow::Result<Box<dyn super::RepoLock>> {
         let file = OpenOptions::new()
-            .write(true)
+            
             .create(true)
             .append(true)
             .open(self.dir.join(path))?;
@@ -43,7 +42,7 @@ impl RepoLockStore for OnDiskLockStore {
 
         let lock = OnDiskLock { lock: guard };
 
-        return Ok(Box::new(lock));
+        Ok(Box::new(lock))
     }
 }
 

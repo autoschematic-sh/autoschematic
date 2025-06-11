@@ -1,6 +1,5 @@
 use std::{
     fs::{self},
-    os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
 };
 
@@ -92,9 +91,9 @@ impl ChangeSet {
                     index.write()?;
 
                     if let Some(outputs) = get_resource_output.outputs {
-                        if outputs.len() > 0 {
+                        if !outputs.is_empty() {
                             let virt_output_path = build_out_path(prefix, &virt_addr);
-                            let phy_output_path = build_out_path(prefix, &phy_addr);
+                            let phy_output_path = build_out_path(prefix, phy_addr);
 
                             if let Some(virt_output_path) = write_virt_output_file(&virt_output_path, &outputs, true)? {
                                 self.git_add(repo, &virt_output_path)?;
@@ -182,10 +181,7 @@ impl ChangeSet {
                         match inbox.recv().await {
                             Ok(Some(stdout)) => {
                                 let res = append_run_log(&sender_trace_handle, stdout).await;
-                                match res {
-                                    Ok(_) => {}
-                                    Err(_) => {}
-                                }
+                                if let Ok(_) = res {}
                             }
                             Err(RecvError::Closed) => break,
                             _ => {}
@@ -258,7 +254,7 @@ impl ChangeSet {
                         // Typically, GitHub expects:
                         //   - Username: "x-access-token"
                         //   - Password: "<YOUR_TOKEN>"
-                        Cred::userpass_plaintext("x-access-token", &self.token.expose_secret())
+                        Cred::userpass_plaintext("x-access-token", self.token.expose_secret())
                     });
 
                     let mut push_options = PushOptions::new();

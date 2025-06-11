@@ -118,8 +118,7 @@ pub fn connector_shortname(name: &str) -> Result<String, AutoschematicError> {
                     let Some(caps) = re.captures(path) else {
                         return Err(AutoschematicError {
                             kind: AutoschematicErrorType::InvalidConnectorString(name.to_string()),
-                        }
-                        .into());
+                        });
                     };
 
                     // let binary_path = &caps["binary_path"];

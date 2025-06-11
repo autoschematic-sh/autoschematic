@@ -232,7 +232,7 @@ pub async fn spawn_task(
                 TaskRegistryEntry {
                     broadcast: registry_broadcast,
                     outbox: registry_outbox,
-                    join_handle: join_handle,
+                    join_handle,
                     state: state::TaskState::Stopped,
                 },
             );

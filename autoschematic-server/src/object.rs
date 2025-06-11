@@ -66,9 +66,9 @@ pub fn sort_objects_by_apply_order(objects: &Vec<Object>) -> Vec<Object> {
     let mut objects = created_obj;
     objects.append(&mut deleted_obj);
 
-    let objects = objects.into_iter().map(|o| o.clone()).collect();
+    
 
-    objects
+    objects.into_iter().cloned().collect()
 }
 
 #[cfg(test)]

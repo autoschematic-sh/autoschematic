@@ -91,7 +91,7 @@ impl ChangeSet {
                     }
                 });
 
-                if plan_report.connector_ops.len() > 0 {
+                if !plan_report.connector_ops.is_empty() {
                     let file_check_run_id = self
                         .create_check_run(None, &check_run_name, &check_run_url, CheckRunStatus::InProgress, None)
                         .await?;
@@ -120,10 +120,10 @@ impl ChangeSet {
                         match res {
                             Ok(op_exec_output) => {
                                 if let Some(outputs) = &op_exec_output.outputs {
-                                    if outputs.len() > 0 {
+                                    if !outputs.is_empty() {
                                         let virt_output_path = build_out_path(&PathBuf::from(&prefix), &virt_addr);
 
-                                        if let Some(_) = write_virt_output_file(&virt_output_path, &outputs, true)? {
+                                        if let Some(_) = write_virt_output_file(&virt_output_path, outputs, true)? {
                                             if let VirtToPhyOutput::Present(phy_addr) =
                                                 connector.addr_virt_to_phy(&virt_addr).await?
                                             {
@@ -139,19 +139,17 @@ impl ChangeSet {
 
                                                 wrote_files.push(virt_output_path);
                                             }
-                                        } else {
-                                            if let VirtToPhyOutput::Present(phy_addr) =
-                                                connector.addr_virt_to_phy(&virt_addr).await?
-                                            {
-                                                let phy_output_path = build_out_path(&PathBuf::from(&prefix), &phy_addr);
+                                        } else if let VirtToPhyOutput::Present(phy_addr) =
+                                            connector.addr_virt_to_phy(&virt_addr).await?
+                                        {
+                                            let phy_output_path = build_out_path(&PathBuf::from(&prefix), &phy_addr);
 
-                                                if phy_addr != virt_addr {
-                                                    unlink_phy_output_file(&phy_output_path)?;
-                                                    wrote_files.push(phy_output_path);
-                                                }
-
-                                                wrote_files.push(virt_output_path);
+                                            if phy_addr != virt_addr {
+                                                unlink_phy_output_file(&phy_output_path)?;
+                                                wrote_files.push(phy_output_path);
                                             }
+
+                                            wrote_files.push(virt_output_path);
                                         }
                                     }
                                 }
@@ -199,7 +197,7 @@ impl ChangeSet {
                             apply_report_set.apply_reports.push(ApplyReportOld {
                                 connector_name: plan_report.connector_name.clone(),
                                 prefix: prefix.clone(),
-                                virt_addr: virt_addr,
+                                virt_addr,
                                 phy_addr: report_phy_addr,
                                 wrote_files,
                                 outputs: op_exec_outputs,

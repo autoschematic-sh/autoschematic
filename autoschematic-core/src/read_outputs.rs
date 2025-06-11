@@ -81,7 +81,7 @@ pub fn template_config(prefix: &Path, config: &str) -> anyhow::Result<TemplateRe
 
     Ok(TemplateResourceResult {
         body: output.into_owned(),
-        missing: missing,
+        missing,
     })
 }
 

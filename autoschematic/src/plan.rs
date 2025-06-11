@@ -1,9 +1,9 @@
 use autoschematic_core::{
-    connector_cache::{self, ConnectorCache},
+    connector_cache::ConnectorCache,
     git_util::get_staged_files,
 };
 
-use crate::{config::load_autoschematic_config, ui};
+use crate::config::load_autoschematic_config;
 
 pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: &Option<String>) -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;
@@ -18,7 +18,7 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
 
     for path in staged_files {
         let plan_report =
-            autoschematic_core::workflow::plan::plan(&config, &connector_cache, keystore, &connector, &path).await?;
+            autoschematic_core::workflow::plan::plan(&config, &connector_cache, keystore, connector, &path).await?;
 
         println!("{:?}", plan_report);
     }

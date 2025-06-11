@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use crate::{
@@ -55,7 +55,7 @@ pub async fn spawn_connector(
         #[cfg(not(feature = "sandbox"))]
         super::r#type::ConnectorType::BinaryTarpc(binary_path, short_name) => Ok((
             Box::new(
-                unsandbox::launch_server_binary(binary_path, &short_name, prefix, &env, outbox, keystore)
+                unsandbox::launch_server_binary(binary_path, short_name, prefix, env, outbox, keystore)
                     .await
                     .context("launch_server_binary()")?,
             ) as Box<dyn Connector>,

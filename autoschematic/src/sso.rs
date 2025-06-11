@@ -6,7 +6,6 @@ use oauth2::{
     DeviceAuthorizationUrl, EmptyExtraDeviceAuthorizationFields, Scope, TokenResponse,
     TokenUrl,
 };
-use webbrowser;
 
 const CLIENT_ID: &str = "GITHUB_CLIENT_ID"; 
 
@@ -36,7 +35,7 @@ pub async fn login_via_github() -> anyhow::Result<AccessToken> {
     println!("{:?}", details);
 
     let verify_url = details.verification_uri().to_string();
-    let full_url = details.verification_uri_complete().map(|u| u);
+    let full_url = details.verification_uri_complete();
     let user_code = details.user_code().secret();
 
     if let Some(url) = full_url {

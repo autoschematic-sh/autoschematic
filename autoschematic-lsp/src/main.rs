@@ -1,7 +1,5 @@
 use std::{
     collections::HashMap,
-    ffi::{OsStr, OsString},
-    fmt::format,
     os::unix::ffi::OsStringExt,
     path::{Path, PathBuf},
     u32,
@@ -16,10 +14,10 @@ use autoschematic_core::{
     // lockfile::AutoschematicLockfile,
     manifest::ConnectorManifest,
     util::{RON, split_prefix_addr},
-    workflow::{self, apply::apply, filter::filter, get::get, get_docstring::get_docstring, import::import_all, plan::plan},
+    workflow::{filter::filter, get::get, get_docstring::get_docstring},
 };
 use lsp_types::*;
-use path_at::{ident_at, path_at};
+use path_at::ident_at;
 use ron_pfnsec_fork as ron;
 use serde::de::DeserializeOwned;
 use tokio::sync::RwLock;
@@ -109,7 +107,7 @@ impl LanguageServer for Backend {
                 return Ok(None);
             };
 
-            let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &PathBuf::from(file_path)) else {
+            let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &file_path) else {
                 eprintln!("Path not in prefix!");
                 return Ok(None);
             };
@@ -120,7 +118,7 @@ impl LanguageServer for Backend {
                 return Ok(Some(Hover {
                     contents: HoverContents::Markup(MarkupContent {
                         kind: MarkupKind::PlainText,
-                        value: format!("{}", res.markdown),
+                        value: res.markdown.to_string(),
                     }),
                     range: None,
                 }));
@@ -158,7 +156,7 @@ impl LanguageServer for Backend {
             Ok(_) => {}
             Err(e) => {
                 eprintln!("{}", e);
-                return Err(lsp_error(e.into()));
+                return Err(lsp_error(e));
             }
         }
 
@@ -173,7 +171,7 @@ impl LanguageServer for Backend {
                     Ok(_) => {}
                     Err(e) => {
                         eprintln!("{}", e);
-                        return Err(lsp_error(e.into()));
+                        return Err(lsp_error(e));
                     }
                 }
             }
@@ -188,7 +186,7 @@ impl LanguageServer for Backend {
                     return Ok(None);
                 };
 
-                let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &PathBuf::from(path)) else {
+                let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &path) else {
                     eprintln!("Path not in prefix!");
                     return Ok(None);
                 };
@@ -222,7 +220,7 @@ impl LanguageServer for Backend {
                     return Ok(Some(serde_json::to_value(false).unwrap()));
                 };
 
-                let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &PathBuf::from(path)) else {
+                let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &path) else {
                     eprintln!("Path not in prefix!");
                     return Ok(Some(serde_json::to_value(false).unwrap()));
                 };
@@ -420,7 +418,7 @@ impl Backend {
 
     // Generic helper that runs serde and converts the error
     async fn check<T: DeserializeOwned>(&self, text: &str) -> Result<Option<Diagnostic>, anyhow::Error> {
-        let res = ron::Deserializer::from_str_with_options(text, &*RON);
+        let res = ron::Deserializer::from_str_with_options(text, &RON);
         match res {
             Ok(mut deserializer) => {
                 let result: Result<T, _> = serde_path_to_error::deserialize(&mut deserializer);

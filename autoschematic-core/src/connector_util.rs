@@ -24,10 +24,7 @@ pub fn build_out_path(prefix: &Path, addr: &Path) -> PathBuf {
         // Guard against pathological cases like ".." or "." parents
         // by only pushing normal components
         for comp in parent.components() {
-            match comp {
-                Component::Normal(_) => output.push(comp),
-                _ => {}
-            }
+            if let Component::Normal(_) = comp { output.push(comp) }
         }
     }
 

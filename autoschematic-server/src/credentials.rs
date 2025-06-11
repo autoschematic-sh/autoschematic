@@ -2,7 +2,6 @@ use std::env;
 
 use anyhow::Context;
 use base64::prelude::*;
-use jsonwebtoken;
 use octocrab::models::InstallationId;
 use octocrab::Octocrab;
 use secrecy::SecretString;
@@ -11,7 +10,9 @@ pub fn load_github_private_key() -> Result<String, anyhow::Error> {
     let private_key_base64 = env::var("GITHUB_PRIVATE_KEY_BASE64");
     let private_key_path   = env::var("GITHUB_PRIVATE_KEY_PATH");
     
-    let private_key = match (private_key_base64, private_key_path) {
+    
+
+    match (private_key_base64, private_key_path) {
         (Ok(_), Ok(_)) => {
             Err(anyhow::Error::msg("Ambiguous: Only one of GITHUB_PRIVATE_KEY_BASE64 and GITHUB_PRIVATE_KEY_PATH can be set!"))
         }
@@ -27,9 +28,7 @@ pub fn load_github_private_key() -> Result<String, anyhow::Error> {
         (Err(_), Err(_)) => {
             Err(anyhow::Error::msg("GITHUB_PRIVATE_KEY_BASE64 or GITHUB_PRIVATE_KEY_PATH not set!"))
         }
-    };
-
-    private_key
+    }
 }
 
 pub async fn octocrab_installation_client(

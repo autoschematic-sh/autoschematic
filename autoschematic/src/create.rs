@@ -6,15 +6,11 @@ use std::{
 use anyhow::bail;
 use dialoguer::{Confirm, Input, Select};
 use regex::Regex;
-use ron::ser::PrettyConfig;
-use ron_pfnsec_fork as ron;
 
 use autoschematic_core::{
-    config::AutoschematicConfig,
     connector::{FilterOutput, parse::connector_shortname},
-    connector_cache::{self, ConnectorCache},
-    git_util::get_staged_files,
-    util::{RON, repo_root},
+    connector_cache::ConnectorCache,
+    util::repo_root,
     workflow,
 };
 
@@ -54,7 +50,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
     let connector_def = prefix_def.connectors.get(connector_i).unwrap();
 
     let skeletons =
-        workflow::get_skeletons::get_skeletons(&config, &connector_cache, None, &PathBuf::from(prefix), &connector_def).await?;
+        workflow::get_skeletons::get_skeletons(&config, &connector_cache, None, &PathBuf::from(prefix), connector_def).await?;
 
     let skeleton_paths: Vec<String> = skeletons.iter().map(|a| a.addr.to_str().unwrap().to_string()).collect();
     let skeleton_i = Select::new()
@@ -66,7 +62,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
 
     let skeleton = skeletons.get(skeleton_i).unwrap();
 
-    let mut walk_path = repo_root()?.join(prefix);
+    let walk_path = repo_root()?.join(prefix);
 
     let mut output_addr = skeleton.addr.to_str().unwrap().to_string();
 
@@ -78,7 +74,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
 
             if let Some(caps) = re.captures(dir) {
                 let var_name = &caps["template"];
-                let var: String = Input::new().with_prompt(format!("{}", var_name)).interact_text().unwrap();
+                let var: String = Input::new().with_prompt(var_name.to_string()).interact_text().unwrap();
 
                 output_addr = output_addr.replace(&format!("[{}]", var_name), &var);
             }

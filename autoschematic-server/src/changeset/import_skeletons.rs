@@ -1,4 +1,4 @@
-use std::{fs, os::unix::ffi::OsStrExt, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 use anyhow::Context;
 use autoschematic_core::{connector::parse::connector_shortname, glob::addr_matches_filter};
@@ -55,10 +55,7 @@ impl ChangeSet {
                         match inbox.recv().await {
                             Ok(Some(stdout)) => {
                                 let res = append_run_log(&sender_trace_handle, stdout).await;
-                                match res {
-                                    Ok(_) => {}
-                                    Err(_) => {}
-                                }
+                                if let Ok(_) = res {}
                             }
                             Err(RecvError::Closed) => break,
                             _ => {}
@@ -110,7 +107,7 @@ impl ChangeSet {
                 // Typically, GitHub expects:
                 //   - Username: "x-access-token"
                 //   - Password: "<YOUR_TOKEN>"
-                Cred::userpass_plaintext("x-access-token", &self.token.expose_secret())
+                Cred::userpass_plaintext("x-access-token", self.token.expose_secret())
             });
 
             let mut push_options = PushOptions::new();

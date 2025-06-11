@@ -86,15 +86,15 @@ pub async fn is_repo_collaborator(
             let status = res.status();
             if status == reqwest::StatusCode::NO_CONTENT {
                 tracing::info!("is repo collaborator: {} {} {}", username, repo, status);
-                return Ok(true);
+                Ok(true)
             } else {
                 tracing::info!("is not repo collaborator: {} {} {}", username, repo, status);
-                return Ok(false);
+                Ok(false)
             }
         }
         Err(e) => {
             tracing::info!("is not repo collaborator: {} ", e);
-            return Ok(false);
+            Ok(false)
         }
     }
 }
@@ -140,7 +140,7 @@ pub struct InstallationInfo {
 pub async fn get_installations(jwt: &SecretBox<str>) -> anyhow::Result<Vec<InstallationInfo>> {
     let client = reqwest::Client::new();
 
-    let url = format!("https://api.github.com/app/installations");
+    let url = "https://api.github.com/app/installations".to_string();
 
     let res: serde_json::Value = client
         .get(url)
@@ -234,7 +234,7 @@ pub async fn get_installations(jwt: &SecretBox<str>) -> anyhow::Result<Vec<Insta
 pub async fn get_installations_for_user(user_access_token: &str) -> anyhow::Result<Vec<InstallationInfo>> {
     let client = reqwest::Client::new();
 
-    let url = format!("https://api.github.com/user/installations");
+    let url = "https://api.github.com/user/installations".to_string();
 
     let res: serde_json::Value = client
         .get(url)

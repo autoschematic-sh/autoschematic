@@ -124,7 +124,7 @@ impl ChangeSet {
             // Typically, GitHub expects:
             //   - Username: "x-access-token"
             //   - Password: "<YOUR_TOKEN>"
-            Cred::userpass_plaintext("x-access-token", &self.token.expose_secret())
+            Cred::userpass_plaintext("x-access-token", self.token.expose_secret())
         });
 
         let mut fetch_opts = FetchOptions::new();

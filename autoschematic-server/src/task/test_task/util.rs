@@ -144,7 +144,7 @@ impl TestTask {
         branch_name: &str,
     ) -> anyhow::Result<()> {
         'reapply: loop {
-            let comment_type = self.plan(issue_number, &prefix_filter, &connector_filter).await?;
+            let comment_type = self.plan(issue_number, prefix_filter, connector_filter).await?;
 
             let mut do_apply = false;
             let mut have_deferrals = false;
@@ -173,7 +173,7 @@ impl TestTask {
             }
 
             if do_apply {
-                let comment_type = self.apply(issue_number, &prefix_filter, &connector_filter).await?;
+                let comment_type = self.apply(issue_number, prefix_filter, connector_filter).await?;
 
                 match comment_type.as_str() {
                     "apply_overall_success" => {
@@ -193,7 +193,7 @@ impl TestTask {
                 }
 
                 tokio::time::sleep(Duration::from_secs(1)).await;
-                let comment_type = self.import_overwrite(issue_number, &prefix_filter, &connector_filter).await?;
+                let comment_type = self.import_overwrite(issue_number, prefix_filter, connector_filter).await?;
 
                 match comment_type.as_str() {
                     "import_success" => {}
@@ -209,7 +209,7 @@ impl TestTask {
                 }
 
                 tokio::time::sleep(Duration::from_secs(1)).await;
-                pull_with_rebase(&repo_path, &branch_name, &self.token)?;
+                pull_with_rebase(repo_path, branch_name, &self.token)?;
 
                 if have_deferrals {
                     continue;
@@ -232,7 +232,7 @@ impl TestTask {
         branch_name: &str,
     ) -> anyhow::Result<()> {
         'reapply: loop {
-            let comment_type = self.plan(issue_number, &prefix_filter, &connector_filter).await?;
+            let comment_type = self.plan(issue_number, prefix_filter, connector_filter).await?;
 
             let mut do_apply = false;
             let mut have_deferrals = false;
@@ -261,7 +261,7 @@ impl TestTask {
             }
 
             if do_apply {
-                let comment_type = self.apply(issue_number, &prefix_filter, &connector_filter).await?;
+                let comment_type = self.apply(issue_number, prefix_filter, connector_filter).await?;
 
                 match comment_type.as_str() {
                     "apply_overall_success" => {
@@ -281,7 +281,7 @@ impl TestTask {
                 }
 
                 tokio::time::sleep(Duration::from_secs(1)).await;
-                let comment_type = self.pull_state(issue_number, &prefix_filter, &connector_filter).await?;
+                let comment_type = self.pull_state(issue_number, prefix_filter, connector_filter).await?;
                 match comment_type.as_str() {
                     "pull_state_success" => {}
                     "pull_state_clean" => {}
@@ -299,7 +299,7 @@ impl TestTask {
                 }
 
                 tokio::time::sleep(Duration::from_secs(1)).await;
-                pull_with_rebase(&repo_path, &branch_name, &self.token)?;
+                pull_with_rebase(repo_path, branch_name, &self.token)?;
 
                 if have_deferrals {
                     continue;

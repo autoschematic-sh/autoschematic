@@ -111,7 +111,7 @@ impl ResponseError for AutoschematicServerError {
             // }
             e => {
                 tracing::error!("{:#?}", e);
-                HttpResponse::InternalServerError().body(format!("Internal Error"))
+                HttpResponse::InternalServerError().body("Internal Error".to_string())
             }
         }
     }

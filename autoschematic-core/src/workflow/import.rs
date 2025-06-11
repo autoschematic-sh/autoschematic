@@ -1,12 +1,8 @@
-use std::{
-    os::unix::ffi::OsStrExt,
-    path::{Path, PathBuf},
-    sync,
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, bail};
 use tokio::sync::broadcast::error::RecvError;
-use tokio_stream::{StreamExt, wrappers::ReceiverStream};
+use tokio_stream::StreamExt;
 
 use crate::{
     config::AutoschematicConfig,
@@ -82,9 +78,9 @@ pub async fn import_resource(
                 // index.write()?;
 
                 if let Some(outputs) = get_resource_output.outputs {
-                    if outputs.len() > 0 {
+                    if !outputs.is_empty() {
                         let virt_output_path = build_out_path(prefix, &virt_addr);
-                        let phy_output_path = build_out_path(prefix, &phy_addr);
+                        let phy_output_path = build_out_path(prefix, phy_addr);
 
                         if let Some(_virt_output_path) = write_virt_output_file(&virt_output_path, &outputs, true)? {
                             // self.git_add(repo, &virt_output_path)?;

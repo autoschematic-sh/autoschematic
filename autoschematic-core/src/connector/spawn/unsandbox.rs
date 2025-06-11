@@ -1,7 +1,5 @@
 use std::{
     collections::HashMap,
-    ffi::{CString, OsStr, OsString},
-    fs::create_dir_all,
     path::{Path, PathBuf},
     thread::JoinHandle,
     time::SystemTime,
@@ -13,13 +11,12 @@ use crate::{
         SkeletonOutput, VirtToPhyOutput,
     },
     diag::DiagnosticOutput,
-    error::ErrorMessage,
     keystore::KeyStore,
     secret::SealedSecret,
     tarpc_bridge::{TarpcConnectorClient, launch_client},
     util::passthrough_secrets_from_env,
 };
-use anyhow::{Context, bail};
+use anyhow::bail;
 use async_trait::async_trait;
 
 // use nix::{
@@ -30,7 +27,7 @@ use async_trait::async_trait;
 //     unistd::{Pid, Uid, execve, getegid, geteuid, pipe, setresuid},
 // };
 use rand::{Rng, distr::Alphanumeric};
-use tokio::{process::Child, sync::mpsc::Receiver};
+use tokio::process::Child;
 use walkdir::WalkDir;
 
 /// This module handles sandboxing of connector instances using Linux-kernel specific
@@ -97,23 +94,23 @@ impl Connector for UnsandboxConnectorHandle {
         <TarpcConnectorClient as Connector>::new(name, prefix, outbox).await
     }
     async fn init(&self) -> Result<(), anyhow::Error> {
-        let res = Connector::init(&self.client).await;
-        res
+        
+        Connector::init(&self.client).await
     }
 
     async fn filter(&self, addr: &Path) -> Result<FilterOutput, anyhow::Error> {
-        let res = Connector::filter(&self.client, addr).await;
-        res
+        
+        Connector::filter(&self.client, addr).await
     }
 
     async fn list(&self, subpath: &Path) -> anyhow::Result<Vec<PathBuf>> {
-        let res = Connector::list(&self.client, subpath).await;
-        res
+        
+        Connector::list(&self.client, subpath).await
     }
 
     async fn get(&self, addr: &Path) -> Result<Option<GetResourceOutput>, anyhow::Error> {
-        let res = Connector::get(&self.client, addr).await;
-        res
+        
+        Connector::get(&self.client, addr).await
     }
 
     async fn plan(
@@ -122,43 +119,43 @@ impl Connector for UnsandboxConnectorHandle {
         current: Option<Vec<u8>>,
         desired: Option<Vec<u8>>,
     ) -> Result<Vec<OpPlanOutput>, anyhow::Error> {
-        let res = Connector::plan(&self.client, addr, current, desired).await;
-        res
+        
+        Connector::plan(&self.client, addr, current, desired).await
     }
 
     async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecOutput, anyhow::Error> {
-        let res = Connector::op_exec(&self.client, addr, op).await;
-        res
+        
+        Connector::op_exec(&self.client, addr, op).await
     }
 
     async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyOutput, anyhow::Error> {
-        let res = Connector::addr_virt_to_phy(&self.client, addr).await;
-        res
+        
+        Connector::addr_virt_to_phy(&self.client, addr).await
     }
 
     async fn addr_phy_to_virt(&self, addr: &Path) -> Result<Option<PathBuf>, anyhow::Error> {
-        let res = Connector::addr_phy_to_virt(&self.client, addr).await;
-        res
+        
+        Connector::addr_phy_to_virt(&self.client, addr).await
     }
 
     async fn get_skeletons(&self) -> Result<Vec<SkeletonOutput>, anyhow::Error> {
-        let res = Connector::get_skeletons(&self.client).await;
-        res
+        
+        Connector::get_skeletons(&self.client).await
     }
 
     async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocOutput>, anyhow::Error> {
-        let res = Connector::get_docstring(&self.client, addr, ident).await;
-        res
+        
+        Connector::get_docstring(&self.client, addr, ident).await
     }
 
     async fn eq(&self, addr: &Path, a: &[u8], b: &[u8]) -> Result<bool, anyhow::Error> {
-        let res = Connector::eq(&self.client, addr, a, b).await;
-        res
+        
+        Connector::eq(&self.client, addr, a, b).await
     }
 
     async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
-        let res = Connector::diag(&self.client, addr, a).await;
-        res
+        
+        Connector::diag(&self.client, addr, a).await
     }
 }
 
@@ -247,13 +244,13 @@ pub async fn launch_server_binary(
 
     let child = command.spawn()?;
 
-    return Ok(UnsandboxConnectorHandle {
+    Ok(UnsandboxConnectorHandle {
         client,
         socket,
         error_dump,
         read_thread: None,
         child,
-    });
+    })
 }
 
 #[cfg(feature = "sandbox")]
@@ -485,7 +482,7 @@ impl Drop for UnsandboxConnectorHandle {
             Err(e) => tracing::warn!("Couldn't remove error_dump {:?}: {}", self.error_dump, e),
         }
 
-        if let Some(_) = &self.read_thread {
+        if self.read_thread.is_some() {
             // handle.
         }
 

@@ -1,7 +1,5 @@
-use anyhow::{Context, Result, bail};
+use anyhow::Result;
 use autoschematic_core::connector::DocIdent;
-use codespan_reporting::files::{Files, SimpleFile};
-use itertools::Itertools;
 use pest::{Parser, Span, iterators::Pair};
 
 use crate::{

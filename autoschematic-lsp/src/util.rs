@@ -60,7 +60,7 @@ pub fn lsp_param_to_path(params: ExecuteCommandParams) -> Option<PathBuf> {
         return None;
     }
 
-    let Some(path_arg) = params.arguments.get(0) else {
+    let Some(path_arg) = params.arguments.first() else {
         return None;
     };
 
@@ -85,17 +85,13 @@ pub fn pos_byte_index(line: usize, col: usize, s: &str) -> Option<usize> {
 
     // Slightly non-intuitive arithmetic: a zero-length string at line 1, col 1 -> 0
 
-    if line_no == line {
-        if col_no == col {
-            return Some(i);
-        }
+    if line_no == line && col_no == col {
+        return Some(i);
     }
 
     for (byte_idx, ch) in s.char_indices() {
-        if line_no == line {
-            if col_no == col {
-                return Some(i);
-            }
+        if line_no == line && col_no == col {
+            return Some(i);
         }
 
         // "\n" and "\r\n" each come through the iterator as a single grapheme
@@ -110,10 +106,8 @@ pub fn pos_byte_index(line: usize, col: usize, s: &str) -> Option<usize> {
     }
 
     // ...and a string of length 7 at line 1, col 8 -> 7
-    if line_no == line {
-        if col_no == col {
-            return Some(i);
-        }
+    if line_no == line && col_no == col {
+        return Some(i);
     }
 
     None

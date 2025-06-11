@@ -22,7 +22,7 @@ pub fn write_virt_output_file(
     //  and overwriting keys with the new output values where they collide.
     if virt_output_path.exists() {
         if merge_with_existing {
-            let file = std::fs::File::open(&virt_output_path)
+            let file = std::fs::File::open(virt_output_path)
                 .context(format!("Reading output file {}", virt_output_path.to_string_lossy()))?;
             let reader = std::io::BufReader::new(file);
 
@@ -51,7 +51,7 @@ pub fn write_virt_output_file(
                 }
             }
 
-            if resulting_hashmap.len() == 0 {
+            if resulting_hashmap.is_empty() {
                 std::fs::remove_file(virt_output_path)?;
                 return Ok(None);
             }
@@ -72,7 +72,7 @@ pub fn write_virt_output_file(
     }
 
     let file =
-        File::create(&virt_output_path).context(format!("Creating output file {}", virt_output_path.to_string_lossy()))?;
+        File::create(virt_output_path).context(format!("Creating output file {}", virt_output_path.to_string_lossy()))?;
     let writer = BufWriter::new(file);
 
     serde_json::to_writer_pretty(writer, &resulting_hashmap)
@@ -90,7 +90,7 @@ pub fn link_phy_output_file(
     let Some(phy_parent) = phy_output_path.parent() else {
         bail!("phy_output_path.parent() is None ({:?})", phy_output_path);
     };
-    if let Some(rel_path) = path_relative_from(&virt_output_path, &phy_parent) {
+    if let Some(rel_path) = path_relative_from(virt_output_path, phy_parent) {
         tracing::info!(
             "link_phy_output_file: {:?} -> {:?}, rel_path = {:?}",
             phy_output_path,
@@ -98,17 +98,15 @@ pub fn link_phy_output_file(
             rel_path
         );
 
-        if phy_output_path.is_symlink() {
-            if rel_path == std::fs::read_link(&phy_output_path)? {
-                return Ok(None);
-            }
+        if phy_output_path.is_symlink() && rel_path == std::fs::read_link(phy_output_path)? {
+            return Ok(None);
         }
         if phy_output_path.exists() {
-            std::fs::remove_file(&phy_output_path)?;
+            std::fs::remove_file(phy_output_path)?;
         }
 
         std::fs::create_dir_all(phy_parent)?;
-        std::os::unix::fs::symlink(&rel_path, &phy_output_path)?;
+        std::os::unix::fs::symlink(&rel_path, phy_output_path)?;
     } else {
         bail!(
             "Failed to form relative path: {:?} -> {:?}",

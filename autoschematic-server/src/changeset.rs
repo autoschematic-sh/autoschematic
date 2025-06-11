@@ -94,7 +94,7 @@ impl ChangeSet {
                         .get_or_init(client, token, repository, &pull_request, owner, repo)
                         .await?;
 
-                    return Ok(changeset);
+                    Ok(changeset)
 
                     // return Self::from_pull_request(client, token, repository, pull_request, owner_name, repo_name).await;
                 } else {
@@ -246,8 +246,8 @@ impl ChangeSet {
 
         Ok(Self {
             temp_dir,
-            owner: owner,
-            repo: repo,
+            owner,
+            repo,
             base_sha,
             head_sha,
             base_ref,
@@ -278,7 +278,7 @@ impl ChangeSet {
             .await
             .context("Parsing autoschematic.ron")?;
 
-        Ok(autoschematic_config_file.into())
+        Ok(autoschematic_config_file)
     }
 
     pub fn git_add(&self, repo: &Repository, path: &Path) -> anyhow::Result<()> {
@@ -294,7 +294,7 @@ impl ChangeSet {
         let parent_commit = repo.head()?.peel_to_commit()?;
         let tree = repo.find_tree(oid)?;
         let sig = git2::Signature::now("autoschematic", "apply@autoschematic.sh")?;
-        repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?;
+        repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&parent_commit])?;
 
         let mut remote = repo.find_remote("origin")?;
 
@@ -305,7 +305,7 @@ impl ChangeSet {
             // Typically, GitHub expects:
             //   - Username: "x-access-token"
             //   - Password: "<YOUR_TOKEN>"
-            Cred::userpass_plaintext("x-access-token", &self.token.expose_secret())
+            Cred::userpass_plaintext("x-access-token", self.token.expose_secret())
         });
 
         let mut push_options = PushOptions::new();

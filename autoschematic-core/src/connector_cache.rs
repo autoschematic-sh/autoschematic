@@ -109,7 +109,7 @@ impl ConnectorCache {
         let mut filter_cache = self.filter_cache.lock().await;
 
         // Get the filter cache for connector `name` at prefix `prefix`, or initialize it.
-        let connector_filter_cache = { filter_cache.entry(connector_key.clone()).or_insert_with(|| HashMap::new()) };
+        let connector_filter_cache = { filter_cache.entry(connector_key.clone()).or_insert_with(HashMap::new) };
 
         if let Some(value) = connector_filter_cache.get(addr) {
             Ok(*value)

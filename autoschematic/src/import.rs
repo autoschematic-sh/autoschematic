@@ -1,15 +1,9 @@
 use std::path::PathBuf;
 
-use anyhow::bail;
 
-use autoschematic_core::{
-    config::AutoschematicConfig,
-    connector_cache::{self, ConnectorCache},
-    git_util::get_staged_files,
-    util::{RON, repo_root},
-};
+use autoschematic_core::connector_cache::ConnectorCache;
 
-use crate::{config::load_autoschematic_config, ui};
+use crate::config::load_autoschematic_config;
 
 pub async fn import(
     prefix: Option<String>,
@@ -21,7 +15,7 @@ pub async fn import(
 
     let connector_cache = ConnectorCache::default();
 
-    let subpath = subpath.map(|s| PathBuf::from(s));
+    let subpath = subpath.map(PathBuf::from);
 
     let keystore = None;
 

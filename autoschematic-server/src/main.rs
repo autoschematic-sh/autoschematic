@@ -49,7 +49,6 @@ use once_cell::{self, sync::OnceCell};
 use repolock::{RepoLockStore, repolockstore_init};
 use ron_pfnsec_fork as ron;
 use serde::Deserialize;
-use serde_json;
 use std::{env, path::PathBuf};
 use task::registry::TaskRegistry;
 use tera::Tera;
@@ -288,7 +287,7 @@ async fn github_webhook(req: HttpRequest, payload: web::Payload) -> Result<HttpR
 
     let body_bytes = payload.to_bytes_limited(DEFAULT_CONFIG_LIMIT).await??;
 
-    validate_github_hmac(&body_bytes, &payload_signature)?;
+    validate_github_hmac(&body_bytes, payload_signature)?;
 
     // tracing::info!("Processing {} event", event_header);
 

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ffi::OsStr, os::unix::ffi::OsStrExt, path::PathBuf};
+use std::{collections::HashSet, path::PathBuf};
 
 use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;
@@ -43,7 +43,7 @@ impl ChangeSet {
 
         let autoschematic_config = self.autoschematic_config().await?;
 
-        let check_run_url = check_run_url(&self, &trace_handle);
+        let check_run_url = check_run_url(self, &trace_handle);
 
         let _chwd = self.chwd_to_repo();
         let subpath = subpath.unwrap_or(PathBuf::from("./"));
@@ -64,14 +64,14 @@ impl ChangeSet {
                     if global_addr.starts_with(&prefix_name) {
                         if let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name) {
                             // If this address is not under `subpath`, skip it.
-                            return addr_matches_filter(&PathBuf::from(&prefix_name), &virt_addr, &subpath);
+                            return addr_matches_filter(&PathBuf::from(&prefix_name), virt_addr, &subpath);
                         }
                     }
-                    return false;
+                    false
                 })
                 .collect();
 
-            if filtered_objects.len() == 0 {
+            if filtered_objects.is_empty() {
                 continue 'prefix;
             }
 
@@ -101,10 +101,7 @@ impl ChangeSet {
                             Ok(Some(stdout)) => {
                                 dbg!(&stdout);
                                 let res = append_run_log(&sender_trace_handle, stdout).await;
-                                match res {
-                                    Ok(_) => {}
-                                    Err(_) => {}
-                                }
+                                if let Ok(_) = res {}
                             }
                             Ok(None) => {}
                             Err(_) => break,
@@ -126,7 +123,7 @@ impl ChangeSet {
                         &object.filename.to_string_lossy()
                     );
 
-                    let phy_addr = match connector.addr_virt_to_phy(&virt_addr).await? {
+                    let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
                         VirtToPhyOutput::NotPresent => {
                             continue 'object;
                         }
@@ -142,7 +139,7 @@ impl ChangeSet {
 
                     if self
                         .connector_cache
-                        .filter(&connector_def.name, &PathBuf::from(&prefix_name), &virt_addr)
+                        .filter(&connector_def.name, &PathBuf::from(&prefix_name), virt_addr)
                         .await?
                         == FilterOutput::Resource
                     {
@@ -157,9 +154,9 @@ impl ChangeSet {
                             match str::from_utf8(&desired_bytes) {
                                 Ok(desired) => {
                                     // If valid utf8, try to template.
-                                    let template_result = template_config(&PathBuf::from(&prefix_name), &desired)?;
+                                    let template_result = template_config(&PathBuf::from(&prefix_name), desired)?;
 
-                                    if template_result.missing.len() > 0 {
+                                    if !template_result.missing.is_empty() {
                                         self.create_check_run(
                                             Some(file_check_run_id),
                                             &check_run_name,
@@ -203,8 +200,8 @@ impl ChangeSet {
                             }
 
                             if let Some(outputs) = current.outputs {
-                                if outputs.len() > 0 {
-                                    let virt_output_path = build_out_path(&PathBuf::from(&prefix_name), &virt_addr);
+                                if !outputs.is_empty() {
+                                    let virt_output_path = build_out_path(&PathBuf::from(&prefix_name), virt_addr);
                                     let phy_output_path = build_out_path(&PathBuf::from(&prefix_name), &phy_addr);
                                     tick_import_count = true;
 
@@ -233,12 +230,12 @@ impl ChangeSet {
                         } else if delete {
                             let prefix = PathBuf::from(&prefix_name);
 
-                            let virt_output_path = build_out_path(&prefix, &virt_addr);
+                            let virt_output_path = build_out_path(&prefix, virt_addr);
                             let phy_output_path = build_out_path(&prefix, &phy_addr);
 
                             if prefix.join(virt_addr).is_file() {
                                 tick_delete_count = true;
-                                std::fs::remove_file(&prefix.join(virt_addr))?;
+                                std::fs::remove_file(prefix.join(virt_addr))?;
                                 self.git_add(repo, &prefix.join(virt_addr))?;
                             }
 

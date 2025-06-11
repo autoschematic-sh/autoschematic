@@ -38,10 +38,10 @@ pub async fn apply_connector(
         };
 
         if let Some(outputs) = &op_exec_output.outputs {
-            if outputs.len() > 0 {
+            if !outputs.is_empty() {
                 let virt_output_path = build_out_path(&plan.prefix, &plan.virt_addr);
 
-                if let Some(_) = write_virt_output_file(&virt_output_path, &outputs, true)? {
+                if let Some(_) = write_virt_output_file(&virt_output_path, outputs, true)? {
                     if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
                         let phy_output_path = build_out_path(&plan.prefix, &phy_addr);
 
@@ -54,17 +54,15 @@ pub async fn apply_connector(
 
                         apply_report.wrote_files.push(virt_output_path);
                     }
-                } else {
-                    if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
-                        let phy_output_path = build_out_path(&plan.prefix, &phy_addr);
+                } else if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
+                    let phy_output_path = build_out_path(&plan.prefix, &phy_addr);
 
-                        if phy_addr != plan.virt_addr {
-                            unlink_phy_output_file(&phy_output_path)?;
-                            apply_report.wrote_files.push(phy_output_path);
-                        }
-
-                        apply_report.wrote_files.push(virt_output_path);
+                    if phy_addr != plan.virt_addr {
+                        unlink_phy_output_file(&phy_output_path)?;
+                        apply_report.wrote_files.push(phy_output_path);
                     }
+
+                    apply_report.wrote_files.push(virt_output_path);
                 }
             }
         }

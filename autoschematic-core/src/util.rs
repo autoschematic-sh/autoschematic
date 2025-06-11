@@ -108,15 +108,15 @@ pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &[u8], b: &[u8]) -> Resu
 pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
     let text = str::from_utf8(text)?;
 
-    let res = ron::Deserializer::from_str_with_options(text, &*RON);
+    let res = ron::Deserializer::from_str_with_options(text, &RON);
     match res {
         Ok(mut deserializer) => {
             let result: Result<T, _> = serde_path_to_error::deserialize(&mut deserializer);
             match result {
-                Ok(_) => return Ok(DiagnosticOutput::default()),
+                Ok(_) => Ok(DiagnosticOutput::default()),
                 Err(e) => {
                     let inner_error = deserializer.span_error(e.inner().clone());
-                    return Ok(DiagnosticOutput {
+                    Ok(DiagnosticOutput {
                         diagnostics: vec![Diagnostic {
                             span: DiagnosticSpan {
                                 start: DiagnosticPosition {
@@ -131,12 +131,12 @@ pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticOu
                             severity: DiagnosticSeverity::ERROR as u8,
                             message: format!("{} at {}", inner_error.code, e.path()),
                         }],
-                    });
+                    })
                 }
             }
         }
         Err(e) => {
-            return Ok(DiagnosticOutput {
+            Ok(DiagnosticOutput {
                 diagnostics: vec![Diagnostic {
                     span: DiagnosticSpan {
                         start: DiagnosticPosition {
@@ -151,9 +151,9 @@ pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticOu
                     severity: DiagnosticSeverity::ERROR as u8,
                     message: format!("{}", e.code),
                 }],
-            });
+            })
         }
-    };
+    }
 }
 
 pub fn diff_ron_values<T>(a: &T, b: &T) -> anyhow::Result<String>
@@ -181,7 +181,7 @@ where
     }
     lines.push(String::from("```\n"));
 
-    return Ok(lines.join(""));
+    Ok(lines.join(""))
 }
 
 pub fn short_target() -> String {

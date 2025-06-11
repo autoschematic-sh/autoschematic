@@ -35,7 +35,7 @@ impl ChangeSet {
 
         let autoschematic_config = self.autoschematic_config().await?;
 
-        let check_run_url = check_run_url(&self, &trace_handle);
+        let check_run_url = check_run_url(self, &trace_handle);
 
         let _chwd = self.chwd_to_repo();
         let subpath = subpath.unwrap_or(PathBuf::from("./"));
@@ -65,14 +65,14 @@ impl ChangeSet {
                     if global_addr.starts_with(&prefix_name) {
                         if let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name) {
                             // If this address is not under `subpath`, skip it.
-                            return addr_matches_filter(&PathBuf::from(&prefix_name), &virt_addr, &subpath);
+                            return addr_matches_filter(&PathBuf::from(&prefix_name), virt_addr, &subpath);
                         }
                     }
-                    return false;
+                    false
                 })
                 .collect();
 
-            if filtered_objects.len() == 0 {
+            if filtered_objects.is_empty() {
                 continue 'prefix;
             }
 
@@ -107,10 +107,7 @@ impl ChangeSet {
                         match inbox.recv().await {
                             Ok(Some(stdout)) => {
                                 let res = append_run_log(&sender_trace_handle, stdout).await;
-                                match res {
-                                    Ok(_) => {}
-                                    Err(_) => {}
-                                }
+                                if let Ok(_) = res {}
                             }
                             Ok(None) => {}
                             Err(_) => break,
@@ -127,7 +124,7 @@ impl ChangeSet {
 
                     let check_run_name = format!("autoschematic plan -c {} -p ./{:?}", &connector_shortname, &object.filename);
 
-                    let phy_addr = match connector.addr_virt_to_phy(&virt_addr).await? {
+                    let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
                         VirtToPhyOutput::NotPresent => None,
                         VirtToPhyOutput::Deferred(read_outputs) => {
                             plan_report_set.deferred_count += 1;
@@ -141,7 +138,7 @@ impl ChangeSet {
 
                     if self
                         .connector_cache
-                        .filter(&connector_def.name, &PathBuf::from(&prefix_name), &virt_addr)
+                        .filter(&connector_def.name, &PathBuf::from(&prefix_name), virt_addr)
                         .await?
                         == FilterOutput::Resource
                     {
@@ -179,7 +176,7 @@ impl ChangeSet {
 
                             let template_result = template_config(&PathBuf::from(&prefix_name), &desired)?;
 
-                            if template_result.missing.len() > 0 {
+                            if !template_result.missing.is_empty() {
                                 self.create_check_run(
                                     Some(file_check_run_id),
                                     &check_run_name,
@@ -265,7 +262,7 @@ impl ChangeSet {
                                     connector_env: connector_def.env.clone(),
                                     prefix: prefix_name.clone(),
                                     virt_addr: virt_addr.to_path_buf(),
-                                    phy_addr: phy_addr,
+                                    phy_addr,
                                     connector_ops: Vec::new(),
                                     reads_outputs: Vec::new(),
                                     error: Some(e.into()),
@@ -284,7 +281,7 @@ impl ChangeSet {
 
         // TODO actually send a message...
         // Have deferrals? Let's make sure we're not in a loop!
-        if plan_report_set.deferred_pending_outputs.len() > 0 {
+        if !plan_report_set.deferred_pending_outputs.is_empty() {
             if let Some(last_plan) = &self.last_plan {
                 // If we fully applied the last plan, and we're still deferring on the
                 // same output keys, we're in a loop!

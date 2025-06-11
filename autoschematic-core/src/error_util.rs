@@ -6,22 +6,22 @@ use crate::{
 };
 
 pub fn invalid_addr_path(path: &Path) -> anyhow::Error {
-    return AutoschematicError {
+    AutoschematicError {
         kind: AutoschematicErrorType::InvalidAddr(path.to_path_buf()),
     }
-    .into();
+    .into()
 }
 
 pub fn invalid_addr(addr: &impl ResourceAddress) -> anyhow::Error {
-    return AutoschematicError {
+    AutoschematicError {
         kind: AutoschematicErrorType::InvalidAddr(addr.to_path_buf()),
     }
-    .into();
+    .into()
 }
 
 pub fn invalid_op(addr: &impl ResourceAddress, op: &impl ConnectorOp) -> anyhow::Error {
-    return AutoschematicError {
+    AutoschematicError {
         kind: AutoschematicErrorType::InvalidOp(addr.to_path_buf(), format!("{:#?}", op)),
     }
-    .into();
+    .into()
 }

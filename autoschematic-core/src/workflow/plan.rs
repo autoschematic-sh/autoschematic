@@ -1,4 +1,4 @@
-use std::{ffi::OsString, os::unix::ffi::OsStringExt, path::Path};
+use std::path::Path;
 
 use anyhow::Context;
 
@@ -22,7 +22,7 @@ pub async fn plan_connector(
     plan_report.prefix = prefix.into();
     plan_report.virt_addr = virt_addr.into();
 
-    let phy_addr = match connector.addr_virt_to_phy(&virt_addr).await? {
+    let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
         VirtToPhyOutput::NotPresent => None,
         VirtToPhyOutput::Deferred(read_outputs) => {
             for output in read_outputs {
@@ -60,9 +60,9 @@ pub async fn plan_connector(
 
         match str::from_utf8(&desired_bytes) {
             Ok(desired) => {
-                let template_result = template_config(&prefix, &desired)?;
+                let template_result = template_config(prefix, desired)?;
 
-                if template_result.missing.len() > 0 {
+                if !template_result.missing.is_empty() {
                     for read_output in template_result.missing {
                         plan_report.missing_outputs.push(read_output);
                     }

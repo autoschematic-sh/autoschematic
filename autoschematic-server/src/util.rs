@@ -18,7 +18,7 @@ pub fn validate_github_hmac(payload: &[u8], signature: &HeaderValue) -> anyhow::
         bail!("Invalid Github webhook signature");
     }
 
-    let Some(signature_type) = sig_components.get(0) else {
+    let Some(signature_type) = sig_components.first() else {
         bail!("Invalid Github webhook signature");
     };
 
@@ -36,7 +36,7 @@ pub fn validate_github_hmac(payload: &[u8], signature: &HeaderValue) -> anyhow::
 
     let mut mac = hmac::Hmac::<Sha256>::new_from_slice(webhook_secret.as_bytes())?;
 
-    mac.update(&payload);
+    mac.update(payload);
     mac.verify_slice(&signature_value)?;
 
     Ok(())
@@ -59,7 +59,7 @@ pub async fn clear_prefix(prefix: &Path) -> anyhow::Result<()> {
     tracing::error!("Clearing prefix {:?}", prefix);
     tokio::fs::create_dir_all(prefix).await.context("create_dir")?;
     tokio::fs::remove_dir_all(prefix).await.context("remove dir")?;
-    Ok(tokio::fs::create_dir_all(prefix).await.context("create_dir")?)
+    tokio::fs::create_dir_all(prefix).await.context("create_dir")
 }
 
 /// Delete an entire prefix from the filesystem, but preserve the .outputs directory.

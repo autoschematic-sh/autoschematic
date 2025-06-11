@@ -116,8 +116,8 @@ pub trait KeyStore: Send + Sync + std::fmt::Debug {
                 let path = PathBuf::from(&caps["path"]);
                 let seals: Vec<SealedSecret> = serde_json::from_str(&std::fs::read_to_string(path)?)?;
                 //TODO more than one seal support?
-                let secret = seals.get(0).unwrap();
-                let plaintext = self.unseal_secret(&secret)?;
+                let secret = seals.first().unwrap();
+                let plaintext = self.unseal_secret(secret)?;
                 
                 out_map.insert(key.clone(), plaintext);
             } else {

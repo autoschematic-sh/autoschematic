@@ -1,6 +1,4 @@
 use std::{
-    collections::HashMap,
-    ffi::{OsStr, OsString},
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -18,10 +16,7 @@ use tarpc::{
     tokio_util::codec::LengthDelimitedCodec,
 };
 // use tarpc::tokio_serde::formats::Bincode;
-use tokio::{
-    net::{UnixListener, UnixStream},
-    sync::broadcast::Sender,
-};
+use tokio::net::{UnixListener, UnixStream};
 use tracing_subscriber::EnvFilter;
 
 use crate::{

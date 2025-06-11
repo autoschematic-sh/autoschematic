@@ -57,7 +57,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
         };
     }
 
-    let result = match webhook_event.specific {
+    match webhook_event.specific {
         WebhookEventPayload::IssueComment(ref payload)
             if payload.action == IssueCommentWebhookEventAction::Created
                 || payload.action == IssueCommentWebhookEventAction::Edited =>
@@ -125,11 +125,11 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                             connector,
                             subpath,
                         } => {
-                            let subpath = subpath.map(|s| PathBuf::from(s));
+                            let subpath = subpath.map(PathBuf::from);
                             let connector_check_run_id = changeset
                                 .create_check_run(
                                     None,
-                                    &comment_body,
+                                    comment_body,
                                     &check_run_url,
                                     CheckRunStatus::InProgress,
                                     None,
@@ -152,7 +152,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                     changeset
                                         .create_check_run(
                                             Some(connector_check_run_id),
-                                            &comment_body,
+                                            comment_body,
                                             &check_run_url,
                                             CheckRunStatus::Completed,
                                             Some(CheckRunConclusion::Success),
@@ -166,7 +166,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                         success_emoji: template::random_success_emoji(),
                                     };
 
-                                    let _comment = changeset
+                                    changeset
                                         .create_comment(&import_success_template.render()?)
                                         .await?;
                                 }
@@ -175,7 +175,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                     changeset
                                         .create_check_run(
                                             Some(connector_check_run_id),
-                                            &comment_body,
+                                            comment_body,
                                             &check_run_url,
                                             CheckRunStatus::Completed,
                                             Some(CheckRunConclusion::Failure),
@@ -188,7 +188,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                         failure_emoji: template::random_failure_emoji(),
                                     };
 
-                                    let _comment = changeset
+                                    changeset
                                         .create_comment(&import_error_template.render()?)
                                         .await?;
                                 }
@@ -199,11 +199,11 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                             connector,
                             subpath,
                         } => {
-                            let subpath = subpath.map(|s| PathBuf::from(s));
+                            let subpath = subpath.map(PathBuf::from);
                             let plan_check_run_id = changeset
                                 .create_check_run(
                                     None,
-                                    &comment_body,
+                                    comment_body,
                                     &check_run_url,
                                     CheckRunStatus::InProgress,
                                     None,
@@ -248,7 +248,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                         .to_string(),
                                                 };
 
-                                                let _comment = changeset
+                                                changeset
                                                     .create_comment(&plan_error_template.render()?)
                                                     .await?;
                                             } else {
@@ -267,7 +267,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                     }
                                                 }
                                                 // Skip empty plan reports :)
-                                                if op_reports.len() > 0 {
+                                                if !op_reports.is_empty() {
                                                     all_plans_empty = false;
                                                     let plan_success_template =
                                                         PlanSuccessTemplate {
@@ -281,7 +281,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                             op_reports,
                                                         };
 
-                                                    let _comment = changeset
+                                                    changeset
                                                         .create_comment(
                                                             &plan_success_template.render()?,
                                                         )
@@ -306,8 +306,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                     }
                                                     .render()?;
 
-                                                    let _comment =
-                                                        changeset.create_comment(&msg).await?;
+                                                    changeset.create_comment(&msg).await?;
                                                 } else {
                                                     let msg = PlanNoChangesTemplate {
                                                         success_emoji:
@@ -315,8 +314,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                     }
                                                     .render()?;
 
-                                                    let _comment =
-                                                        changeset.create_comment(&msg).await?;
+                                                    changeset.create_comment(&msg).await?;
                                                 }
                                             } else {
                                                 let apply_command = match (&subpath, &connector) {
@@ -359,17 +357,16 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                         }
                                                         .render()?;
 
-                                                    let _comment =
-                                                        changeset.create_comment(&msg).await?;
+                                                    changeset.create_comment(&msg).await?;
                                                 } else {
                                                     let plan_overall_success_template =
                                                         PlanOverallSuccessTemplate {
                                                             success_emoji:
                                                                 template::random_success_emoji(),
-                                                            apply_command: apply_command,
+                                                            apply_command,
                                                         };
 
-                                                    let _comment = changeset
+                                                    changeset
                                                         .create_comment(
                                                             &plan_overall_success_template
                                                                 .render()?,
@@ -380,7 +377,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                             let _plan_check_run_id = changeset
                                                 .create_check_run(
                                                     Some(plan_check_run_id),
-                                                    &comment_body,
+                                                    comment_body,
                                                     &check_run_url,
                                                     CheckRunStatus::Completed,
                                                     Some(CheckRunConclusion::Success),
@@ -390,7 +387,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                             let _plan_check_run_id = changeset
                                                 .create_check_run(
                                                     Some(plan_check_run_id),
-                                                    &comment_body,
+                                                    comment_body,
                                                     &check_run_url,
                                                     CheckRunStatus::Completed,
                                                     Some(CheckRunConclusion::Failure),
@@ -408,14 +405,14 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                         failure_emoji: template::random_failure_emoji(),
                                     };
 
-                                    let _comment = changeset
+                                    changeset
                                         .create_comment(&plan_error_template.render()?)
                                         .await?;
 
                                     let _plan_check_run_id = changeset
                                         .create_check_run(
                                             Some(plan_check_run_id),
-                                            &comment_body,
+                                            comment_body,
                                             &check_run_url,
                                             CheckRunStatus::Completed,
                                             Some(CheckRunConclusion::Failure),
@@ -429,7 +426,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                             connector,
                             subpath,
                         } => {
-                            let subpath = subpath.map(|s| PathBuf::from(s));
+                            let subpath = subpath.map(PathBuf::from);
 
                             let repo = changeset.clone_repo().await?;
 
@@ -467,7 +464,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                 op_output_descriptions,
                                             };
 
-                                            let _comment = changeset
+                                            changeset
                                                 .create_comment(&apply_success_template.render()?)
                                                 .await?;
                                         } else {
@@ -488,7 +485,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                 }
                                             } else {
                                                 ApplyErrorTemplate {
-                                                    error_message: try_unescape(&format!("",))
+                                                    error_message: try_unescape("")
                                                         .to_string(),
                                                     failure_emoji: template::random_failure_emoji(),
                                                     filename: String::from(
@@ -497,7 +494,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                 }
                                             };
 
-                                            let _comment = changeset
+                                            changeset
                                                 .create_comment(&apply_error_template.render()?)
                                                 .await?;
                                         }
@@ -508,14 +505,13 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                         }
                                         .render()?;
 
-                                        let _comment = changeset.create_comment(&msg).await?;
-                                    } else {
-                                    }
+                                        changeset.create_comment(&msg).await?;
+                                    } 
                                 }
                                 None => {
                                     let apply_no_plan_template = ApplyNoPlanTemplate {};
 
-                                    let _comment = changeset
+                                    changeset
                                         .create_comment(&apply_no_plan_template.render()?)
                                         .await?;
                                 }
@@ -527,11 +523,11 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                             subpath,
                             delete
                         } => {
-                            let subpath = subpath.map(|s| PathBuf::from(s));
+                            let subpath = subpath.map(PathBuf::from);
                             let connector_check_run_id = changeset
                                 .create_check_run(
                                     None,
-                                    &comment_body,
+                                    comment_body,
                                     &check_run_url,
                                     CheckRunStatus::InProgress,
                                     None,
@@ -557,7 +553,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                     changeset
                                         .create_check_run(
                                             Some(connector_check_run_id),
-                                            &comment_body,
+                                            comment_body,
                                             &check_run_url,
                                             CheckRunStatus::Completed,
                                             Some(CheckRunConclusion::Success),
@@ -597,14 +593,14 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                         .render()?
                                     };
 
-                                    let _comment = changeset.create_comment(&msg).await?;
+                                    changeset.create_comment(&msg).await?;
                                 }
                                 Err(e) => {
                                     tracing::error!("{}", e);
                                     changeset
                                         .create_check_run(
                                             Some(connector_check_run_id),
-                                            &comment_body,
+                                            comment_body,
                                             &check_run_url,
                                             CheckRunStatus::Completed,
                                             Some(CheckRunConclusion::Failure),
@@ -618,7 +614,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                     }
                                     .render()?;
 
-                                    let _comment = changeset.create_comment(&msg).await?;
+                                    changeset.create_comment(&msg).await?;
                                 }
                             }
                         }
@@ -627,12 +623,12 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                             connector,
                             subpath,
                         } => {
-                            let subpath = subpath.map(|s| PathBuf::from(s));
+                            let subpath = subpath.map(PathBuf::from);
 
                             let connector_check_run_id = changeset
                                 .create_check_run(
                                     None,
-                                    &comment_body,
+                                    comment_body,
                                     &check_run_url,
                                     CheckRunStatus::InProgress,
                                     None,
@@ -653,7 +649,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                     changeset
                                         .create_check_run(
                                             Some(connector_check_run_id),
-                                            &comment_body,
+                                            comment_body,
                                             &check_run_url,
                                             CheckRunStatus::Completed,
                                             Some(CheckRunConclusion::Success),
@@ -665,7 +661,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                         success_emoji: template::random_success_emoji(),
                                     };
 
-                                    let _comment = changeset
+                                    changeset
                                         .create_comment(&import_success_template.render()?)
                                         .await?;
                                 }
@@ -674,7 +670,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                     changeset
                                         .create_check_run(
                                             Some(connector_check_run_id),
-                                            &comment_body,
+                                            comment_body,
                                             &check_run_url,
                                             CheckRunStatus::Completed,
                                             Some(CheckRunConclusion::Failure),
@@ -687,7 +683,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                         failure_emoji: template::random_failure_emoji(),
                                     };
 
-                                    let _comment = changeset
+                                    changeset
                                         .create_comment(&import_error_template.render()?)
                                         .await?;
                                 }
@@ -695,17 +691,17 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                         }
                         crate::command::AutoschematicSubcommand::Safety { off: _ } => {
                             tracing::warn!("Safety command not yet implemented");
-                            let _comment = changeset
+                            changeset
                                 .create_comment("⚠️ Safety command not yet implemented")
                                 .await?;
-                            ()
+                            
                         }
                         crate::command::AutoschematicSubcommand::Help {} => {
-                            let _comment = changeset.create_comment(HELP).await?;
-                            ()
+                            changeset.create_comment(HELP).await?;
+                            
                         }
                     }
-                    ()
+                    
                 }
                 Err(e) => {
                     if arg0 == "autoschematic" {
@@ -730,5 +726,5 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
         _ => (),
     };
 
-    Ok(result)
+    Ok(())
 }

@@ -2,12 +2,12 @@ use askama::Template;
 use rand::seq::IndexedRandom;
 
 
-const SUCCESS_EMOJI: &'static [&'static str] = &[
+const SUCCESS_EMOJI: &[&str] = &[
     "🟢", "🟩", "🔋", "✅", "✔️", "📗", "🥦", "🌲", "🌳", "🌵", "🌿", "☘️", "🍀", "📗", "🍏",
     "🍐", "🍈", "🍏", "🍐", "🥒", "🥬",
 ];
 
-const FAILURE_EMOJI: &'static [&'static str] = &[
+const FAILURE_EMOJI: &[&str] = &[
     "🟥", "🔴", "🍅", "🎈", "📕", "📮", "🚩",
     "💔", "🩸", "🚨", "🎟️", "🛑",
 ];

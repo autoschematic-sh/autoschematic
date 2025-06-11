@@ -49,16 +49,9 @@ pub async fn bundle_init(
                 });
             };
 
-            match &caps["type"] {
-                // #[cfg(feature = "python")]
-                // "python" => Ok((
-                //     PythonBundle::new(&caps["path"], prefix, outbox).await?,
-                // )),
-
-                _ => Err(AutoschematicServerError {
-                    kind: AutoschematicServerErrorType::InvalidConnectorString(name.to_string()),
-                }),
-            }
+            Err(AutoschematicServerError {
+                kind: AutoschematicServerErrorType::InvalidConnectorString(name.to_string()),
+            })
         }
     }
 }

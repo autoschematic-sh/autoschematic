@@ -95,7 +95,7 @@ impl TraceStore for InMemTraceStore {
     async fn list_repos(&self) -> anyhow::Result<Vec<RepoKey>> {
         let repos = self.repos.lock().await;
 
-        let res: Vec<RepoKey> = repos.keys().map(|k| k.clone()).collect();
+        let res: Vec<RepoKey> = repos.keys().cloned().collect();
         Ok(res)
     }
 
@@ -105,7 +105,7 @@ impl TraceStore for InMemTraceStore {
             bail!("No such repo: {:?}", key);
         };
 
-        let res: Vec<RunKey> = repo.runs.keys().map(|k| k.clone()).collect();
+        let res: Vec<RunKey> = repo.runs.keys().cloned().collect();
         Ok(res)
     }
 
@@ -118,8 +118,7 @@ impl TraceStore for InMemTraceStore {
         let res: Vec<RunKey> = repo
             .runs
             .keys()
-            .filter(|k| k.pr == pr)
-            .map(|k| k.clone())
+            .filter(|k| k.pr == pr).cloned()
             .collect();
         Ok(res)
     }
@@ -226,7 +225,7 @@ impl TraceStore for InMemTraceStore {
         };
 
         let run_key = RunKey {
-            pr: pr,
+            pr,
             run_id: Uuid::new_v4(),
         };
         self.put_run(&repo_key, &run_key, run_data).await?;

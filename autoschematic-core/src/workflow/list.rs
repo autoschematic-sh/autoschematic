@@ -1,11 +1,8 @@
-use std::{
-    ffi::OsString,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{FilterOutput, parse::connector_shortname},
+    connector::parse::connector_shortname,
     connector_cache::ConnectorCache,
     error::AutoschematicError,
     keystore::KeyStore,

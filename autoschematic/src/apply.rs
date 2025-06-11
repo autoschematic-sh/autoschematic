@@ -3,21 +3,20 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use dialoguer::Confirm;
 use rand::Rng;
 use ron::ser::PrettyConfig;
 use ron_pfnsec_fork as ron;
 
 use autoschematic_core::{
-    config::AutoschematicConfig,
-    connector_cache::{self, ConnectorCache},
-    git_util::{get_staged_files, git_add, git_commit},
+    connector_cache::ConnectorCache,
+    git_util::{get_staged_files, git_add},
     report::PlanReportSet,
     util::{RON, repo_root},
 };
 
-use crate::{config::load_autoschematic_config, ui};
+use crate::config::load_autoschematic_config;
 
 pub async fn apply(prefix: Option<String>, connector: Option<String>, subpath: Option<String>) -> anyhow::Result<()> {
     let repo_root = repo_root()?;

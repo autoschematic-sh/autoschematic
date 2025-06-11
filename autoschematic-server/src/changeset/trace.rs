@@ -23,7 +23,7 @@ pub async fn start_run(
         .into());
     };
 
-    Ok(trace_store
+    trace_store
         .start_run(
             &changeset.owner,
             &changeset.repo,
@@ -33,7 +33,7 @@ pub async fn start_run(
             r#type,
             command,
         )
-        .await?)
+        .await
 }
 
 pub async fn append_run_log(handle: &TraceHandle, log: String) -> anyhow::Result<()> {
@@ -47,7 +47,7 @@ pub async fn append_run_log(handle: &TraceHandle, log: String) -> anyhow::Result
         .into());
     };
 
-    Ok(trace_store.append_run_log(handle, log).await?)
+    trace_store.append_run_log(handle, log).await
 }
 
 pub async fn finish_run(handle: &TraceHandle) -> anyhow::Result<()> {
@@ -61,5 +61,5 @@ pub async fn finish_run(handle: &TraceHandle) -> anyhow::Result<()> {
         .into());
     };
 
-    Ok(trace_store.finish_run(handle).await?)
+    trace_store.finish_run(handle).await
 }

@@ -73,7 +73,7 @@ pub async fn create_comment(
         .send(super::message::TaskMessage::IssueComment(IssueComment {
             owner: owner.to_string(),
             repo: repo.to_string(),
-            issue: issue,
+            issue,
             user: String::new(),
             body: body.to_string(),
         }))

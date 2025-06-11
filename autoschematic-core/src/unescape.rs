@@ -90,7 +90,7 @@ fn unescape_octal_leading(c: char, queue: &VecDeque<char>) -> Option<char> {
 
     let mut s = String::new();
     s.push(c);
-    s.push(*try_option!(queue.get(0)));
+    s.push(*try_option!(queue.front()));
     s.push(*try_option!(queue.get(1)));
 
     let u = try_option!(u32::from_str_radix(&s, 8).ok());

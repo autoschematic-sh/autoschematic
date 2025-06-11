@@ -1,10 +1,9 @@
-use std::{ffi::OsString, path::Path};
+use std::path::Path;
 
-use hyper::client::conn;
 
 use crate::{
-    config::{AutoschematicConfig, ConnectorDef},
-    connector::{DocIdent, FilterOutput, GetDocOutput, SkeletonOutput, parse::connector_shortname},
+    config::AutoschematicConfig,
+    connector::{DocIdent, FilterOutput, GetDocOutput, parse::connector_shortname},
     connector_cache::ConnectorCache,
     error::AutoschematicError,
     keystore::KeyStore,

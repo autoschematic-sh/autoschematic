@@ -37,10 +37,8 @@ pub fn count_net_indent_shift(line: &str, inside_string: bool) -> DiffIndentStat
             if c == '\"' {
                 inside_string = true;
             }
-        } else {
-            if c == '\"' {
-                inside_string = false;
-            }
+        } else if c == '\"' {
+            inside_string = false;
         }
     }
 
@@ -85,7 +83,7 @@ pub fn reindent_old(src: &str) -> anyhow::Result<String> {
     let mut chars = src.chars().peekable();
 
     // helper lambdas
-    let mut newline = |out: &mut String, indent: usize| {
+    let newline = |out: &mut String, indent: usize| {
         out.push('\n');
         for _ in 0..indent {
             out.push_str("    "); // 4 spaces
@@ -177,22 +175,20 @@ pub fn reindent_old(src: &str) -> anyhow::Result<String> {
             Mode::Str { ref delim } => {
                 out.push(c);
                 // detect escapes in normal strings so \" doesn't terminate
-                if delim == "\"" || delim == "'" {
-                    if c == '\\' {
-                        if let Some(escaped) = chars.next() {
-                            out.push(escaped);
-                        }
-                        continue;
+                if (delim == "\"" || delim == "'") && c == '\\' {
+                    if let Some(escaped) = chars.next() {
+                        out.push(escaped);
                     }
+                    continue;
                 }
                 // check if we hit the closing delimiter
                 if delim.starts_with(c)
                     && delim.chars().all(|d| {
                         // look-ahead to match the rest
-                        let mut it = delim.chars().skip(1);
+                        let it = delim.chars().skip(1);
                         let mut ok = true;
                         let mut look = chars.clone();
-                        while let Some(dc) = it.next() {
+                        for dc in it {
                             if look.next() != Some(dc) {
                                 ok = false;
                                 break;

@@ -54,7 +54,7 @@ pub async fn dashboard(session: Session, param: web::Path<(String, String, u64)>
                 .list_runs_for_pr(&repo_key, pr)
                 .await
                 .map_err(|e| error::AutoschematicServerError {
-                    kind: AutoschematicServerErrorType::InternalError(e.into()),
+                    kind: AutoschematicServerErrorType::InternalError(e),
                 })?;
 
             let mut runs = IndexMap::new();
@@ -64,7 +64,7 @@ pub async fn dashboard(session: Session, param: web::Path<(String, String, u64)>
                     .get_run(&repo_key, &run_key)
                     .await
                     .map_err(|e| error::AutoschematicServerError {
-                        kind: AutoschematicServerErrorType::InternalError(e.into()),
+                        kind: AutoschematicServerErrorType::InternalError(e),
                     })?;
                 runs.insert(run_key.run_id, run);
             }
@@ -209,8 +209,7 @@ pub async fn repo_view(session: Session, param: web::Path<(String, String, u64)>
 
                 prefix_listings.push(prefix_listing);
             }
-        } else {
-        };
+        } ;
         Ok(HttpResponse::Ok().content_type("application/json").json(prefix_listings))
     } else {
         Ok(HttpResponse::Unauthorized().finish())
@@ -232,7 +231,7 @@ pub async fn dashboard_list(session: Session) -> Result<HttpResponse, actix_web:
         let mut context = tera::Context::new();
 
         let repos = trace_store.list_repos().await.map_err(|e| error::AutoschematicServerError {
-            kind: AutoschematicServerErrorType::InternalError(e.into()),
+            kind: AutoschematicServerErrorType::InternalError(e),
         })?;
 
         let mut allowed_repos = Vec::new();
@@ -244,7 +243,7 @@ pub async fn dashboard_list(session: Session) -> Result<HttpResponse, actix_web:
                     .list_runs(&repo)
                     .await
                     .map_err(|e| error::AutoschematicServerError {
-                        kind: AutoschematicServerErrorType::InternalError(e.into()),
+                        kind: AutoschematicServerErrorType::InternalError(e),
                     })?;
 
                 for run in runs {
@@ -332,7 +331,7 @@ pub async fn log_subscribe(
                     .get_run(&repo_key, &run_key)
                     .await
                     .map_err(|e| error::AutoschematicServerError {
-                        kind: AutoschematicServerErrorType::InternalError(e.into()),
+                        kind: AutoschematicServerErrorType::InternalError(e),
                     })?;
                 run.logs.clone()
             };
@@ -342,7 +341,7 @@ pub async fn log_subscribe(
                     .subscribe_run_logs(&repo_key, &run_key)
                     .await
                     .map_err(|e| error::AutoschematicServerError {
-                        kind: AutoschematicServerErrorType::InternalError(e.into()),
+                        kind: AutoschematicServerErrorType::InternalError(e),
                     })?;
 
             let mut stream = stream
@@ -433,7 +432,7 @@ pub async fn spawn_task(
     crate::task::spawn_task(&owner, &repo, &PathBuf::from(prefix), &name, installation_id, arg.0)
         .await
         .map_err(|e| error::AutoschematicServerError {
-            kind: AutoschematicServerErrorType::InternalError(e.into()),
+            kind: AutoschematicServerErrorType::InternalError(e),
         })?;
 
     Ok(HttpResponse::Created().finish())
@@ -461,7 +460,7 @@ pub async fn send_task_message(
     match try_send_task_registry_message(&registry_key, msg.into_inner()).await {
         Ok(_) => Ok(HttpResponse::Created().finish()),
         Err(e) => Err(error::AutoschematicServerError {
-            kind: AutoschematicServerErrorType::InternalError(e.into()),
+            kind: AutoschematicServerErrorType::InternalError(e),
         }
         .into()),
     }
@@ -493,7 +492,7 @@ pub async fn task_state_subscribe(
         let mut receiver = subscribe_task_state(&registry_key)
             .await
             .map_err(|e| error::AutoschematicServerError {
-                kind: AutoschematicServerErrorType::InternalError(e.into()),
+                kind: AutoschematicServerErrorType::InternalError(e),
             })?;
 
         let stream = stream
