@@ -58,7 +58,6 @@ pub async fn import_resource(
             bail!("Couldn't resolve phy addr to virt: {:?}", phy_addr)
         };
 
-
         match connector
             .get(phy_addr)
             .await
@@ -73,9 +72,9 @@ pub async fn import_resource(
                     tokio::fs::create_dir_all(parent).await?;
                 }
                 // tokio::fs::wr
-                // 
+                //
                 eprintln!("\u{1b}[92m [PULL] \u{1b}[39m {}", res_path.display());
-                tokio::fs::write(&res_path, body.as_bytes()).await?;
+                tokio::fs::write(&res_path, body).await?;
 
                 // let mut index = repo.index()?;
 

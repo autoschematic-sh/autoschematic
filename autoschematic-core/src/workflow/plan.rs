@@ -87,11 +87,7 @@ pub async fn plan_connector(
                 // may be the most diabolically awful design
                 // TODO remove awful design
                 connector
-                    .plan(
-                        &phy_addr.clone().unwrap_or(virt_addr.into()),
-                        current,
-                        Some(OsString::from_vec(desired_bytes)),
-                    )
+                    .plan(&phy_addr.clone().unwrap_or(virt_addr.into()), current, Some(desired_bytes))
                     .await
                     .context(format!("{}::plan({}, _, _)", connector_shortname, virt_addr.display()))?
             }

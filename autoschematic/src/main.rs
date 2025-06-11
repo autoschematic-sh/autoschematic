@@ -9,7 +9,7 @@ mod config;
 mod create;
 mod import;
 mod init;
-mod install;
+// mod install;
 mod plan;
 mod seal;
 mod sso;
@@ -30,12 +30,12 @@ pub enum AutoschematicSubcommand {
     /// Validate that the Autoschematic config within this repository is well-formed.
     /// Includes autoschematic.lock.ron and autoschematic.rbac.ron if present.
     Validate {},
-    /// Install a connector from a Github repository.
-    Install {
-        url: String,
-        #[arg(short, long, default_value = None)]
-        version: Option<String>,
-    },
+    // Install a connector from a Github repository.
+    // Install {
+    //     url: String,
+    //     #[arg(short, long, default_value = None)]
+    //     version: Option<String>,
+    // },
     /// Seal a secret against a server's public key.
     Seal {
         /// Domain of the autoschematic server.
@@ -155,9 +155,9 @@ async fn main() -> anyhow::Result<()> {
             let token = login_via_github().await?;
             persist_github_token(&token)?;
         }
-        AutoschematicSubcommand::Install { url, version } => {
-            install::install(&url, version).await?;
-        }
+        // AutoschematicSubcommand::Install { url, version } => {
+        //     install::install(&url, version).await?;
+        // }
         AutoschematicSubcommand::Plan {
             prefix,
             connector,

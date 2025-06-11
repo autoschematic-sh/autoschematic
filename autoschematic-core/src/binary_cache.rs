@@ -2,7 +2,7 @@
 //
 
 use std::{
-    fs::{create_dir_all, OpenOptions},
+    fs::{OpenOptions, create_dir_all},
     io::Read,
     path::{Path, PathBuf},
 };
@@ -40,12 +40,8 @@ impl BinaryCache {
         manifest: &ConnectorManifest,
         arch: &str,
     ) -> anyhow::Result<PathBuf> {
-        let out_dir = self
-            .cache_folder
-            .join(owner)
-            .join(repo)
-            .join(version);
-            // .join(&asset_name);
+        let out_dir = self.cache_folder.join(owner).join(repo).join(version);
+        // .join(&asset_name);
         create_dir_all(&out_dir)?;
 
         let _filelock = wait_for_flock(out_dir.join(".lock")).await?;
@@ -54,11 +50,7 @@ impl BinaryCache {
             tracing::info!("Reading {} from clean cache.", out_dir.to_string_lossy());
             return Ok(out_dir);
         }
-        let release = octocrab::instance()
-            .repos(owner, repo)
-            .releases()
-            .get_by_tag(version)
-            .await?;
+        let release = octocrab::instance().repos(owner, repo).releases().get_by_tag(version).await?;
 
         // let mut manifest: Option<&Asset> = None;
 
@@ -108,7 +100,6 @@ impl BinaryCache {
             bail!("No asset found under name {}", asset_name)
         };
 
-
         let mut asset_stream = octocrab::instance()
             .repos(owner, repo)
             .release_assets()
@@ -136,10 +127,7 @@ impl BinaryCache {
         let res = tokio::task::spawn_blocking(|| decoder_thread.join()).await?;
         match res {
             Ok(Ok(())) => {
-                OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .open(out_dir.join(".clean"))?;
+                OpenOptions::new().create(true).write(true).open(out_dir.join(".clean"))?;
             }
             _ => {}
         }
@@ -158,11 +146,7 @@ fn gz_decode(out_path: &Path, rx: Receiver<Vec<u8>>) -> anyhow::Result<()> {
 
 fn copy_file(out_path: &Path, rx: Receiver<Vec<u8>>) -> anyhow::Result<()> {
     let mut input = ChannelRead::new(rx);
-    let mut out_file = OpenOptions::new()
-        .create(true)
-        .truncate(true)
-        .append(true)
-        .open(out_path)?;
+    let mut out_file = OpenOptions::new().create(true).truncate(true).append(true).open(out_path)?;
     std::io::copy(&mut input, &mut out_file)?;
     Ok(())
 }

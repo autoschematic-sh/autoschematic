@@ -9,8 +9,8 @@ use tokio::sync::broadcast::error::RecvError;
 use crate::KEYSTORE;
 
 use super::{
-    trace::{append_run_log, start_run},
     ChangeSet,
+    trace::{append_run_log, start_run},
 };
 
 impl ChangeSet {
@@ -85,7 +85,7 @@ impl ChangeSet {
                     if let Some(parent) = path.parent() {
                         fs::create_dir_all(parent)?;
                     }
-                    tokio::fs::write(&path, skeleton.body.as_bytes()).await?;
+                    tokio::fs::write(&path, skeleton.body).await?;
                     self.git_add(&repo, &path)?;
 
                     imported_count += 1;

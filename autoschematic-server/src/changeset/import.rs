@@ -1,15 +1,22 @@
 use std::{
-    fs::{self}, os::unix::ffi::OsStrExt, path::{Path, PathBuf}
+    fs::{self},
+    os::unix::ffi::OsStrExt,
+    path::{Path, PathBuf},
 };
 
 use super::trace::{append_run_log, finish_run, start_run};
-use anyhow::{bail, Context};
-use autoschematic_core::{connector::{parse::connector_shortname, Connector}, connector_util::build_out_path, glob::addr_matches_filter, write_output::{link_phy_output_file, write_virt_output_file}};
+use anyhow::{Context, bail};
+use autoschematic_core::{
+    connector::{Connector, parse::connector_shortname},
+    connector_util::build_out_path,
+    glob::addr_matches_filter,
+    write_output::{link_phy_output_file, write_virt_output_file},
+};
 use git2::{Cred, IndexAddOption, PushOptions, RemoteCallbacks, Repository};
 use secrecy::ExposeSecret;
 use tokio::sync::broadcast::error::RecvError;
 
-use crate::{error::AutoschematicServerError, KEYSTORE};
+use crate::{KEYSTORE, error::AutoschematicServerError};
 
 use super::ChangeSet;
 
@@ -76,7 +83,7 @@ impl ChangeSet {
                     if let Some(parent) = res_path.parent() {
                         fs::create_dir_all(parent)?;
                     }
-                    tokio::fs::write(&res_path, body.as_bytes()).await?;
+                    tokio::fs::write(&res_path, body).await?;
                     tracing::info!("import completed...");
 
                     let mut index = repo.index()?;
@@ -89,17 +96,13 @@ impl ChangeSet {
                             let virt_output_path = build_out_path(prefix, &virt_addr);
                             let phy_output_path = build_out_path(prefix, &phy_addr);
 
-                            if let Some(virt_output_path) =
-                                write_virt_output_file(&virt_output_path, &outputs, true)?
-                            {
+                            if let Some(virt_output_path) = write_virt_output_file(&virt_output_path, &outputs, true)? {
                                 self.git_add(repo, &virt_output_path)?;
                             }
 
                             // TODO can import ever delete/unlink an output file?
                             if virt_addr != phy_addr {
-                                if let Some(phy_output_path) =
-                                    link_phy_output_file(&virt_output_path, &phy_output_path)?
-                                {
+                                if let Some(phy_output_path) = link_phy_output_file(&virt_output_path, &phy_output_path)? {
                                     self.git_add(repo, &phy_output_path)?;
                                 }
                                 // let phy_output_path = build_out_path(prefix, &phy_addr);
@@ -170,7 +173,7 @@ impl ChangeSet {
                         &connector_def.name,
                         &PathBuf::from(&prefix_name),
                         &connector_def.env,
-                        Some(&KEYSTORE)
+                        Some(&KEYSTORE),
                     )
                     .await?;
                 let sender_trace_handle = trace_handle.clone();
@@ -195,7 +198,7 @@ impl ChangeSet {
                     connector_shortname,
                     subpath.to_str().unwrap_or_default()
                 ))?;
-                
+
                 'phy_addr: for phy_addr in phy_addrs {
                     if !addr_matches_filter(&prefix_name, &phy_addr, &subpath) {
                         continue 'phy_addr;
@@ -205,9 +208,7 @@ impl ChangeSet {
                     if let Some(ref resource_group) = prefix.resource_group {
                         if let Some(neighbour_prefixes) = resource_group_map.get(resource_group) {
                             // get all prefixes in this resource group except our own
-                            for neighbour_prefix in
-                                neighbour_prefixes.iter().filter(|p| **p != prefix_name)
-                            {
+                            for neighbour_prefix in neighbour_prefixes.iter().filter(|p| **p != prefix_name) {
                                 if neighbour_prefix.join(&phy_addr).exists() {
                                     continue 'phy_addr;
                                 }
@@ -245,16 +246,12 @@ impl ChangeSet {
                     let parent_commit = repo.head()?.peel_to_commit()?;
                     let tree = repo.find_tree(oid)?;
                     let sig = git2::Signature::now("autoschematic", "import@autoschematic.sh")?;
-                    let message = format!(
-                        "autoschematic import by @{}: {}",
-                        comment_username, comment_url
-                    );
+                    let message = format!("autoschematic import by @{}: {}", comment_username, comment_url);
                     repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?;
 
                     let mut remote = repo.find_remote("origin")?;
 
-                    let refspec =
-                        format!("refs/heads/{}:refs/heads/{}", self.head_ref, self.head_ref);
+                    let refspec = format!("refs/heads/{}:refs/heads/{}", self.head_ref, self.head_ref);
 
                     let mut callbacks = RemoteCallbacks::new();
                     callbacks.credentials(move |_url, _username_from_url, _allowed_types| {

@@ -1,3 +1,4 @@
+#[cfg(feature = "sandbox")]
 pub mod binary_cache;
 pub mod config;
 pub mod config_bundle;
@@ -12,7 +13,7 @@ pub mod flock;
 pub mod git_util;
 pub mod glob;
 pub mod keystore;
-pub mod lockfile;
+// pub mod lockfile;
 pub mod macros;
 pub mod manifest;
 pub mod read_outputs;

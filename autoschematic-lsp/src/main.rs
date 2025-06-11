@@ -13,7 +13,7 @@ use autoschematic_core::{
     config_rbac::AutoschematicRbacConfig,
     connector::FilterOutput,
     connector_cache::ConnectorCache,
-    lockfile::AutoschematicLockfile,
+    // lockfile::AutoschematicLockfile,
     manifest::ConnectorManifest,
     util::{RON, split_prefix_addr},
     workflow::{self, apply::apply, filter::filter, get::get, get_docstring::get_docstring, import::import_all, plan::plan},
@@ -196,7 +196,7 @@ impl LanguageServer for Backend {
                 match get(autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await {
                     Ok(Some(res)) => {
                         eprintln!("Get returned Some! {:?}", res);
-                        match String::from_utf8(res.into_vec()) {
+                        match String::from_utf8(res) {
                             Ok(s) => {
                                 return Ok(Some(serde_json::to_value(s).unwrap()));
                             }
@@ -351,7 +351,7 @@ impl Backend {
                             self.connector_cache.get_connector(&connector_def.name, &prefix).await
                         {
                             // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
-                            res.append(&mut diag_to_lsp(connector.diag(addr, &OsString::from(body)).await?));
+                            res.append(&mut diag_to_lsp(connector.diag(addr, body.as_bytes()).await?));
                         }
                     }
                     autoschematic_core::connector::FilterOutput::Resource => {
@@ -359,7 +359,7 @@ impl Backend {
                             self.connector_cache.get_connector(&connector_def.name, &prefix).await
                         {
                             // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
-                            res.append(&mut diag_to_lsp(connector.diag(addr, &OsString::from(body)).await?));
+                            res.append(&mut diag_to_lsp(connector.diag(addr, body.as_bytes()).await?));
                         }
                     }
                     autoschematic_core::connector::FilterOutput::None => {}
@@ -533,11 +533,11 @@ impl Backend {
                     res.push(diag);
                 }
             }
-            "autoschematic.lock.ron" => {
-                if let Some(diag) = self.check::<AutoschematicLockfile>(text).await? {
-                    res.push(diag);
-                }
-            }
+            // "autoschematic.lock.ron" => {
+            //     if let Some(diag) = self.check::<AutoschematicLockfile>(text).await? {
+            //         res.push(diag);
+            //     }
+            // }
             "autoschematic.connector.ron" => {
                 if let Some(diag) = self.check::<ConnectorManifest>(text).await? {
                     res.push(diag);

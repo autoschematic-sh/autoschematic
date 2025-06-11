@@ -12,6 +12,7 @@
 //! - SESSION_KEY: 32-byte key for cookie encryption (base64 encoded)
 //! - RUST_LOG: Logging level (e.g. info, debug)
 
+#![feature(file_lock)]
 #![deny(unused_must_use)]
 
 mod bundle;
@@ -37,7 +38,7 @@ use actix_files::NamedFile;
 use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use anyhow::Context;
 use autoschematic_core::{
-    binary_cache::BinaryCache,
+    // binary_cache::BinaryCache,
     keystore::{KeyStore, keystore_init},
 };
 use dashboard::api_util::get_self;
@@ -71,7 +72,7 @@ static DOMAIN: OnceCell<String> = OnceCell::new();
 static REPOLOCKSTORE: OnceCell<Box<dyn RepoLockStore>> = OnceCell::new();
 pub static TASK_REGISTRY: OnceCell<task::registry::TaskRegistry> = OnceCell::new();
 static TRACESTORE: OnceCell<Box<dyn TraceStore>> = OnceCell::new();
-static BINARYCACHE: OnceCell<BinaryCache> = OnceCell::new();
+// static BINARYCACHE: OnceCell<BinaryCache> = OnceCell::new();
 
 lazy_static::lazy_static! {
     pub static ref RON: ron::options::Options = ron::Options::default()
@@ -132,11 +133,11 @@ async fn async_main() -> anyhow::Result<()> {
         })
         .unwrap();
 
-    let bincache_folder = env::var("BINARY_CACHE_DIR").unwrap_or(String::from("/tmp/autoschematic_bincache"));
+    // let bincache_folder = env::var("BINARY_CACHE_DIR").unwrap_or(String::from("/tmp/autoschematic_bincache"));
 
-    BINARYCACHE
-        .set(BinaryCache::new(&PathBuf::from(bincache_folder)).unwrap())
-        .unwrap();
+    // BINARYCACHE
+    //     .set(BinaryCache::new(&PathBuf::from(bincache_folder)).unwrap())
+    //     .unwrap();
 
     dashboard::TEMPLATES.set(Tera::new("dashboard/**/*.html").unwrap()).unwrap();
 

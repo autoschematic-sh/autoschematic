@@ -105,13 +105,13 @@ impl From<regex::Error> for AutoschematicError {
     }
 }
 
-impl From<octocrab::Error> for AutoschematicError {
-    fn from(err: octocrab::Error) -> Self {
-        AutoschematicError {
-            kind: AutoschematicErrorType::InternalError(err.into()),
-        }
-    }
-}
+// impl From<octocrab::Error> for AutoschematicError {
+//     fn from(err: octocrab::Error) -> Self {
+//         AutoschematicError {
+//             kind: AutoschematicErrorType::InternalError(err.into()),
+//         }
+//     }
+// }
 
 impl From<std::io::Error> for AutoschematicError {
     fn from(err: std::io::Error) -> Self {

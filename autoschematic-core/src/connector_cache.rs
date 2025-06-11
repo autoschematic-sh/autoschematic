@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    binary_cache::BinaryCache,
+    // binary_cache::BinaryCache,
     connector::{
         Connector, ConnectorInbox, FilterOutput,
         parse::{connector_shortname, parse_connector_name},
@@ -29,7 +29,7 @@ pub struct ConnectorCache {
     /// static. Since filter() is the most common call, this can speed up workflows by
     /// avoiding calling out to the connectors so many times.
     filter_cache: Mutex<HashMap<HashKey, HashMap<PathBuf, FilterOutput>>>,
-    binary_cache: BinaryCache,
+    // binary_cache: BinaryCache,
 }
 
 /// A ConnectorCache represents a handle to multiple Connector instances. The server, CLI, and LSP
@@ -62,7 +62,8 @@ impl ConnectorCache {
             // In order for the first process that invokes connector_init to receive the earliest messages from the inbox,
             //  we need to pass the original inbox, and not the resubscribed copy.
             // Hence the song and dance below with the Arc and resubscribe().
-            let (connector, inbox) = spawn_connector(&connector_type, prefix, env, &self.binary_cache, keystore)
+            // let (connector, inbox) = spawn_connector(&connector_type, prefix, env, &self.binary_cache, keystore)
+            let (connector, inbox) = spawn_connector(&connector_type, prefix, env, keystore)
                 .await
                 .context("spawn_connector()")?;
 
@@ -108,9 +109,7 @@ impl ConnectorCache {
         let mut filter_cache = self.filter_cache.lock().await;
 
         // Get the filter cache for connector `name` at prefix `prefix`, or initialize it.
-        let connector_filter_cache = {
-            filter_cache.entry(connector_key.clone()).or_insert_with(|| HashMap::new())
-        };
+        let connector_filter_cache = { filter_cache.entry(connector_key.clone()).or_insert_with(|| HashMap::new()) };
 
         if let Some(value) = connector_filter_cache.get(addr) {
             Ok(*value)
@@ -123,14 +122,13 @@ impl ConnectorCache {
         }
     }
 
-    /// 
+    ///
     pub async fn clear_filter_cache(&self, name: &str, prefix: &Path) {
         let connector_key = (name.into(), prefix.into());
 
         let mut filter_cache = self.filter_cache.lock().await;
-        
-        filter_cache.remove(&connector_key);
 
+        filter_cache.remove(&connector_key);
     }
 
     /// Drop all entries in the connector and filter caches.

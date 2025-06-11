@@ -5,7 +5,7 @@ members = [
     "autoschematic-server",
     "autoschematic-core",
     "autoschematic-lsp",
-    "connectors/autoschematic-connector-python-host",
+    #"connectors/autoschematic-connector-python-host",
 ]
 
 [profile.release]

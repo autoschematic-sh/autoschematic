@@ -111,7 +111,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
 
     tokio::fs::create_dir_all(prefix.join(&output_path).parent().unwrap()).await?;
 
-    tokio::fs::write(prefix.join(output_path), skeleton.body.as_bytes()).await?;
+    tokio::fs::write(prefix.join(output_path), &skeleton.body).await?;
 
     Ok(())
 }

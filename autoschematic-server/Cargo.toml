@@ -82,7 +82,6 @@ nix = { version = "0.30.1", features = [
     "mount",
     "user",
 ] }
-file-lock = "2.1.11"
 actix-ws = "0.3.0"
 flate2 = "1.0.35"
 tar = "0.4.44"
@@ -92,4 +91,5 @@ indexmap = { version = "2.7.1", features = ["serde"] }
 walkdir = "2.5.0"
 tokio-stream = "0.1.17"
 console-subscriber = "0.4.1"
+file-guard = "0.2.0"
 # coz = "0.1.3"

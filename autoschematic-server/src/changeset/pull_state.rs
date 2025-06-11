@@ -196,12 +196,9 @@ impl ChangeSet {
                             // we can have a much more coherent definition of "equality",
                             // since connectors can E.G. parse their own Ron!
                             // if !current.resource_definition.trim() != desired.trim() {
-                            if !connector
-                                .eq(&phy_addr, &current.resource_definition, &OsStr::from_bytes(&desired))
-                                .await?
-                            {
+                            if !connector.eq(&phy_addr, &current.resource_definition, &desired).await? {
                                 tick_import_count = true;
-                                std::fs::write(&object.filename, current.resource_definition.as_bytes())?;
+                                tokio::fs::write(&object.filename, current.resource_definition).await?;
                                 self.git_add(repo, &object.filename)?;
                             }
 

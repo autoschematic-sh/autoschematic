@@ -48,11 +48,8 @@ pub trait TarpcConnector {
 
     /// Determine how to set current -> desired
     /// Returns a sequence of Ops that can be executed by op_exec.
-    async fn plan(
-        addr: PathBuf,
-        current: Option<OsString>,
-        desired: Option<OsString>,
-    ) -> Result<Vec<OpPlanOutput>, ErrorMessage>;
+    async fn plan(addr: PathBuf, current: Option<Vec<u8>>, desired: Option<Vec<u8>>)
+    -> Result<Vec<OpPlanOutput>, ErrorMessage>;
 
     /// Execute an Op.
     /// OpExecOutput may include output files, containing, for example,
@@ -65,8 +62,8 @@ pub trait TarpcConnector {
     async fn addr_phy_to_virt(addr: PathBuf) -> Result<Option<PathBuf>, ErrorMessage>;
     async fn get_skeletons() -> Result<Vec<SkeletonOutput>, ErrorMessage>;
     async fn get_docstring(addr: PathBuf, ident: DocIdent) -> Result<Option<GetDocOutput>, ErrorMessage>;
-    async fn eq(addr: PathBuf, a: OsString, b: OsString) -> Result<bool, ErrorMessage>;
-    async fn diag(addr: PathBuf, a: OsString) -> Result<DiagnosticOutput, ErrorMessage>;
+    async fn eq(addr: PathBuf, a: Vec<u8>, b: Vec<u8>) -> Result<bool, ErrorMessage>;
+    async fn diag(addr: PathBuf, a: Vec<u8>) -> Result<DiagnosticOutput, ErrorMessage>;
 }
 
 #[derive(Clone)]
@@ -100,8 +97,8 @@ impl TarpcConnector for ConnectorServer {
         self,
         _context: ::tarpc::context::Context,
         addr: PathBuf,
-        current: Option<OsString>,
-        desired: Option<OsString>,
+        current: Option<Vec<u8>>,
+        desired: Option<Vec<u8>>,
     ) -> Result<Vec<OpPlanOutput>, ErrorMessage> {
         Ok(Connector::plan(&*self.connector.lock().await, &addr, current, desired).await?)
     }
@@ -149,13 +146,7 @@ impl TarpcConnector for ConnectorServer {
         Ok(Connector::get_docstring(&*self.connector.lock().await, &addr, ident).await?)
     }
 
-    async fn eq(
-        self,
-        _context: tarpc::context::Context,
-        addr: PathBuf,
-        a: OsString,
-        b: OsString,
-    ) -> Result<bool, ErrorMessage> {
+    async fn eq(self, _context: tarpc::context::Context, addr: PathBuf, a: Vec<u8>, b: Vec<u8>) -> Result<bool, ErrorMessage> {
         Ok(Connector::eq(&*self.connector.lock().await, &addr, &a, &b).await?)
     }
 
@@ -163,7 +154,7 @@ impl TarpcConnector for ConnectorServer {
         self,
         _context: tarpc::context::Context,
         addr: PathBuf,
-        a: OsString,
+        a: Vec<u8>,
     ) -> Result<DiagnosticOutput, ErrorMessage> {
         Ok(Connector::diag(&*self.connector.lock().await, &addr, &a).await?)
     }
@@ -194,8 +185,8 @@ impl<C: Connector> TarpcConnector for C {
         self,
         _context: ::tarpc::context::Context,
         addr: PathBuf,
-        current: Option<OsString>,
-        desired: Option<OsString>,
+        current: Option<Vec<u8>>,
+        desired: Option<Vec<u8>>,
     ) -> Result<Vec<OpPlanOutput>, ErrorMessage> {
         Ok(Connector::plan(&self, &addr, current, desired).await?)
     }
@@ -243,13 +234,7 @@ impl<C: Connector> TarpcConnector for C {
         Ok(Connector::get_docstring(&self, &addr, ident).await?)
     }
 
-    async fn eq(
-        self,
-        _context: tarpc::context::Context,
-        addr: PathBuf,
-        a: OsString,
-        b: OsString,
-    ) -> Result<bool, ErrorMessage> {
+    async fn eq(self, _context: tarpc::context::Context, addr: PathBuf, a: Vec<u8>, b: Vec<u8>) -> Result<bool, ErrorMessage> {
         Ok(Connector::eq(&self, &addr, &a, &b).await?)
     }
 
@@ -257,7 +242,7 @@ impl<C: Connector> TarpcConnector for C {
         self,
         _context: tarpc::context::Context,
         addr: PathBuf,
-        a: OsString,
+        a: Vec<u8>,
     ) -> Result<DiagnosticOutput, ErrorMessage> {
         Ok(Connector::diag(&self, &addr, &a).await?)
     }
@@ -309,8 +294,8 @@ impl Connector for TarpcConnectorClient {
     async fn plan(
         &self,
         addr: &Path,
-        current: Option<OsString>,
-        desired: Option<OsString>,
+        current: Option<Vec<u8>>,
+        desired: Option<Vec<u8>>,
     ) -> Result<Vec<OpPlanOutput>, anyhow::Error> {
         Ok(self
             .plan(context_10m_deadline(), addr.to_path_buf(), current, desired)
@@ -339,13 +324,13 @@ impl Connector for TarpcConnectorClient {
         Ok(self.get_docstring(context_1m_deadline(), addr.to_path_buf(), ident).await??)
     }
 
-    async fn eq(&self, addr: &Path, a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error> {
+    async fn eq(&self, addr: &Path, a: &[u8], b: &[u8]) -> Result<bool, anyhow::Error> {
         Ok(self
             .eq(context_1m_deadline(), addr.to_path_buf(), a.to_owned(), b.to_owned())
             .await??)
     }
 
-    async fn diag(&self, addr: &Path, a: &OsStr) -> Result<DiagnosticOutput, anyhow::Error> {
+    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
         Ok(self.diag(context_1m_deadline(), addr.to_path_buf(), a.to_owned()).await??)
     }
 }

@@ -22,45 +22,44 @@ use crate::{
 use anyhow::{Context, bail};
 use async_trait::async_trait;
 
-#[cfg(feature = "sandbox")]
-use nix::{
-    errno::Errno,
-    sched::CloneFlags,
-    sys::signal::Signal::SIGKILL,
-    sys::signal::kill,
-    unistd::{Pid, Uid, execve, getegid, geteuid, pipe, setresuid},
-};
+// use nix::{
+//     errno::Errno,
+//     sched::CloneFlags,
+//     sys::signal::Signal::SIGKILL,
+//     sys::signal::kill,
+//     unistd::{Pid, Uid, execve, getegid, geteuid, pipe, setresuid},
+// };
 use rand::{Rng, distr::Alphanumeric};
-use tokio::sync::mpsc::Receiver;
+use tokio::{process::Child, sync::mpsc::Receiver};
 use walkdir::WalkDir;
 
 /// This module handles sandboxing of connector instances using Linux-kernel specific
 /// methods, such as cgroups and namespaces.
-pub struct SandboxConnectorHandle {
+pub struct UnsandboxConnectorHandle {
     client: TarpcConnectorClient,
     socket: PathBuf,
     error_dump: PathBuf,
     read_thread: Option<JoinHandle<()>>,
-    pid: Pid,
+    child: Child,
 }
 
-impl SandboxConnectorHandle {
-    pub fn still_alive(&self) -> anyhow::Result<()> {
-        if kill(self.pid, None).is_ok() {
-            Ok(())
-        } else {
-            if self.error_dump.is_file() {
-                match std::fs::read_to_string(&self.error_dump) {
-                    Ok(dump) => Err(ErrorMessage { msg: dump }.into()),
-                    Err(e) => {
-                        bail!("Connector process exited, failed to read error dump: {}", e)
-                    }
-                }
-            } else {
-                bail!("Connector process exited without any error dump!")
-            }
-        }
-    }
+impl UnsandboxConnectorHandle {
+    // pub fn still_alive(&self) -> anyhow::Result<()> {
+    //     // if kill(self.pid, None).is_ok() {
+    //     //     Ok(())
+    //     // } else {
+    //     //     if self.error_dump.is_file() {
+    //     //         match std::fs::read_to_string(&self.error_dump) {
+    //     //             Ok(dump) => Err(ErrorMessage { msg: dump }.into()),
+    //     //             Err(e) => {
+    //     //                 bail!("Connector process exited, failed to read error dump: {}", e)
+    //     //             }
+    //     //         }
+    //     //     } else {
+    //     //         bail!("Connector process exited without any error dump!")
+    //     //     }
+    //     // }
+    // }
 }
 
 fn random_socket_path() -> PathBuf {
@@ -93,100 +92,72 @@ fn random_error_dump_path() -> PathBuf {
 }
 
 #[async_trait]
-impl Connector for SandboxConnectorHandle {
+impl Connector for UnsandboxConnectorHandle {
     async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Box<dyn Connector>, anyhow::Error> {
         <TarpcConnectorClient as Connector>::new(name, prefix, outbox).await
     }
     async fn init(&self) -> Result<(), anyhow::Error> {
-        self.still_alive().context(format!("Before init()"))?;
         let res = Connector::init(&self.client).await;
-        self.still_alive().context(format!("After init()"))?;
         res
     }
 
     async fn filter(&self, addr: &Path) -> Result<FilterOutput, anyhow::Error> {
-        self.still_alive().context(format!("Before filter({:?})", addr))?;
         let res = Connector::filter(&self.client, addr).await;
-        self.still_alive().context(format!("After filter({:?})", addr))?;
         res
     }
 
     async fn list(&self, subpath: &Path) -> anyhow::Result<Vec<PathBuf>> {
-        self.still_alive().context(format!("Before list({:?})", subpath))?;
         let res = Connector::list(&self.client, subpath).await;
-        self.still_alive().context(format!("After list({:?})", subpath))?;
         res
     }
 
     async fn get(&self, addr: &Path) -> Result<Option<GetResourceOutput>, anyhow::Error> {
-        self.still_alive().context(format!("Before get({:?})", addr))?;
         let res = Connector::get(&self.client, addr).await;
-        self.still_alive().context(format!("After get({:?})", addr))?;
         res
     }
 
     async fn plan(
         &self,
         addr: &Path,
-        current: Option<OsString>,
-        desired: Option<OsString>,
+        current: Option<Vec<u8>>,
+        desired: Option<Vec<u8>>,
     ) -> Result<Vec<OpPlanOutput>, anyhow::Error> {
-        self.still_alive().context(format!("Before plan({:?})", addr))?;
         let res = Connector::plan(&self.client, addr, current, desired).await;
-        self.still_alive().context(format!("After plan({:?})", addr))?;
         res
     }
 
     async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecOutput, anyhow::Error> {
-        self.still_alive().context(format!("Before op_exec({:?})", addr))?;
         let res = Connector::op_exec(&self.client, addr, op).await;
-        self.still_alive().context(format!("After op_exec({:?})", addr))?;
         res
     }
 
     async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyOutput, anyhow::Error> {
-        self.still_alive().context(format!("Before addr_virt_to_phy({:?})", addr))?;
         let res = Connector::addr_virt_to_phy(&self.client, addr).await;
-        self.still_alive().context(format!("After addr_virt_to_phy({:?})", addr))?;
         res
     }
 
     async fn addr_phy_to_virt(&self, addr: &Path) -> Result<Option<PathBuf>, anyhow::Error> {
-        self.still_alive().context(format!("Before addr_phy_to_virt({:?})", addr))?;
         let res = Connector::addr_phy_to_virt(&self.client, addr).await;
-        self.still_alive().context(format!("After addr_phy_to_virt({:?})", addr))?;
         res
     }
 
     async fn get_skeletons(&self) -> Result<Vec<SkeletonOutput>, anyhow::Error> {
-        self.still_alive().context(format!("Before get_skeletons()"))?;
         let res = Connector::get_skeletons(&self.client).await;
-        self.still_alive().context(format!("After get_skeletons()"))?;
         res
     }
 
     async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocOutput>, anyhow::Error> {
-        self.still_alive().context(format!("Before get_docstring()"))?;
         let res = Connector::get_docstring(&self.client, addr, ident).await;
-        self.still_alive().context(format!("After get_docstring()"))?;
         res
     }
 
-    async fn eq(&self, addr: &Path, a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error> {
-        self.still_alive()
-            .context(format!("Before eq({}, _, _)", addr.to_string_lossy()))?;
+    async fn eq(&self, addr: &Path, a: &[u8], b: &[u8]) -> Result<bool, anyhow::Error> {
         let res = Connector::eq(&self.client, addr, a, b).await;
-        self.still_alive()
-            .context(format!("After eq({}, _, _)", addr.to_string_lossy()))?;
         res
     }
 
-    async fn diag(&self, addr: &Path, a: &OsStr) -> Result<DiagnosticOutput, anyhow::Error> {
-        self.still_alive()
-            .context(format!("Before eq({}, _, _)", addr.to_string_lossy()))?;
+    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
         let res = Connector::diag(&self.client, addr, a).await;
-        self.still_alive()
-            .context(format!("After eq({}, _, _)", addr.to_string_lossy()))?;
         res
     }
 }
@@ -235,14 +206,14 @@ impl Connector for SandboxConnectorHandle {
 //         pid: pid,
 //     })
 // }
-pub async fn launch_server_binary_boring(
+pub async fn launch_server_binary(
     binary: &Path,
     name: &str,
     prefix: &Path,
     env: &HashMap<String, String>,
     outbox: ConnectorOutbox,
     keystore: Option<&Box<dyn KeyStore>>,
-) -> anyhow::Result<SandboxConnectorHandle> {
+) -> anyhow::Result<UnsandboxConnectorHandle> {
     let mut env = env.clone();
     let mut binary = PathBuf::from(binary);
 
@@ -259,6 +230,30 @@ pub async fn launch_server_binary_boring(
     } else {
         env = passthrough_secrets_from_env(&env)?;
     }
+
+    tracing::info!("Launching client at {:?}", socket);
+
+    let client = launch_client(&socket).await?;
+    tracing::info!("Launched client.");
+
+    let args = [binary.clone(), name.into(), prefix.into(), socket.clone(), error_dump.clone()];
+    let mut command = &mut tokio::process::Command::new(binary);
+
+    command = command.args(args);
+
+    for (key, val) in env {
+        command = command.env(key, val);
+    }
+
+    let child = command.spawn()?;
+
+    return Ok(UnsandboxConnectorHandle {
+        client,
+        socket,
+        error_dump,
+        read_thread: None,
+        child,
+    });
 }
 
 #[cfg(feature = "sandbox")]
@@ -269,7 +264,7 @@ pub async fn launch_server_binary_sandboxed(
     env: &HashMap<String, String>,
     outbox: ConnectorOutbox,
     keystore: Option<&Box<dyn KeyStore>>,
-) -> anyhow::Result<SandboxConnectorHandle> {
+) -> anyhow::Result<UnsandboxConnectorHandle> {
     let mut env = env.clone();
     let mut binary = PathBuf::from(binary);
 
@@ -469,7 +464,7 @@ pub async fn launch_server_binary_sandboxed(
     let client = launch_client(&socket).await?;
     tracing::info!("Launched client.");
 
-    return Ok(SandboxConnectorHandle {
+    return Ok(UnsandboxConnectorHandle {
         client,
         socket: socket.to_path_buf(),
         error_dump,
@@ -478,7 +473,7 @@ pub async fn launch_server_binary_sandboxed(
     });
 }
 
-impl Drop for SandboxConnectorHandle {
+impl Drop for UnsandboxConnectorHandle {
     fn drop(&mut self) {
         match std::fs::remove_file(&self.socket) {
             Ok(_) => {}
@@ -494,8 +489,8 @@ impl Drop for SandboxConnectorHandle {
             // handle.
         }
 
-        tracing::info!("DROP on SandboxConnectorHandle! Killing {}", self.pid);
-        nix::sys::signal::kill(self.pid, SIGKILL).unwrap();
+        tracing::info!("DROP on UnsandboxConnectorHandle! Killing subprocess");
+        self.child.start_kill().unwrap();
     }
 }
 

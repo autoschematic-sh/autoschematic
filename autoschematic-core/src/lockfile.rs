@@ -5,7 +5,7 @@ use ron_pfnsec_fork as ron;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    binary_cache::BinaryCache,
+    // binary_cache::BinaryCache,
     connector::r#type::ConnectorType,
     error::{self, AutoschematicErrorType},
     manifest::ConnectorManifest,

@@ -1,14 +1,11 @@
 use std::{
     collections::HashMap,
-    ffi::{OsStr, OsString},
     path::{Path, PathBuf},
 };
 
-use futures::Stream;
 use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
-use tokio::sync::broadcast::{Receiver, Sender};
 
 use crate::{diag::DiagnosticOutput, read_outputs::ReadOutput};
 
@@ -32,7 +29,7 @@ pub enum FilterOutput {
 /// `resource_definition`` will contain the connector's string representation of that
 /// resource, and `outputs` will contain the
 pub struct GetResourceOutput {
-    pub resource_definition: OsString,
+    pub resource_definition: Vec<u8>,
     pub outputs: Option<OutputMap>,
 }
 
@@ -92,7 +89,7 @@ pub struct OpExecOutput {
 /// examples of the kinds of resources that the user can instantiate and manage through the connector.
 pub struct SkeletonOutput {
     pub addr: PathBuf,
-    pub body: OsString,
+    pub body: Vec<u8>,
 }
 
 pub type ConnectorOutbox = tokio::sync::broadcast::Sender<Option<String>>;
@@ -102,7 +99,7 @@ pub type ConnectorInbox = tokio::sync::broadcast::Receiver<Option<String>>;
 pub struct ListOutput {
     pub addr: PathBuf,
 
-    pub body: Option<OsString>,
+    pub body: Option<Vec<u8>>,
 }
 
 pub type ListResultOutbox = tokio::sync::mpsc::Sender<ListOutput>;
@@ -171,8 +168,8 @@ pub trait Connector: Send + Sync {
     async fn plan(
         &self,
         addr: &Path,
-        current: Option<OsString>,
-        desired: Option<OsString>,
+        current: Option<Vec<u8>>,
+        desired: Option<Vec<u8>>,
     ) -> Result<Vec<OpPlanOutput>, anyhow::Error>;
 
     /// Execute an Op.
@@ -215,12 +212,12 @@ pub trait Connector: Send + Sync {
     ///  to match remote state.
     /// The defaul implementation simply compares strings, without serializing or parsing in any way.
     /// addr is ignored in this default case.
-    async fn eq(&self, addr: &Path, a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error>;
+    async fn eq(&self, addr: &Path, a: &[u8], b: &[u8]) -> Result<bool, anyhow::Error>;
 
     /// If a resource at `addr` with body `a` fails to parse, connectors may return diagnostics
     /// that outline where the parsing failed with error information.
     /// This is intended to aid development from an IDE or similar, with a language server hooking into connectors.
-    async fn diag(&self, addr: &Path, a: &OsStr) -> Result<DiagnosticOutput, anyhow::Error>;
+    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error>;
 }
 
 // Helper traits for defining custom internal types in Connector implementations.
@@ -229,9 +226,9 @@ pub trait Connector: Send + Sync {
 /// Resource represents a resource body, either the contents of a file on disk, or
 /// a virtual, remote resource as returned by `Connector::get(addr)`.
 pub trait Resource: Send + Sync {
-    fn to_os_string(&self) -> Result<OsString, anyhow::Error>;
+    fn to_bytes(&self) -> Result<Vec<u8>, anyhow::Error>;
 
-    fn from_os_str(addr: &impl ResourceAddress, s: &OsStr) -> Result<Self, anyhow::Error>
+    fn from_bytes(addr: &impl ResourceAddress, s: &[u8]) -> Result<Self, anyhow::Error>
     where
         Self: Sized;
 }
@@ -284,8 +281,8 @@ impl Connector for Box<dyn Connector> {
     async fn plan(
         &self,
         addr: &Path,
-        current: Option<OsString>,
-        desired: Option<OsString>,
+        current: Option<Vec<u8>>,
+        desired: Option<Vec<u8>>,
     ) -> Result<Vec<OpPlanOutput>, anyhow::Error> {
         Connector::plan(self.as_ref(), addr, current, desired).await
     }
@@ -310,11 +307,11 @@ impl Connector for Box<dyn Connector> {
         Connector::get_skeletons(self.as_ref()).await
     }
 
-    async fn eq(&self, addr: &Path, a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error> {
+    async fn eq(&self, addr: &Path, a: &[u8], b: &[u8]) -> Result<bool, anyhow::Error> {
         Connector::eq(self.as_ref(), addr, a, b).await
     }
 
-    async fn diag(&self, addr: &Path, a: &OsStr) -> Result<DiagnosticOutput, anyhow::Error> {
+    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
         Connector::diag(self.as_ref(), addr, a).await
     }
 }

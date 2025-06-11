@@ -8,16 +8,15 @@ use anyhow::Result;
 use ondisk::OnDiskLockStore;
 use regex::Regex;
 
-
 pub trait RepoLockStore: Send + Sync + std::fmt::Debug {
-    fn new(path: &Path) -> Result<Self> where Self: Sized;
+    fn new(path: &Path) -> Result<Self>
+    where
+        Self: Sized;
     fn try_lock(&self, path: &Path) -> Result<Box<dyn RepoLock>>;
 }
 pub trait RepoLock {
     fn unlock(&self);
 }
-
-
 
 pub fn repolockstore_init(name: &str) -> Result<Box<dyn RepoLockStore>> {
     let re = Regex::new(r"^(?<type>[^:/]+)://(?<path>.+)$")?;

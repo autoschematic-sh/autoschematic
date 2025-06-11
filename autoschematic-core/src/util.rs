@@ -4,8 +4,6 @@ use std::{
         consts::{ARCH, OS},
         current_dir,
     },
-    ffi::OsStr,
-    os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
 };
 
@@ -57,10 +55,9 @@ pub fn repo_root() -> Result<PathBuf, AutoschematicError> {
     }
 }
 
-use std::{ffi::OsString, os::unix::ffi::OsStringExt};
-pub fn optional_string_from_utf8(s: Option<OsString>) -> anyhow::Result<Option<String>> {
+pub fn optional_string_from_utf8(s: Option<Vec<u8>>) -> anyhow::Result<Option<String>> {
     match s {
-        Some(s) => Ok(Some(String::from_utf8(s.into_vec())?)),
+        Some(s) => Ok(Some(String::from_utf8(s)?)),
         None => Ok(None),
     }
 }
@@ -95,9 +92,9 @@ lazy_static::lazy_static! {
     .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME);
 }
 
-pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error> {
-    let a = str::from_utf8(a.as_bytes())?;
-    let b = str::from_utf8(b.as_bytes())?;
+pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &[u8], b: &[u8]) -> Result<bool, anyhow::Error> {
+    let a = str::from_utf8(a)?;
+    let b = str::from_utf8(b)?;
 
     let Ok(a): SpannedResult<T> = RON.from_str(a) else {
         return Ok(false);
@@ -108,8 +105,8 @@ pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &OsStr, b: &OsStr) -> Re
     Ok(a == b)
 }
 
-pub fn ron_check_syntax<T: DeserializeOwned>(text: &OsStr) -> Result<DiagnosticOutput, anyhow::Error> {
-    let text = str::from_utf8(text.as_bytes())?;
+pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
+    let text = str::from_utf8(text)?;
 
     let res = ron::Deserializer::from_str_with_options(text, &*RON);
     match res {
