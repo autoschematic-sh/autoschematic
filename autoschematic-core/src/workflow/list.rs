@@ -1,11 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    config::AutoschematicConfig,
-    connector::parse::connector_shortname,
-    connector_cache::ConnectorCache,
-    error::AutoschematicError,
-    keystore::KeyStore,
+    config::AutoschematicConfig, connector::parse::connector_shortname, connector_cache::ConnectorCache,
+    error::AutoschematicError, keystore::KeyStore,
 };
 
 pub async fn list(
@@ -38,7 +35,6 @@ pub async fn list(
         let res = connector.list(subpath).await?;
         return Ok(res);
     }
-    eprintln!("filter false");
 
     Ok(Vec::new())
 }

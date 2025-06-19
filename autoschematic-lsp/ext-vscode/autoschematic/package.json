@@ -12,10 +12,16 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:ron"
+    "onLanguage:ron",
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "fileDecorations": [
+      {
+        "scheme": "file"
+      }
+    ],
     "commands": [
       {
         "command": "autoschematic.relaunch",
@@ -30,16 +36,24 @@
       "explorer/context": [
         {
           "command": "autoschematic.compareWithRemote",
-          "group": "navigation@99",
-          "when": "autoschematic.compareWithRemoteEnabled"
+          "group": "navigation@99"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "autoschematicStatusView",
+          "title": "Autoschematic",
+          "icon": "resources/logo_dark.svg"
         }
       ]
     },
     "views": {
-      "explorer": [
+      "autoschematicStatusView": [
         {
-          "id": "autoschematicStatusView",
-          "name": "Autoschematic Status"
+          "id": "connector-summary",
+          "name": "Prefixes"
         }
       ]
     },

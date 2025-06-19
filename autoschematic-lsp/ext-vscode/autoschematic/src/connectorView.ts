@@ -58,6 +58,6 @@ function iconFor(sev: Sev): vscode.ThemeIcon {
 export function activate(ctx: vscode.ExtensionContext) {
     const provider = new StatusProvider();
     ctx.subscriptions.push(
-        vscode.window.registerTreeDataProvider('autoschematicStatusView', provider)
+        vscode.window.registerTreeDataProvider('connector-summary', provider)
     );
 }

@@ -1,6 +1,5 @@
 use std::path::Path;
 
-
 use crate::{
     config::AutoschematicConfig,
     connector::{DocIdent, FilterOutput, GetDocOutput, parse::connector_shortname},
@@ -33,13 +32,11 @@ pub async fn get_docstring(
             .await?;
 
         if connector.filter(addr).await? == FilterOutput::Resource {
-            eprintln!("filter true");
             if let Some(doc) = connector.get_docstring(addr, ident.clone()).await? {
                 return Ok(Some(doc));
             }
         }
     }
-    eprintln!("filter false");
 
     Ok(None)
 }

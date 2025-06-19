@@ -5,17 +5,21 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct AutoschematicConfig {
-    pub prefixes: HashMap<String, PrefixDef>,
+    #[serde(default)]
+    pub safety_active: Option<bool>,
+    pub prefixes: HashMap<String, Prefix>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
-pub struct PrefixDef {
-    pub connectors: Vec<ConnectorDef>,
+pub struct Prefix {
+    pub connectors: Vec<Connector>,
+    #[serde(default)]
+    pub description: Option<String>,
     #[serde(default)]
     pub resource_group: Option<String>,
     #[serde(default)]
-    pub tasks: Vec<TaskDef>,
+    pub tasks: Vec<Task>,
     // TODO merge this with the rest of the connector env!
     #[serde(default)]
     pub env: HashMap<String, String>,
@@ -23,8 +27,10 @@ pub struct PrefixDef {
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
-pub struct TaskDef {
+pub struct Task {
     pub name: String,
+    #[serde(default)]
+    pub description: Option<String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
     #[serde(default)]
@@ -33,7 +39,7 @@ pub struct TaskDef {
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
-pub struct ConnectorDef {
+pub struct Connector {
     // TODO we can make this less obtuse now!
     pub name: String,
     #[serde(default)]

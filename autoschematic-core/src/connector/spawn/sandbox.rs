@@ -22,7 +22,6 @@ use crate::{
 use anyhow::{Context, bail};
 use async_trait::async_trait;
 
-#[cfg(feature = "sandbox")]
 use nix::{
     errno::Errno,
     sched::CloneFlags,
@@ -191,77 +190,6 @@ impl Connector for SandboxConnectorHandle {
     }
 }
 
-// pub async fn launch_server_sandboxed<C: Connector>(
-//     name: &str,
-//     prefix: &Path,
-//     outbox: Sender<Option<String>>,
-//     keystore: Option<Box<dyn KeyStore>>,
-// ) -> anyhow::Result<SandboxConnectorHandle> {
-//     let socket = random_socket_path();
-//     let error_dump = random_error_dump_path();
-
-//     let mut flags = CloneFlags::CLONE_NEWUTS;
-//     flags.insert(CloneFlags::CLONE_NEWNS);
-//     flags.insert(CloneFlags::CLONE_NEWCGROUP);
-//     // flags.insert(CloneFlags::CLONE_NEWNET);
-//     // flags.insert(CloneFlags::CLONE_NEWUSER);
-//     // flags.insert(CloneFlags::CLONE_NEWPID);
-
-//     let mut pid: Option<Pid> = None;
-//     unsafe {
-//         const STACK_SIZE: usize = 1024 * 1024;
-//         let ref mut stack = [0; STACK_SIZE];
-
-//         let res = nix::sched::clone(
-//             Box::new(async || init_server::<C>(name, prefix, &socket, outbox.clone()).await.unwrap()),
-//             stack,
-//             flags,
-//             None,
-//         )?;
-//         pid = Some(res);
-//     }
-
-//     let Some(pid) = pid else {
-//         bail!("launch_server_sandboxed: Failed to clone() process")
-//     };
-
-//     let client = launch_client(&socket).await?;
-
-//     Ok(SandboxConnectorHandle {
-//         client,
-//         socket: socket.to_path_buf(),
-//         error_dump,
-//         read_thread: None,
-//         pid: pid,
-//     })
-// }
-pub async fn launch_server_binary_boring(
-    binary: &Path,
-    name: &str,
-    prefix: &Path,
-    env: &HashMap<String, String>,
-    outbox: ConnectorOutbox,
-    keystore: Option<&Box<dyn KeyStore>>,
-) -> anyhow::Result<SandboxConnectorHandle> {
-    let mut env = env.clone();
-    let mut binary = PathBuf::from(binary);
-
-    if !binary.is_file() {
-        binary = which::which(binary)?;
-        bail!("launch_server_binary_sandboxed: {}: not found", binary.display())
-    }
-
-    let socket = random_socket_path();
-    let error_dump = random_error_dump_path();
-
-    if let Some(keystore) = keystore {
-        env = keystore.unseal_env_map(&env)?;
-    } else {
-        env = passthrough_secrets_from_env(&env)?;
-    }
-}
-
-#[cfg(feature = "sandbox")]
 pub async fn launch_server_binary_sandboxed(
     binary: &Path,
     name: &str,

@@ -1,10 +1,7 @@
 use std::path::Path;
 
 use crate::{
-    config::{AutoschematicConfig, ConnectorDef},
-    connector::SkeletonOutput,
-    connector_cache::ConnectorCache,
-    error::AutoschematicError,
+    config, config::AutoschematicConfig, connector::SkeletonOutput, connector_cache::ConnectorCache, error::AutoschematicError,
     keystore::KeyStore,
 };
 
@@ -13,7 +10,7 @@ pub async fn get_skeletons(
     connector_cache: &ConnectorCache,
     keystore: Option<&Box<dyn KeyStore>>,
     prefix: &Path,
-    connector_def: &ConnectorDef,
+    connector_def: &config::Connector,
 ) -> Result<Vec<SkeletonOutput>, AutoschematicError> {
     let Some(prefix_str) = prefix.to_str() else {
         return Ok(Vec::new());

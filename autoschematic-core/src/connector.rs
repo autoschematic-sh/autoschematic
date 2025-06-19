@@ -1,5 +1,7 @@
 use std::{
     collections::HashMap,
+    fs::File,
+    io::BufReader,
     path::{Path, PathBuf},
 };
 
@@ -7,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
 
-use crate::{diag::DiagnosticOutput, read_outputs::ReadOutput};
+use crate::{connector_util::build_out_path, diag::DiagnosticOutput, read_outputs::ReadOutput};
 
 pub type OutputMap = HashMap<String, Option<String>>;
 pub type OutputMapFile = HashMap<String, String>;
@@ -246,6 +248,22 @@ pub trait ResourceAddress: Send + Sync + Clone + std::fmt::Debug {
     fn from_path(path: &Path) -> Result<Self, anyhow::Error>
     where
         Self: Sized;
+
+    fn load_resource_outputs(&self, prefix: &Path) -> anyhow::Result<Option<OutputMapFile>> {
+        let addr = self.to_path_buf();
+        let output_path = build_out_path(prefix, &addr);
+
+        if output_path.exists() {
+            let file = File::open(&output_path)?;
+            let reader = BufReader::new(file);
+
+            let existing_hashmap: OutputMapFile = serde_json::from_reader(reader)?;
+
+            Ok(Some(existing_hashmap))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 /// A ConnectorOp represents a

@@ -57,8 +57,8 @@ pub fn reindent(src: &str) -> anyhow::Result<String> {
 
     for line in src.lines() {
         let diff_indent = count_net_indent_shift(line, indent_state.inside_string);
-        eprintln!("line {}", line);
-        eprintln!("net indent {}", diff_indent.indent);
+        // eprintln!("line {}", line);
+        // eprintln!("net indent {}", diff_indent.indent);
 
         if diff_indent.indent < 0 {
             res.push_str(&reindent_line(

@@ -17,7 +17,6 @@ pub fn path_at(src: &str, line: usize, col: usize) -> Result<Option<Vec<Componen
     // 1) map (line, col) → byte offset
     // let file = SimpleFile::new("input", src);
     //
-    eprintln!("path_at({}, {})", line, col);
 
     // let line_start = file.line_number(id, line_index)
     // let offset = file
@@ -26,7 +25,6 @@ pub fn path_at(src: &str, line: usize, col: usize) -> Result<Option<Vec<Componen
     let Some(byte_index) = pos_byte_index(line, col, src) else {
         return Ok(None);
     };
-    eprintln!("byte_index = {}", byte_index);
 
     // 2) parse
     let mut pairs = RonParser::parse(Rule::ron, src)?;
@@ -43,7 +41,6 @@ pub fn ident_at(src: &str, line: usize, col: usize) -> Result<Option<DocIdent>> 
     // 1) map (line, col) → byte offset
     // let file = SimpleFile::new("input", src);
     //
-    eprintln!("path_at({}, {})", line, col);
 
     // let line_start = file.line_number(id, line_index)
     // let offset = file
@@ -52,7 +49,6 @@ pub fn ident_at(src: &str, line: usize, col: usize) -> Result<Option<DocIdent>> 
     let Some(byte_index) = pos_byte_index(line, col, src) else {
         return Ok(None);
     };
-    eprintln!("byte_index = {}", byte_index);
 
     // 2) parse
     let mut pairs = RonParser::parse(Rule::ron, src)?;
@@ -95,9 +91,6 @@ fn descend_find_docident(
             let mut it = pair.clone().into_inner();
             // eprintln!("it: {}", it);
             if let Some(id_pair) = it.next() {
-                eprintln!("id_pair {}", id_pair);
-                eprintln!("id_pair.as_rule() {:?}", id_pair.as_rule());
-                eprintln!("id_pair.as_str() {:?}", id_pair.as_str());
                 if id_pair.as_rule() == Rule::ident {
                     if covers(id_pair.as_span(), cursor) {
                         *ident = Some(DocIdent::Struct {
@@ -242,9 +235,6 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
             let mut it = pair.clone().into_inner();
             eprintln!("it: {}", it);
             if let Some(id_pair) = it.next() {
-                eprintln!("id_pair {}", id_pair);
-                eprintln!("id_pair.as_rule() {:?}", id_pair.as_rule());
-                eprintln!("id_pair.as_str() {:?}", id_pair.as_str());
                 if id_pair.as_rule() == Rule::ident {
                     // if covers(id_pair.as_span(), cursor) {
                     trail.push(Component::Name(slice(src, id_pair.as_span())));

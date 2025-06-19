@@ -35,11 +35,13 @@ pub async fn import_resource(
         // Here, the physical address returned by list() already
         // has a corresponding file in the repo.
         // tracing::info!("import: already exists at path: {:?}", path);
+        eprintln!("\u{1b}[92m [SKIP] \u{1b}[39m {}", path.display());
     } else if phy_out_path.exists() && !overwrite_existing {
         // Here, the output file corresponding to the physical address returned by list() already
         // exists. This may be the real output file, or a symlink to the output file
         // corresponding to a virtual address.
         // tracing::info!("import: already exists at path: {:?}", path);
+        // eprintln!("\u{1b}[92m [SKIP] \u{1b}[39m {}", path.display());
     } else {
         tracing::info!("import at path: {:?}", path);
 
@@ -149,7 +151,7 @@ pub async fn import_all(
             // I.E. `cd /tmp/autoschematic-298347928/pfnsec/autoschematic-playground`
             // let _chwd = self.chwd_to_repo();
 
-            eprintln!("connector init: {}", connector_def.name);
+            tracing::info!("connector init: {}", connector_def.name);
             let (connector, mut inbox) = connector_cache
                 .get_or_spawn_connector(
                     &connector_def.name,

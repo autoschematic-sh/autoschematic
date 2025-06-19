@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, command};
 use sso::{login_via_github, persist_github_token};
+use tracing_subscriber::EnvFilter;
 
 mod apply;
 mod config;
@@ -133,6 +134,14 @@ pub enum AutoschematicSubcommand {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_target(true)
+        .with_thread_ids(false)
+        .with_line_number(false)
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+
     let cmd = AutoschematicCommand::parse();
 
     match cmd.command {
