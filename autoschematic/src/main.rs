@@ -13,8 +13,10 @@ mod init;
 // mod install;
 mod plan;
 mod seal;
+mod spinner;
 mod sso;
 mod ui;
+mod util;
 mod validate;
 
 #[derive(Parser, Debug)]

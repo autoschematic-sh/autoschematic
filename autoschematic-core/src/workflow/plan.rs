@@ -125,10 +125,12 @@ pub async fn plan(
     path: &Path,
 ) -> Result<Option<PlanReport>, anyhow::Error> {
     let Some((prefix, virt_addr)) = split_prefix_addr(autoschematic_config, path) else {
+        // eprintln!("split_prefix_addr None!");
         return Ok(None);
     };
 
     let Some(prefix_def) = autoschematic_config.prefixes.get(prefix.to_str().unwrap_or_default()) else {
+        // eprintln!("prefix None!");
         return Ok(None);
     };
 

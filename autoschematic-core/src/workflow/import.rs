@@ -35,7 +35,7 @@ pub async fn import_resource(
         // Here, the physical address returned by list() already
         // has a corresponding file in the repo.
         // tracing::info!("import: already exists at path: {:?}", path);
-        eprintln!("\u{1b}[92m [SKIP] \u{1b}[39m {}", path.display());
+        eprintln!("\u{1b}[92m [SKIP] \u{1b}[39m {} (already exists)", path.display());
     } else if phy_out_path.exists() && !overwrite_existing {
         // Here, the output file corresponding to the physical address returned by list() already
         // exists. This may be the real output file, or a symlink to the output file

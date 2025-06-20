@@ -135,24 +135,22 @@ pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticOu
                 }
             }
         }
-        Err(e) => {
-            Ok(DiagnosticOutput {
-                diagnostics: vec![Diagnostic {
-                    span: DiagnosticSpan {
-                        start: DiagnosticPosition {
-                            line: e.span.start.line as u32,
-                            col: e.span.start.col as u32,
-                        },
-                        end: DiagnosticPosition {
-                            line: e.span.end.line as u32,
-                            col: e.span.end.col as u32,
-                        },
+        Err(e) => Ok(DiagnosticOutput {
+            diagnostics: vec![Diagnostic {
+                span: DiagnosticSpan {
+                    start: DiagnosticPosition {
+                        line: e.span.start.line as u32,
+                        col: e.span.start.col as u32,
                     },
-                    severity: DiagnosticSeverity::ERROR as u8,
-                    message: format!("{}", e.code),
-                }],
-            })
-        }
+                    end: DiagnosticPosition {
+                        line: e.span.end.line as u32,
+                        col: e.span.end.col as u32,
+                    },
+                },
+                severity: DiagnosticSeverity::ERROR as u8,
+                message: format!("{}", e.code),
+            }],
+        }),
     }
 }
 
@@ -189,9 +187,20 @@ pub fn short_target() -> String {
 }
 
 pub fn split_prefix_addr(config: &AutoschematicConfig, path: &Path) -> Option<(PathBuf, PathBuf)> {
+    // Some additional tweaks to make it easier on users:
+    // The "/" prefix is equivalent to ""
+    // The "/example" and "./example" prefixes are equivalent to "example/"
     for prefix in config.prefixes.keys() {
-        if path.starts_with(prefix) {
-            let Ok(addr) = path.strip_prefix(prefix) else {
+        let norm_prefix = prefix.strip_suffix("/").unwrap_or(prefix);
+
+        let norm_prefix = norm_prefix.strip_prefix("/").unwrap_or(norm_prefix);
+
+        let norm_prefix = norm_prefix.strip_prefix("./").unwrap_or(norm_prefix);
+
+        // let norm_prefix = if norm_prefix == "" { "/" } else { norm_prefix };
+
+        if path.starts_with(norm_prefix) {
+            let Ok(addr) = path.strip_prefix(norm_prefix) else {
                 return None;
             };
             return Some((PathBuf::from(prefix), addr.into()));

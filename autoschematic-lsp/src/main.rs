@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    u32,
-};
+use std::path::{Path, PathBuf};
 
 use dashmap::DashMap;
 

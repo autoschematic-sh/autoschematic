@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::Context;
+use colored::Colorize;
 use dialoguer::Confirm;
 use rand::Rng;
 use ron::ser::PrettyConfig;
@@ -16,7 +17,11 @@ use autoschematic_core::{
     util::{RON, repo_root},
 };
 
-use crate::config::load_autoschematic_config;
+use crate::{
+    config::load_autoschematic_config,
+    plan::{print_frame_end, print_frame_start, print_plan},
+    spinner::spinner::show_spinner,
+};
 
 pub async fn apply(prefix: Option<String>, connector: Option<String>, subpath: Option<String>) -> anyhow::Result<()> {
     let repo_root = repo_root()?;
@@ -35,34 +40,49 @@ pub async fn apply(prefix: Option<String>, connector: Option<String>, subpath: O
     if pre_commit_hook.is_file() {
         Command::new("sh")
             .arg(pre_commit_hook)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
             .output()
             .expect("Git: pre-commit hooks failed!");
     }
 
     let mut plan_report_set = PlanReportSet::default();
-    for path in staged_files {
-        if let Some(plan_report) =
-            autoschematic_core::workflow::plan::plan(&config, &connector_cache, keystore, &connector, &path).await?
-        {
-            println!("-----------------------------");
-            println!("{}", path.display());
-            println!("-----------------------------");
-            println!(
-                "{}",
-                RON.to_string_pretty(
-                    &plan_report
-                        .connector_ops
-                        .iter()
-                        .map(|op| op.friendly_message.clone().unwrap_or(op.op_definition.clone()))
-                        .collect::<Vec<String>>(),
-                    PrettyConfig::default()
-                )
-                .context("Formatting plan report")?
-            );
 
-            plan_report_set.plan_reports.push(plan_report);
-        }
+    let mut need_print_frame_start = true;
+
+    if staged_files.is_empty() {
+        println!(" ∅  No files staged in git. Stage modified files with git add to plan or apply them.");
+        return Ok(());
     }
+
+    for path in staged_files {
+        let spinner_stop = show_spinner().await;
+
+        // TODO track if no staged files matched FilterOutput::Resource...
+        // autoschematic_core::workflow::filter::filter(&config, &connector_cache, keystore, prefix, addr)
+
+        let Some(plan_report) =
+            autoschematic_core::workflow::plan::plan(&config, &connector_cache, keystore, &connector, &path).await?
+        else {
+            continue;
+        };
+        spinner_stop.send(()).unwrap();
+
+        if plan_report.connector_ops.len() == 0 {
+            continue;
+        }
+
+        if need_print_frame_start {
+            need_print_frame_start = false;
+            print_frame_start();
+        }
+
+        print_plan(&plan_report);
+
+        plan_report_set.plan_reports.push(plan_report);
+    }
+
+    print_frame_end();
 
     const CHARSET: &[u8] = b"1234567890";
     const PASSWORD_LEN: usize = 4;
@@ -75,8 +95,19 @@ pub async fn apply(prefix: Option<String>, connector: Option<String>, subpath: O
         })
         .collect();
 
-    println!("Plan complete.");
-    println!("Type {} to execute all of the above actions and commit.", verify_code);
+    println!(" ◇ Plan complete.");
+    if plan_report_set.plan_reports.is_empty() {
+        println!(
+            " ≡ All plans are empty, implying that the remote configuration matches the desired configuration for all staged files."
+        );
+        return Ok(());
+    }
+
+    println!(
+        "Type {} to {} of the above actions and commit.",
+        verify_code.underline(),
+        "execute all".underline()
+    );
     println!("Hit Ctrl-c to cancel.");
 
     loop {
@@ -91,22 +122,33 @@ pub async fn apply(prefix: Option<String>, connector: Option<String>, subpath: O
                 break;
             }
             _ => {
+                println!("Wrong code.");
                 continue;
             }
         }
     }
 
+    let mut need_print_frame_start = true;
+    let mut need_print_frame_end = false;
     for plan_report in plan_report_set.plan_reports {
         if let Some(apply_report) =
             autoschematic_core::workflow::apply::apply(&config, &connector_cache, keystore, &connector, &plan_report).await?
         {
-            println!("-----------------------------");
-            println!("{}", plan_report.prefix.join(plan_report.virt_addr).display());
-            println!("-----------------------------");
+            if need_print_frame_start {
+                need_print_frame_start = false;
+                need_print_frame_end = true;
+                print_frame_start();
+            }
+
+            println!("║ At {}/{}:", plan_report.prefix.display(), plan_report.virt_addr.display());
+
+            if let Some(phy_addr) = plan_report.phy_addr {
+                println!("║  ↪ {}/{}:", plan_report.prefix.display(), phy_addr.display());
+            }
 
             for output in apply_report.outputs {
                 if let Some(friendly_message) = output.friendly_message {
-                    println!("{}", friendly_message);
+                    println!("║  ⟖ {}", friendly_message);
                 }
             }
 
@@ -115,11 +157,15 @@ pub async fn apply(prefix: Option<String>, connector: Option<String>, subpath: O
             }
             wrote_files = true;
         }
+
+        if need_print_frame_end {
+            print_frame_end();
+        }
     }
 
     if wrote_files {
         let do_commit = Confirm::new()
-            .with_prompt("Apply succeeded! Do you wish to run git commit to track the new state?")
+            .with_prompt(" ◈ Apply succeeded! Do you wish to run git commit to track the new state?")
             .default(true)
             .interact()
             .unwrap();

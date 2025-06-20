@@ -129,6 +129,7 @@ pub enum VirtToPhyOutput {
     Deferred(Vec<ReadOutput>),
     /// The virtual address resolved successfully to a physical address.
     /// For example, an EC2 instance within a repository exists and resolved to its canonical instance-id-derived address.
+    /// Alternatively, for virtual addresses that have no need to map to physical addresses, this represents that trivial mapping.
     Present(PathBuf),
 }
 

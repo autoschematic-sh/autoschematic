@@ -16,10 +16,8 @@ pub async fn apply_connector(
     plan: &PlanReport,
 ) -> anyhow::Result<Option<ApplyReport>> {
     let mut apply_report = ApplyReport::default();
-    eprintln!("apply_connector");
 
     for op in &plan.connector_ops {
-        eprintln!("apply_connector: {:?}", op.friendly_message);
         // let Some(phy_addr) = connector.addr_virt_to_phy(&virt_addr).await? else {
         //     exec_error = Some(anyhow!(
         //         "Error: virt addr could not be resolved: {:?}",
