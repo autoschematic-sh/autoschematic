@@ -99,22 +99,3 @@ pub fn extract_template_message_type(comment_body: &str) -> anyhow::Result<Optio
     };
     Ok(Some(caps["type"].to_string()))
 }
-
-pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
-    fs::create_dir_all(&dst)?;
-    for entry in fs::read_dir(src)? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-
-        let dst_path = dst.as_ref().join(entry.file_name());
-
-        if ty.is_dir() {
-            fs::create_dir_all(&dst_path)?;
-            copy_dir_all(entry.path(), dst_path)?;
-        } else {
-            tracing::error!("COPY {:?} -> {:?}", entry.path(), dst_path);
-            fs::copy(entry.path(), dst_path)?;
-        }
-    }
-    Ok(())
-}

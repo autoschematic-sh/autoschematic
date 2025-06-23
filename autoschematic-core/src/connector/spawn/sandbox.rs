@@ -127,8 +127,8 @@ impl Connector for SandboxConnectorHandle {
     async fn plan(
         &self,
         addr: &Path,
-        current: Option<OsString>,
-        desired: Option<OsString>,
+        current: Option<Vec<u8>>,
+        desired: Option<Vec<u8>>,
     ) -> Result<Vec<OpPlanOutput>, anyhow::Error> {
         self.still_alive().context(format!("Before plan({:?})", addr))?;
         let res = Connector::plan(&self.client, addr, current, desired).await;
@@ -171,7 +171,7 @@ impl Connector for SandboxConnectorHandle {
         res
     }
 
-    async fn eq(&self, addr: &Path, a: &OsStr, b: &OsStr) -> Result<bool, anyhow::Error> {
+    async fn eq(&self, addr: &Path, a: &[u8], b: &[u8]) -> Result<bool, anyhow::Error> {
         self.still_alive()
             .context(format!("Before eq({}, _, _)", addr.to_string_lossy()))?;
         let res = Connector::eq(&self.client, addr, a, b).await;
@@ -180,12 +180,21 @@ impl Connector for SandboxConnectorHandle {
         res
     }
 
-    async fn diag(&self, addr: &Path, a: &OsStr) -> Result<DiagnosticOutput, anyhow::Error> {
+    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
         self.still_alive()
-            .context(format!("Before eq({}, _, _)", addr.to_string_lossy()))?;
+            .context(format!("Before diag({}, _, _)", addr.to_string_lossy()))?;
         let res = Connector::diag(&self.client, addr, a).await;
         self.still_alive()
-            .context(format!("After eq({}, _, _)", addr.to_string_lossy()))?;
+            .context(format!("After diag({}, _, _)", addr.to_string_lossy()))?;
+        res
+    }
+
+    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
+        self.still_alive()
+            .context(format!("Before unbundle({}, _, _)", addr.to_string_lossy()))?;
+        let res = Connector::unbundle(&self.client, addr, resource).await;
+        self.still_alive()
+            .context(format!("After unbundle({}, _, _)", addr.to_string_lossy()))?;
         res
     }
 }

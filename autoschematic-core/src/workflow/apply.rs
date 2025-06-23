@@ -93,16 +93,20 @@ pub async fn apply(
     };
 
     'connector: for connector_def in &prefix_def.connectors {
-        let connector_shortname = connector_shortname(&connector_def.name)?;
-
         if let Some(connector_filter) = &connector_filter {
-            if connector_shortname != *connector_filter {
+            if connector_def.shortname != *connector_filter {
                 continue 'connector;
             }
         }
 
         let (connector, mut inbox) = connector_cache
-            .get_or_spawn_connector(&connector_def.name, &plan_report.prefix, &connector_def.env, keystore)
+            .get_or_spawn_connector(
+                &connector_def.shortname,
+                &connector_def.spec,
+                &plan_report.prefix,
+                &connector_def.env,
+                keystore,
+            )
             .await?;
 
         let _reader_handle = tokio::spawn(async move {
@@ -123,11 +127,11 @@ pub async fn apply(
         });
 
         if connector_cache
-            .filter(&connector_def.name, &plan_report.prefix, &plan_report.virt_addr)
+            .filter(&connector_def.shortname, &plan_report.prefix, &plan_report.virt_addr)
             .await?
             == FilterOutput::Resource
         {
-            let apply_report = apply_connector(&connector_shortname, &connector, plan_report).await?;
+            let apply_report = apply_connector(&connector_def.shortname, &connector, plan_report).await?;
             return Ok(apply_report);
         }
     }

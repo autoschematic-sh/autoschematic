@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    // binary_cache::BinaryCache,
+    config::Spec,
     connector::{
         Connector, ConnectorInbox, FilterOutput,
         parse::{connector_shortname, parse_connector_name},
@@ -14,21 +14,19 @@ use crate::{
     error::AutoschematicError,
     keystore::KeyStore,
 };
-use anyhow::Context;
-use tokio::sync::Mutex;
 
-// Connector name, Prefix
+use anyhow::Context;
+use dashmap::DashMap;
+
 type HashKey = (String, PathBuf);
-// Name, Prefix, Addr
-// type FilterKey = (HashKey, PathBuf);
 
 #[derive(Default)]
 pub struct ConnectorCache {
-    cache: Mutex<HashMap<HashKey, (Arc<Box<dyn Connector>>, ConnectorInbox)>>,
+    cache: Arc<DashMap<HashKey, (Arc<Box<dyn Connector>>, ConnectorInbox)>>,
     /// Used to cache the results of Connector::filter(addr), which are assumed to be
     /// static. Since filter() is the most common call, this can speed up workflows by
     /// avoiding calling out to the connectors so many times.
-    filter_cache: Mutex<HashMap<HashKey, HashMap<PathBuf, FilterOutput>>>,
+    filter_cache: Arc<DashMap<HashKey, HashMap<PathBuf, FilterOutput>>>,
     // binary_cache: BinaryCache,
 }
 
@@ -36,10 +34,9 @@ pub struct ConnectorCache {
 /// implementations all use a ConnectorCache to initialize connectors on-demand.
 impl ConnectorCache {
     pub async fn get_connector(&self, name: &str, prefix: &Path) -> Option<(Arc<Box<dyn Connector>>, ConnectorInbox)> {
-        let cache = self.cache.lock().await;
-
         let key = (name.into(), prefix.into());
-        if let Some((connector, inbox)) = cache.get(&key) {
+        if let Some(entry) = self.cache.get(&key) {
+            let (connector, inbox) = &*entry;
             Some((connector.clone(), inbox.resubscribe()))
         } else {
             None
@@ -49,48 +46,46 @@ impl ConnectorCache {
     pub async fn get_or_spawn_connector(
         &self,
         name: &str,
+        spec: &Spec,
         prefix: &Path,
         env: &HashMap<String, String>,
         keystore: Option<&Box<dyn KeyStore>>,
     ) -> Result<(Arc<Box<dyn Connector>>, ConnectorInbox), AutoschematicError> {
-        let mut cache = self.cache.lock().await;
-
         let key = (name.into(), prefix.into());
 
-        if !cache.contains_key(&key) {
-            let connector_type = parse_connector_name(name)?;
+        if !self.cache.contains_key(&key) {
+            // let connector_type = parse_connector_name(name)?;
             // In order for the first process that invokes connector_init to receive the earliest messages from the inbox,
             //  we need to pass the original inbox, and not the resubscribed copy.
             // Hence the song and dance below with the Arc and resubscribe().
             // let (connector, inbox) = spawn_connector(&connector_type, prefix, env, &self.binary_cache, keystore)
-            let (connector, inbox) = spawn_connector(&connector_type, prefix, env, keystore)
+            let (connector, inbox) = spawn_connector(name, spec, prefix, env, keystore)
                 .await
                 .context("spawn_connector()")?;
 
             if let Err(e) = connector.init().await {
-                tracing::error!("Failed to init connector {}: {:#?}", connector_shortname(name)?, e);
+                tracing::error!("In prefix {}: failed to init connector {}: {:#?}", prefix.display(), name, e);
             };
 
             let connector_arc = Arc::new(connector);
 
-            cache.insert(key.clone(), (connector_arc.clone(), inbox.resubscribe()));
+            self.cache.insert(key.clone(), (connector_arc.clone(), inbox.resubscribe()));
 
             Ok((connector_arc, inbox))
         } else {
-            let Some((connector, inbox)) = cache.get(&key) else {
+            let Some(entry) = self.cache.get(&key) else {
                 return Err(anyhow::anyhow!("Failed to get connector from cache: name {}, prefix {:?}", name, prefix).into());
             };
-
+            let (connector, inbox) = &*entry;
             Ok((connector.clone(), inbox.resubscribe()))
         }
     }
 
     pub async fn init_connector(&self, name: &str, prefix: &Path) -> Option<anyhow::Result<()>> {
-        let cache = self.cache.lock().await;
-
         let connector_key = (name.into(), prefix.into());
 
-        if let Some((connector, _inbox)) = cache.get(&connector_key) {
+        if let Some(entry) = self.cache.get(&connector_key) {
+            let (connector, _inbox) = &*entry;
             self.clear_filter_cache(name, prefix).await;
             Some(connector.init().await)
         } else {
@@ -106,14 +101,13 @@ impl ConnectorCache {
         let connector_key = (name.into(), prefix.into());
         // let filter_key = (connector_key.clone(), addr.into());
 
-        let mut filter_cache = self.filter_cache.lock().await;
-
         // Get the filter cache for connector `name` at prefix `prefix`, or initialize it.
-        let connector_filter_cache = { filter_cache.entry(connector_key.clone()).or_insert_with(HashMap::new) };
+        let mut connector_filter_cache = { self.filter_cache.entry(connector_key.clone()).or_insert_with(HashMap::new) };
 
         if let Some(value) = connector_filter_cache.get(addr) {
             Ok(*value)
-        } else if let Some((connector, _inbox)) = self.cache.lock().await.get(&connector_key) {
+        } else if let Some(entry) = self.cache.get(&connector_key) {
+            let (connector, _inbox) = &*entry;
             let res = connector.filter(addr).await?;
             connector_filter_cache.insert(addr.into(), res);
             Ok(res)
@@ -126,16 +120,14 @@ impl ConnectorCache {
     pub async fn clear_filter_cache(&self, name: &str, prefix: &Path) {
         let connector_key = (name.into(), prefix.into());
 
-        let mut filter_cache = self.filter_cache.lock().await;
-
-        filter_cache.remove(&connector_key);
+        self.filter_cache.remove(&connector_key);
     }
 
     /// Drop all entries in the connector and filter caches.
     /// This should in theory kill all connectors that encapsulate running processes
     /// by calling their Drop impl.
     pub async fn clear(&self) {
-        *self.cache.lock().await = HashMap::new();
-        *self.filter_cache.lock().await = HashMap::new();
+        self.cache.clear();
+        self.filter_cache.clear();
     }
 }

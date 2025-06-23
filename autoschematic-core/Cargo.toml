@@ -72,6 +72,7 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 similar = "2.7.0"
 secrecy = "0.10.3"
 which = "8.0.0"
+dashmap = "6.1.0"
 
 # capnp = "0.20"
 # capnp-rpc = "0.20.3"

@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 use super::trace::{append_run_log, finish_run, start_run};
-use autoschematic_core::report::ApplyReportSetOld;
-use autoschematic_core::report::ApplyReportOld;
 use anyhow::bail;
-use autoschematic_core::connector::parse::connector_shortname;
 use autoschematic_core::connector::VirtToPhyOutput;
+use autoschematic_core::connector::parse::connector_shortname;
+use autoschematic_core::report::ApplyReportOld;
+use autoschematic_core::report::ApplyReportSetOld;
 use autoschematic_core::write_output::{link_phy_output_file, unlink_phy_output_file, write_virt_output_file};
 use autoschematic_core::{connector::Connector, connector_util::build_out_path};
 use git2::Repository;
@@ -69,6 +69,7 @@ impl ChangeSet {
                     .connector_cache
                     .get_or_spawn_connector(
                         &plan_report.connector_name,
+                        &plan_report.connector_spec,
                         &PathBuf::from(&prefix),
                         &plan_report.connector_env,
                         Some(&*KEYSTORE),
@@ -109,7 +110,7 @@ impl ChangeSet {
                         //     ));
                         //     break;
                         // };
-                        // TODO again, this is the diabolical incongruity between virt_addr and phy_addr depending on 
+                        // TODO again, this is the diabolical incongruity between virt_addr and phy_addr depending on
                         // the presence of one or the other. Are we really sure this isn't bananas?
                         let res = match connector.addr_virt_to_phy(&virt_addr).await? {
                             VirtToPhyOutput::NotPresent => connector.op_exec(&virt_addr, &op.op_definition).await,

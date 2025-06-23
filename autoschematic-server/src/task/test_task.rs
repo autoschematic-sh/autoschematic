@@ -14,12 +14,12 @@ use crate::{
     chwd::ChangeWorkingDirectory,
     credentials,
     error::{AutoschematicServerError, AutoschematicServerErrorType},
-    task::state::TaskState,
 };
 
-use autoschematic_core::git_util::clone_repo;
-
-use super::{Task, TaskInbox, TaskOutbox, message::TaskMessage, state, util::drain_inbox};
+use autoschematic_core::{
+    git_util::clone_repo,
+    task::{Task, TaskInbox, TaskOutbox, message::TaskMessage, state::TaskState, util::drain_inbox},
+};
 
 pub enum TestType {
     Fuzz(PathBuf),
@@ -53,7 +53,7 @@ impl Task for TestTask {
     {
         let (client, token) = credentials::octocrab_installation_client(InstallationId(installation_id)).await?;
 
-        outbox.send(TaskMessage::StateChange(state::TaskState::Running)).await?;
+        outbox.send(TaskMessage::StateChange(TaskState::Running)).await?;
         let re = Regex::new(r"^(?<type>[^:]+):(?<path>.+)$")?;
         let Some(caps) = re.captures(name) else {
             return Err(AutoschematicServerError {
@@ -80,7 +80,7 @@ impl Task for TestTask {
         }))
     }
 
-    async fn run(mut self: Box<Self>, _arg: serde_json::Value) -> anyhow::Result<()> {
+    async fn run(&mut self, _arg: serde_json::Value) -> anyhow::Result<()> {
         self.outbox.send(TaskMessage::StateChange(TaskState::Running)).await?;
 
         let _ = drain_inbox(&mut self.inbox).await.map_err(async |e| {

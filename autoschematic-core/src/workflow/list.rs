@@ -10,7 +10,7 @@ pub async fn list(
     connector_cache: &ConnectorCache,
     keystore: Option<&Box<dyn KeyStore>>,
     prefix: &Path,
-    connector: &str,
+    connector_filter: &str,
     subpath: &Path,
 ) -> Result<Vec<PathBuf>, AutoschematicError> {
     let Some(prefix_str) = prefix.to_str() else {
@@ -22,14 +22,18 @@ pub async fn list(
     };
 
     for connector_def in &prefix_def.connectors {
-        let connector_shortname = connector_shortname(&connector_def.name)?;
-
-        if connector_shortname != connector {
+        if connector_def.shortname != connector_filter {
             continue;
         }
 
         let (connector, _inbox) = connector_cache
-            .get_or_spawn_connector(&connector_def.name, prefix, &connector_def.env, keystore)
+            .get_or_spawn_connector(
+                &connector_def.shortname,
+                &connector_def.spec,
+                prefix,
+                &connector_def.env,
+                keystore,
+            )
             .await?;
 
         let res = connector.list(subpath).await?;

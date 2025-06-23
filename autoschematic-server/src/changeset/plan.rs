@@ -77,25 +77,17 @@ impl ChangeSet {
             }
 
             'connector: for connector_def in prefix.connectors {
-                // let prefix_name = PathBuf::from(&prefix_name);
-                let connector_shortname = connector_shortname(&connector_def.name)?;
-
                 if let Some(connector_filter) = &connector_filter {
-                    if connector_shortname != *connector_filter {
+                    if connector_def.shortname != *connector_filter {
                         continue 'connector;
                     }
                 }
-                // let (connector, inbox) = connector_init(
-                //     &connector_def.name,
-                //     &PathBuf::from(&prefix),
-                //     &connector_def.env,
-                // )
-                // .await?;
 
                 let (connector, mut inbox) = self
                     .connector_cache
                     .get_or_spawn_connector(
-                        &connector_def.name,
+                        &connector_def.shortname,
+                        &connector_def.spec,
                         &PathBuf::from(&prefix_name),
                         &connector_def.env,
                         Some(&KEYSTORE),
@@ -122,7 +114,10 @@ impl ChangeSet {
 
                     tracing::info!("Plan: {:?}", object.filename.clone());
 
-                    let check_run_name = format!("autoschematic plan -c {} -p ./{:?}", &connector_shortname, &object.filename);
+                    let check_run_name = format!(
+                        "autoschematic plan -c {} -p ./{:?}",
+                        &connector_def.shortname, &object.filename
+                    );
 
                     let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
                         VirtToPhyOutput::NotPresent => None,
@@ -138,7 +133,7 @@ impl ChangeSet {
 
                     if self
                         .connector_cache
-                        .filter(&connector_def.name, &PathBuf::from(&prefix_name), virt_addr)
+                        .filter(&connector_def.shortname, &PathBuf::from(&prefix_name), virt_addr)
                         .await?
                         == FilterOutput::Resource
                     {
@@ -153,7 +148,7 @@ impl ChangeSet {
                             Some(ref phy_addr) => {
                                 match connector.get(&phy_addr.clone()).await.context(format!(
                                     "{}::get({})",
-                                    connector_shortname,
+                                    connector_def.shortname,
                                     &phy_addr.to_str().unwrap_or_default()
                                 ))? {
                                     // Existing resource present for this address
@@ -205,7 +200,7 @@ impl ChangeSet {
                                     .await
                                     .context(format!(
                                         "{}::plan({}, _, _)",
-                                        connector_shortname,
+                                        connector_def.shortname,
                                         virt_addr.to_str().unwrap_or_default()
                                     ))
                             }
@@ -218,7 +213,7 @@ impl ChangeSet {
                                 .await
                                 .context(format!(
                                     "{}::plan({}, _, _)",
-                                    connector_shortname,
+                                    connector_def.shortname,
                                     virt_addr.to_str().unwrap_or_default()
                                 ))
                         };
@@ -235,7 +230,8 @@ impl ChangeSet {
                                 .await?;
 
                                 plan_report_set.plan_reports.push(PlanReportOld {
-                                    connector_name: connector_def.name.clone(),
+                                    connector_name: connector_def.shortname.clone(),
+                                    connector_spec: connector_def.spec.clone(),
                                     connector_env: connector_def.env.clone(),
                                     prefix: prefix_name.clone(),
                                     virt_addr: virt_addr.to_path_buf(),
@@ -258,7 +254,8 @@ impl ChangeSet {
 
                                 plan_report_set.overall_success = false;
                                 plan_report_set.plan_reports.push(PlanReportOld {
-                                    connector_name: connector_def.name.clone(),
+                                    connector_name: connector_def.shortname.clone(),
+                                    connector_spec: connector_def.spec.clone(),
                                     connector_env: connector_def.env.clone(),
                                     prefix: prefix_name.clone(),
                                     virt_addr: virt_addr.to_path_buf(),

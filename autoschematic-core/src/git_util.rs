@@ -125,7 +125,7 @@ pub async fn checkout_branch(repo_path: &Path, branch_name: &str) -> anyhow::Res
 }
 
 pub fn git_add(repo_path: &Path, path: &Path) -> anyhow::Result<()> {
-    tracing::error!("git_add({:?}, {:?})", repo_path, path);
+    // tracing::error!("git_add({:?}, {:?})", repo_path, path);
 
     // let repo_path = path.join(owner).join(repo);
     //

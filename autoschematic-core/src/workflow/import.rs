@@ -138,9 +138,8 @@ pub async fn import_all(
         for connector_def in &prefix.connectors {
             let prefix_name = PathBuf::from(&prefix_name);
 
-            let connector_shortname = connector_shortname(&connector_def.name)?;
             if let Some(connector_filter) = &connector_filter {
-                if connector_shortname != *connector_filter {
+                if connector_def.shortname != *connector_filter {
                     continue;
                 }
             }
@@ -151,10 +150,11 @@ pub async fn import_all(
             // I.E. `cd /tmp/autoschematic-298347928/pfnsec/autoschematic-playground`
             // let _chwd = self.chwd_to_repo();
 
-            tracing::info!("connector init: {}", connector_def.name);
+            tracing::info!("connector init: {}", connector_def.shortname);
             let (connector, mut inbox) = connector_cache
                 .get_or_spawn_connector(
-                    &connector_def.name,
+                    &connector_def.shortname,
+                    &connector_def.spec,
                     &PathBuf::from(&prefix_name),
                     &connector_def.env,
                     keystore,
@@ -180,7 +180,7 @@ pub async fn import_all(
 
             let phy_addrs = connector.list(&subpath.clone()).await.context(format!(
                 "{}::list({})",
-                connector_shortname,
+                connector_def.shortname,
                 subpath.to_str().unwrap_or_default()
             ))?;
 
@@ -205,8 +205,14 @@ pub async fn import_all(
                     }
                 }
 
-                let res =
-                    import_resource(&connector_shortname, &connector, &prefix_name, &phy_addr, overwrite_existing).await?;
+                let res = import_resource(
+                    &connector_def.shortname,
+                    &connector,
+                    &prefix_name,
+                    &phy_addr,
+                    overwrite_existing,
+                )
+                .await?;
                 if res {
                     imported_subcount += 1;
                     imported_count += 1;

@@ -15,7 +15,6 @@
 #![feature(file_lock)]
 #![deny(unused_must_use)]
 
-mod bundle;
 mod changeset;
 mod changeset_cache;
 mod chwd;
@@ -40,6 +39,7 @@ use anyhow::Context;
 use autoschematic_core::{
     // binary_cache::BinaryCache,
     keystore::{KeyStore, keystore_init},
+    task::registry::TaskRegistry,
 };
 use dashboard::api_util::get_self;
 use error::{AutoschematicServerError, AutoschematicServerErrorType};
@@ -49,8 +49,7 @@ use once_cell::{self, sync::OnceCell};
 use repolock::{RepoLockStore, repolockstore_init};
 use ron_pfnsec_fork as ron;
 use serde::Deserialize;
-use std::{env, path::PathBuf};
-use task::registry::TaskRegistry;
+use std::{collections::HashMap, env, path::PathBuf};
 use tera::Tera;
 use tokio::sync::RwLock;
 use tracestore::{InMemTraceStore, TraceStore};
@@ -67,11 +66,9 @@ use actix_web::{
 };
 
 static DOMAIN: OnceCell<String> = OnceCell::new();
-// static KEYSTORE: OnceCell<Box<dyn KeyStore>> = OnceCell::new();
-static REPOLOCKSTORE: OnceCell<Box<dyn RepoLockStore>> = OnceCell::new();
-pub static TASK_REGISTRY: OnceCell<task::registry::TaskRegistry> = OnceCell::new();
+// static REPOLOCKSTORE: OnceCell<Box<dyn RepoLockStore>> = OnceCell::new();
+pub static TASK_REGISTRY: OnceCell<TaskRegistry> = OnceCell::new();
 static TRACESTORE: OnceCell<Box<dyn TraceStore>> = OnceCell::new();
-// static BINARYCACHE: OnceCell<BinaryCache> = OnceCell::new();
 
 lazy_static::lazy_static! {
     pub static ref RON: ron::options::Options = ron::Options::default()
@@ -118,17 +115,17 @@ async fn async_main() -> anyhow::Result<()> {
         .context("Missing SESSION_KEY environment variable")
         .map(|key| base64::decode(key).expect("Invalid SESSION_KEY format"))?;
 
-    let repolockstore = env::var("KEYSTORE")
-        .context("Missing KEYSTORE environment variable")
-        .map(|path| repolockstore_init(&path).expect("Failed to init keystore"))?;
+    // let repolockstore = env::var("KEYSTORE")
+    //     .context("Missing KEYSTORE environment variable")
+    //     .map(|path| repolockstore_init(&path).expect("Failed to init keystore"))?;
 
-    REPOLOCKSTORE.set(repolockstore).unwrap();
+    // REPOLOCKSTORE.set(repolockstore).unwrap();
 
     TRACESTORE.set(Box::new(InMemTraceStore::default())).unwrap();
 
     TASK_REGISTRY
         .set(TaskRegistry {
-            entries: RwLock::new(IndexMap::new()),
+            entries: RwLock::new(HashMap::new()),
         })
         .unwrap();
 
@@ -261,7 +258,7 @@ async fn get_pubkey(param: web::Path<String>) -> Result<HttpResponse, Error> {
 /// # Headers
 /// - X-GitHub-Event: Event type (required)
 /// - X-Hub-Signature-256: HMAC signature (required)
-const DEFAULT_CONFIG_LIMIT: usize = 262_144; // 2^18 bytes (~256kB)
+const DEFAULT_CONFIG_LIMIT: usize = 262_144; // 2^18 bytes (256KiB)
 async fn github_webhook(req: HttpRequest, payload: web::Payload) -> Result<HttpResponse, AutoschematicServerError> {
     tracing::debug!("Received webhook request");
 

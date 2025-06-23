@@ -3,33 +3,31 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use askama::Template;
-use autoschematic_core::{
-    config::AutoschematicConfig, connector::Connector, connector_cache::ConnectorCache
-};
+use autoschematic_core::{config::AutoschematicConfig, connector::Connector, connector_cache::ConnectorCache};
 
+use autoschematic_core::report::PlanReportSetOld;
 use futures_util::TryStreamExt;
 use git2::{Cred, IndexAddOption, PushOptions, RemoteCallbacks, Repository};
 use octocrab::{
+    Octocrab,
     models::{
         pulls::MergeableState,
         repos::DiffEntryStatus,
         webhook_events::{EventInstallation, WebhookEvent},
     },
-    Octocrab,
 };
 use secrecy::{ExposeSecret, SecretBox};
 use tempdir::TempDir;
 use tokio::{pin, sync::Mutex};
-use autoschematic_core::report::PlanReportSetOld;
 
 use crate::{
     changeset_cache::CHANGESET_CACHE,
     credentials,
     error::{AutoschematicServerError, AutoschematicServerErrorType},
-    object::{sort_objects_by_apply_order, Object},
-    template::{random_failure_emoji, MiscError},
+    object::{Object, sort_objects_by_apply_order},
+    template::{MiscError, random_failure_emoji},
 };
 
 pub mod apply;
@@ -37,7 +35,6 @@ pub mod import;
 pub mod import_skeletons;
 pub mod plan;
 pub mod pull_state;
-pub mod solver;
 pub mod trace;
 pub mod types;
 pub mod util;
@@ -64,9 +61,7 @@ pub struct ChangeSet {
 
 impl ChangeSet {
     // Create a ChangeSet from a Github WebhookEvent
-    pub async fn from_webhook(
-        webhook_event: &WebhookEvent,
-    ) -> Result<Arc<Mutex<Self>>, AutoschematicServerError> {
+    pub async fn from_webhook(webhook_event: &WebhookEvent) -> Result<Arc<Mutex<Self>>, AutoschematicServerError> {
         let Some(ref repository) = webhook_event.repository else {
             return Err(anyhow!("Webhook has no repository").into());
         };
@@ -80,15 +75,9 @@ impl ChangeSet {
 
         match payload {
             octocrab::models::webhook_events::WebhookEventPayload::IssueComment(payload) => {
-                if let Some(EventInstallation::Minimal(ref installation_id)) =
-                    webhook_event.installation
-                {
-                    let (client, token) =
-                        credentials::octocrab_installation_client(installation_id.id).await?;
-                    let pull_request = client
-                        .pulls(owner.clone(), repo.clone())
-                        .get(payload.issue.number)
-                        .await?;
+                if let Some(EventInstallation::Minimal(ref installation_id)) = webhook_event.installation {
+                    let (client, token) = credentials::octocrab_installation_client(installation_id.id).await?;
+                    let pull_request = client.pulls(owner.clone(), repo.clone()).get(payload.issue.number).await?;
 
                     let changeset = CHANGESET_CACHE
                         .get_or_init(client, token, repository, &pull_request, owner, repo)
@@ -224,10 +213,7 @@ impl ChangeSet {
             "unsorted objs: {:#?}",
             &objects
                 .iter()
-                .map(|a| (
-                    a.filename.to_str().unwrap_or_default().into(),
-                    a.diff_status.clone()
-                ))
+                .map(|a| (a.filename.to_str().unwrap_or_default().into(), a.diff_status.clone()))
                 .collect::<Vec<(String, DiffEntryStatus)>>()
         );
 
@@ -237,10 +223,7 @@ impl ChangeSet {
             "sorted objs: {:#?}",
             &objects
                 .iter()
-                .map(|a| (
-                    a.filename.to_str().unwrap_or_default().into(),
-                    a.diff_status.clone()
-                ))
+                .map(|a| (a.filename.to_str().unwrap_or_default().into(), a.diff_status.clone()))
                 .collect::<Vec<(String, DiffEntryStatus)>>()
         );
 

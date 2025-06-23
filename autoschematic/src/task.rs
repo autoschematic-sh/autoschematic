@@ -1,22 +1,22 @@
 pub mod test_task;
-pub mod util;
 
-use std::{path::Path, time::Duration};
+use std::{cell::OnceCell, path::Path, sync::OnceLock};
 
 use anyhow::{Context, bail};
-use autoschematic_core::task::{
-    Task,
-    message::TaskMessage,
-    registry::{TaskRegistryEntry, TaskRegistryKey},
-    state::TaskState,
+use autoschematic_core::{
+    error::{AutoschematicError, AutoschematicErrorType},
+    task::{
+        Task,
+        message::TaskMessage,
+        registry::{TaskRegistry, TaskRegistryEntry, TaskRegistryKey},
+        state::TaskState,
+    },
 };
 use regex::Regex;
 
-use crate::{
-    TASK_REGISTRY, credentials,
-    error::{AutoschematicServerError, AutoschematicServerErrorType},
-    task::test_task::TestTask,
-};
+use crate::task::test_task::TestTask;
+
+pub static TASK_REGISTRY: OnceLock<TaskRegistry> = OnceLock::new();
 
 pub async fn spawn_task(
     owner: &str,
@@ -25,8 +25,8 @@ pub async fn spawn_task(
     name: &str,
     installation_id: u64,
     arg: serde_json::Value,
+    blocking: bool,
 ) -> anyhow::Result<()> {
-    let (client, token) = credentials::octocrab_installation_client(octocrab::models::InstallationId(installation_id)).await?;
     // Match a Task name.
     // Task names take the form:
     // {type}:{path}
@@ -35,8 +35,8 @@ pub async fn spawn_task(
     // E.G. test:fuzz/aws/iam
     let re = Regex::new(r"^(?<type>[^:]+):(?<path>.+)$")?;
     let Some(caps) = re.captures(name) else {
-        return Err(AutoschematicServerError {
-            kind: AutoschematicServerErrorType::InvalidConnectorString(name.to_string()),
+        return Err(AutoschematicError {
+            kind: AutoschematicErrorType::InvalidConnectorString(name.to_string()),
         }
         .into());
     };
@@ -59,7 +59,7 @@ pub async fn spawn_task(
             let res = registry_inbox.recv().await;
             match res {
                 Some(msg) => {
-                    tracing::info!("Got Message from task: {:?}", msg);
+                    // tracing::info!("Got Message from task: {:?}", msg);
                     match msg {
                         TaskMessage::StateChange(ref value) => {
                             if let Some(registry) = TASK_REGISTRY.get() {
@@ -70,28 +70,11 @@ pub async fn spawn_task(
                             }
                         }
                         TaskMessage::IssueComment(ref comment) => {
-                            let max_attempts = 5;
-                            'attempt: for i in [0..max_attempts] {
-                                match client
-                                    .issues(comment.owner.clone(), comment.repo.clone())
-                                    .create_comment(comment.issue, &comment.body)
-                                    .await
-                                {
-                                    Ok(_) => {
-                                        break 'attempt;
-                                    }
-                                    Err(octocrab::Error::GitHub { source, backtrace }) => {
-                                        tracing::error!("Failed to create issue comment: {}", source);
-                                        tokio::time::sleep(Duration::from_millis(10)).await;
-                                        continue 'attempt;
-                                    }
-                                    Err(e) => {
-                                        tracing::error!("Failed to create issue comment: {:#}", e)
-                                    }
-                                }
-                            }
+                            println!("")
                         }
-                        TaskMessage::LogLines(_) => {}
+                        TaskMessage::LogLines(s) => {
+                            println!("{}", s);
+                        }
                     }
                     // match dummy_send.send(msg) {
                     //     Ok(_) => {}
@@ -135,10 +118,7 @@ pub async fn spawn_task(
             }
         }
     });
-
-    let Some(registry) = TASK_REGISTRY.get() else {
-        bail!("Task registry not initialized")
-    };
+    let registry = TASK_REGISTRY.get_or_init(|| TaskRegistry::default());
 
     let mut registry = registry.entries.write().await;
 
@@ -178,7 +158,7 @@ pub async fn spawn_task(
                 match task.run(arg).await {
                     Ok(()) => Ok(()),
                     Err(e) => {
-                        tracing::error!("Agent error: {}", e);
+                        // tracing::error!("Agent error: {}", e);
                         Ok(task_outbox
                             .send(TaskMessage::StateChange(TaskState::Error {
                                 message: format!("{:#?}", e),
@@ -187,15 +167,20 @@ pub async fn spawn_task(
                     }
                 }
             });
-            registry.insert(
-                registry_key,
-                TaskRegistryEntry {
-                    broadcast: registry_broadcast,
-                    outbox: registry_outbox,
-                    join_handle,
-                    state: TaskState::Stopped,
-                },
-            );
+
+            if blocking {
+                join_handle.await??;
+            } else {
+                registry.insert(
+                    registry_key,
+                    TaskRegistryEntry {
+                        broadcast: registry_broadcast,
+                        outbox: registry_outbox,
+                        join_handle,
+                        state: TaskState::Stopped,
+                    },
+                );
+            }
             Ok(())
         }
         #[cfg(feature = "python")]
@@ -236,8 +221,8 @@ pub async fn spawn_task(
             );
             Ok(())
         }
-        _ => Err(AutoschematicServerError {
-            kind: AutoschematicServerErrorType::InvalidConnectorString(name.to_string()),
+        _ => Err(AutoschematicError {
+            kind: AutoschematicErrorType::InvalidConnectorString(name.to_string()),
         }
         .into()),
     }

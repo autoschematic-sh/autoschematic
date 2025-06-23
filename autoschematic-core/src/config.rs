@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, default, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -37,11 +37,48 @@ pub struct Task {
     pub read_secrets: Vec<String>,
 }
 
+#[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq)]
+pub enum Protocol {
+    #[default]
+    Tarpc,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[serde(deny_unknown_fields)]
+/// Represents the precise type and installation of a given Connector instance.
+pub enum Spec {
+    Binary {
+        path: PathBuf,
+        #[serde(default)]
+        protocol: Protocol,
+    },
+    Cargo {
+        name: String,
+        #[serde(default)]
+        version: Option<String>,
+        #[serde(default)]
+        binary: Option<String>,
+        #[serde(default)]
+        features: Option<Vec<String>>,
+        #[serde(default)]
+        protocol: Protocol,
+    },
+    CargoLocal {
+        path: PathBuf,
+        #[serde(default)]
+        binary: Option<String>,
+        #[serde(default)]
+        features: Option<Vec<String>>,
+        #[serde(default)]
+        protocol: Protocol,
+    },
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Connector {
-    // TODO we can make this less obtuse now!
-    pub name: String,
+    pub shortname: String,
+    pub spec: Spec,
     #[serde(default)]
     pub env: HashMap<String, String>,
     #[serde(default)]

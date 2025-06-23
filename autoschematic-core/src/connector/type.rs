@@ -7,6 +7,7 @@ type ClassName = String;
 pub enum ConnectorType {
     Python(PathBuf, ClassName),
     BinaryTarpc(PathBuf, ShortName),
+    // Cargo(PathBuf, ShortName),
     LockFile(PathBuf, ShortName),
     // Lock(Rc<ConnectorType>)
 }

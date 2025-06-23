@@ -55,8 +55,8 @@ pub async fn import(
             .unwrap()
             .connectors
             .iter()
-            .map(|c| connector_shortname(&c.name))
-            .try_collect()?;
+            .map(|c| c.shortname.clone())
+            .collect();
 
         if items.is_empty() {
             continue;

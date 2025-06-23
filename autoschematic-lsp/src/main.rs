@@ -215,6 +215,9 @@ impl LanguageServer for Backend {
                         FilterOutput::Resource => {
                             return Ok(Some(serde_json::to_value("Resource").unwrap()));
                         }
+                        FilterOutput::Bundle => {
+                            return Ok(Some(serde_json::to_value("Bundle").unwrap()));
+                        }
                         FilterOutput::None => {
                             return Ok(Some(serde_json::to_value("None").unwrap()));
                         }
@@ -332,12 +335,20 @@ impl Backend {
                 // we need to reload the aws-s3 connector. How are you gonna
                 // swing that, eh? You're gonna need to return a variant enum in filter() that
                 // connectors use to inform the host that a file at {addr} is a config file!
-                match self.connector_cache.filter(&connector_def.name, &prefix, addr).await? {
+                match self.connector_cache.filter(&connector_def.shortname, &prefix, addr).await? {
                     // If the user edits a connector's config file,
                     // we need to re-init the connector, and clear the filter cache for that connector!
                     autoschematic_core::connector::FilterOutput::Config => {
                         if let Some((connector, _inbox)) =
-                            self.connector_cache.get_connector(&connector_def.name, &prefix).await
+                            self.connector_cache.get_connector(&connector_def.shortname, &prefix).await
+                        {
+                            // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
+                            res.append(&mut diag_to_lsp(connector.diag(addr, body.as_bytes()).await?));
+                        }
+                    }
+                    autoschematic_core::connector::FilterOutput::Bundle => {
+                        if let Some((connector, _inbox)) =
+                            self.connector_cache.get_connector(&connector_def.shortname, &prefix).await
                         {
                             // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
                             res.append(&mut diag_to_lsp(connector.diag(addr, body.as_bytes()).await?));
@@ -345,7 +356,7 @@ impl Backend {
                     }
                     autoschematic_core::connector::FilterOutput::Resource => {
                         if let Some((connector, _inbox)) =
-                            self.connector_cache.get_connector(&connector_def.name, &prefix).await
+                            self.connector_cache.get_connector(&connector_def.shortname, &prefix).await
                         {
                             // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
                             res.append(&mut diag_to_lsp(connector.diag(addr, body.as_bytes()).await?));
@@ -372,7 +383,7 @@ impl Backend {
 
         for (prefix_name, prefix) in &autoschematic_config.prefixes {
             for connector_def in &prefix.connectors {
-                eprintln!("launching connector, {}", connector_def.name);
+                eprintln!("launching connector, {}", connector_def.shortname);
                 // TODO
                 // Ok, hotshot, if the user modifies {prefix}/aws/s3/config.ron,
                 // we need to reload the aws-s3 connector. How are you gonna
@@ -380,7 +391,13 @@ impl Backend {
                 // connectors use to inform the host that a file at {addr} is a config file!
                 let (connector, mut inbox) = self
                     .connector_cache
-                    .get_or_spawn_connector(&connector_def.name, &PathBuf::from(&prefix_name), &connector_def.env, None)
+                    .get_or_spawn_connector(
+                        &connector_def.shortname,
+                        &connector_def.spec,
+                        &PathBuf::from(&prefix_name),
+                        &connector_def.env,
+                        None,
+                    )
                     .await?;
 
                 // let sender_trace_handle = trace_handle.clone();

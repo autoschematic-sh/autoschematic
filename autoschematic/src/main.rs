@@ -10,11 +10,12 @@ mod config;
 mod create;
 mod import;
 mod init;
-// mod install;
+mod install;
 mod plan;
 mod seal;
 mod spinner;
 mod sso;
+mod task;
 mod ui;
 mod util;
 mod validate;
@@ -34,11 +35,11 @@ pub enum AutoschematicSubcommand {
     /// Includes autoschematic.lock.ron and autoschematic.rbac.ron if present.
     Validate {},
     // Install a connector from a Github repository.
-    // Install {
-    //     url: String,
-    //     #[arg(short, long, default_value = None)]
-    //     version: Option<String>,
-    // },
+    Install {
+        // url: String,
+        // #[arg(short, long, default_value = None)]
+        // version: Option<String>,
+    },
     /// Seal a secret against a server's public key.
     Seal {
         /// Domain of the autoschematic server.
@@ -72,11 +73,11 @@ pub enum AutoschematicSubcommand {
         /// Key ID from the server to encrypt the secret against.
         key_id: Option<String>,
     },
-    Login {
-        /// Url of the Github organization to log in to, or github.com if omitted
-        #[arg(long, default_value = None)]
-        url: Option<String>,
-    },
+    // Login {
+    //     /// Url of the Github organization to log in to, or github.com if omitted
+    //     #[arg(long, default_value = None)]
+    //     url: Option<String>,
+    // },
     /// Display the series of operations needed to apply the changeset.
     Plan {
         /// Optional path (can be a glob) to filter the changeset.
@@ -104,6 +105,12 @@ pub enum AutoschematicSubcommand {
         /// Optional path (can be a glob) to filter which resources are imported.
         #[arg(short, long, value_name = "subpath")]
         subpath: Option<String>,
+    },
+    RunTask {
+        #[arg(short, long, value_name = "name")]
+        name: String,
+        #[arg(short, long, value_name = "prefix")]
+        prefix: String,
     },
     /// Import remote resources into
     Import {
@@ -162,13 +169,13 @@ async fn main() -> anyhow::Result<()> {
         AutoschematicSubcommand::Validate {} => {
             validate::validate()?;
         }
-        AutoschematicSubcommand::Login { url } => {
-            let token = login_via_github().await?;
-            persist_github_token(&token)?;
-        }
-        // AutoschematicSubcommand::Install { url, version } => {
-        //     install::install(&url, version).await?;
+        // AutoschematicSubcommand::Login { url } => {
+        //     let token = login_via_github().await?;
+        //     persist_github_token(&token)?;
         // }
+        AutoschematicSubcommand::Install {} => {
+            install::install().await?;
+        }
         AutoschematicSubcommand::Plan {
             prefix,
             connector,
@@ -181,7 +188,9 @@ async fn main() -> anyhow::Result<()> {
             connector,
             subpath,
         } => {
-            apply::apply(prefix, connector, subpath).await?;
+            let ask_confirm = true;
+            let skip_commit = false;
+            apply::apply(prefix, connector, subpath, ask_confirm, skip_commit).await?;
         }
         AutoschematicSubcommand::Import {
             prefix,
@@ -190,6 +199,9 @@ async fn main() -> anyhow::Result<()> {
             overwrite,
         } => {
             import::import(prefix, connector, subpath, overwrite).await?;
+        }
+        AutoschematicSubcommand::RunTask { name, prefix } => {
+            task::spawn_task("", "", &PathBuf::from(prefix), &name, 0, serde_json::Value::Null, true).await?
         }
         AutoschematicSubcommand::Create { prefix, connector } => {
             create::create(&prefix, &connector).await?;

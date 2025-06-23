@@ -4,6 +4,7 @@ use std::{
         consts::{ARCH, OS},
         current_dir,
     },
+    fs,
     path::{Path, PathBuf},
 };
 
@@ -247,4 +248,24 @@ pub fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
         }
         Some(comps.iter().map(|c| c.as_os_str()).collect())
     }
+}
+
+pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
+    fs::create_dir_all(&dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+
+        let dst_path = dst.as_ref().join(entry.file_name());
+
+        if ty.is_dir() {
+            fs::create_dir_all(&dst_path)?;
+            copy_dir_all(entry.path(), dst_path)?;
+        } else {
+            // eprintln!("COPY {:?} -> {:?}", entry.path(), dst_path);
+            // tracing::error!("COPY {:?} -> {:?}", entry.path(), dst_path);
+            fs::copy(entry.path(), dst_path)?;
+        }
+    }
+    Ok(())
 }

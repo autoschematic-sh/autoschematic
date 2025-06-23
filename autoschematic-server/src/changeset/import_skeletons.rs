@@ -35,7 +35,7 @@ impl ChangeSet {
         for (prefix_name, prefix) in autoschematic_config.prefixes {
             for connector_def in prefix.connectors {
                 let prefix_name = PathBuf::from(&prefix_name);
-                let connector_shortname = connector_shortname(&connector_def.name)?;
+                let connector_shortname = connector_shortname(&connector_def.shortname)?;
                 if let Some(connector_filter) = &connector_filter {
                     if connector_shortname != *connector_filter {
                         continue;
@@ -47,7 +47,13 @@ impl ChangeSet {
 
                 let (connector, mut inbox) = self
                     .connector_cache
-                    .get_or_spawn_connector(&connector_def.name, &prefix_name.clone(), &connector_def.env, Some(&KEYSTORE))
+                    .get_or_spawn_connector(
+                        &connector_def.shortname,
+                        &connector_def.spec,
+                        &prefix_name.clone(),
+                        &connector_def.env,
+                        Some(&KEYSTORE),
+                    )
                     .await?;
                 let sender_trace_handle = trace_handle.clone();
                 let _reader_handle = tokio::spawn(async move {

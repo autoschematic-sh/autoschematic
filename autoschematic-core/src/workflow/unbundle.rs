@@ -117,7 +117,7 @@ pub async fn plan_connector(
 /// For a given path, attempt to resolve its prefix and Connector impl and return a Vec of ConnectorOps.
 /// Note that this, unlike the server implementation, does not handle setting desired = None where files do
 /// not exist - it is intended to be used from the command line or from LSPs to quickly modify resources.
-pub async fn plan(
+pub async fn unbundle(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: &ConnectorCache,
     keystore: Option<&Box<dyn KeyStore>>,
@@ -125,12 +125,10 @@ pub async fn plan(
     path: &Path,
 ) -> Result<Option<PlanReport>, anyhow::Error> {
     let Some((prefix, virt_addr)) = split_prefix_addr(autoschematic_config, path) else {
-        // eprintln!("split_prefix_addr None!");
         return Ok(None);
     };
 
     let Some(prefix_def) = autoschematic_config.prefixes.get(prefix.to_str().unwrap_or_default()) else {
-        // eprintln!("prefix None!");
         return Ok(None);
     };
 
@@ -155,12 +153,7 @@ pub async fn plan(
             loop {
                 match inbox.recv().await {
                     Ok(Some(stdout)) => {
-                        // let res = append_run_log(&sender_trace_handle, stdout).await;
                         eprintln!("{}", stdout);
-                        // match res {
-                        //     Ok(_) => {}
-                        //     Err(_) => {}
-                        // }
                     }
                     Ok(None) => {}
                     Err(_) => break,

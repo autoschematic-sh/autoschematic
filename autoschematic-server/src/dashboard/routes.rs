@@ -3,6 +3,7 @@ use std::{collections::HashSet, path::PathBuf};
 use actix_session::Session;
 use actix_web::{HttpRequest, HttpResponse, web};
 use actix_ws::{AggregatedMessage, Closed};
+use autoschematic_core::task::{message::TaskRegistryMessage, registry::TaskRegistryKey, state::TaskState};
 use futures::StreamExt;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -11,10 +12,6 @@ use uuid::Uuid;
 use crate::{
     TASK_REGISTRY, TRACESTORE,
     error::{self, AutoschematicServerError, AutoschematicServerErrorType},
-    task::{
-        message::TaskRegistryMessage, registry::TaskRegistryKey, state::TaskState, subscribe_task_state,
-        try_send_task_registry_message,
-    },
     tracestore::{RepoKey, RunKey},
 };
 
@@ -209,7 +206,7 @@ pub async fn repo_view(session: Session, param: web::Path<(String, String, u64)>
 
                 prefix_listings.push(prefix_listing);
             }
-        } ;
+        };
         Ok(HttpResponse::Ok().content_type("application/json").json(prefix_listings))
     } else {
         Ok(HttpResponse::Unauthorized().finish())
@@ -444,6 +441,15 @@ pub async fn send_task_message(
     param: web::Path<(String, String, u64, String, String)>,
     msg: web::Json<TaskRegistryMessage>,
 ) -> Result<HttpResponse, actix_web::Error> {
+    let Some(task_registry) = TASK_REGISTRY.get() else {
+        return Err(AutoschematicServerError {
+            kind: AutoschematicServerErrorType::ConfigurationError {
+                name: "TASK_REGISTRY".to_string(),
+                message: "Task registry uninitialized".to_string(),
+            },
+        }
+        .into());
+    };
     let Some((access_token, github_username)) = has_valid_session(&session).await? else {
         return Ok(HttpResponse::Unauthorized().finish());
     };
@@ -457,7 +463,7 @@ pub async fn send_task_message(
         task_name,
     };
 
-    match try_send_task_registry_message(&registry_key, msg.into_inner()).await {
+    match task_registry.try_send_message(&registry_key, msg.into_inner()).await {
         Ok(_) => Ok(HttpResponse::Created().finish()),
         Err(e) => Err(error::AutoschematicServerError {
             kind: AutoschematicServerErrorType::InternalError(e),
@@ -472,6 +478,16 @@ pub async fn task_state_subscribe(
     stream: web::Payload,
     param: web::Path<(String, String, u64, String, String)>,
 ) -> Result<HttpResponse, actix_web::Error> {
+    let Some(task_registry) = TASK_REGISTRY.get() else {
+        return Err(AutoschematicServerError {
+            kind: AutoschematicServerErrorType::ConfigurationError {
+                name: "TASK_REGISTRY".to_string(),
+                message: "Task registry uninitialized".to_string(),
+            },
+        }
+        .into());
+    };
+
     let (res, mut ws_session, stream) = actix_ws::handle(&req, stream)?;
 
     let Some((access_token, github_username)) = has_valid_session(&session).await? else {
@@ -489,11 +505,13 @@ pub async fn task_state_subscribe(
             task_name,
         };
 
-        let mut receiver = subscribe_task_state(&registry_key)
-            .await
-            .map_err(|e| error::AutoschematicServerError {
-                kind: AutoschematicServerErrorType::InternalError(e),
-            })?;
+        let mut receiver =
+            task_registry
+                .subscribe_task_state(&registry_key)
+                .await
+                .map_err(|e| error::AutoschematicServerError {
+                    kind: AutoschematicServerErrorType::InternalError(e),
+                })?;
 
         let stream = stream
             .aggregate_continuations()

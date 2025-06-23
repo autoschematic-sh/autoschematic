@@ -33,11 +33,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
 
     let prefix_def = config.prefixes.get(prefix).unwrap();
 
-    let connector_names: Vec<String> = prefix_def
-        .connectors
-        .iter()
-        .map(|a| connector_shortname(&a.name))
-        .try_collect()?;
+    let connector_names: Vec<String> = prefix_def.connectors.iter().map(|c| c.shortname.clone()).collect();
     let connector_i = Select::new()
         .with_prompt("Select connector")
         .items(&connector_names)

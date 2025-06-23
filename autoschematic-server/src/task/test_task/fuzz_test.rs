@@ -11,10 +11,11 @@ use crate::{
     RON,
     github_util::{create_pull_request, merge_pr},
     task::util::wait_for_comment_types,
-    util::copy_dir_all,
 };
-use autoschematic_core::git_util::{
-    checkout_branch, checkout_new_branch, get_head_sha, git_add, git_commit_and_push, pull_with_rebase,
+
+use autoschematic_core::{
+    git_util::{checkout_branch, checkout_new_branch, get_head_sha, git_add, git_commit_and_push, pull_with_rebase},
+    util::copy_dir_all,
 };
 
 use super::TestTask;

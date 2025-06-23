@@ -6,6 +6,8 @@ use std::{
 };
 
 use crate::{
+    bundle::BundleOutput,
+    config::Spec,
     connector::{
         Connector, ConnectorOutbox, DocIdent, FilterOutput, GetDocOutput, GetResourceOutput, OpExecOutput, OpPlanOutput,
         SkeletonOutput, VirtToPhyOutput,
@@ -125,26 +127,21 @@ impl Connector for UnsandboxConnectorHandle {
     async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
         Connector::diag(&self.client, addr, a).await
     }
+
+    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> Result<Vec<BundleOutput>, anyhow::Error> {
+        Connector::unbundle(&self.client, addr, resource).await
+    }
 }
 
 pub async fn launch_server_binary(
-    binary: &Path,
-    name: &str,
+    spec: &Spec,
+    shortname: &str,
     prefix: &Path,
     env: &HashMap<String, String>,
     outbox: ConnectorOutbox,
     keystore: Option<&Box<dyn KeyStore>>,
 ) -> anyhow::Result<UnsandboxConnectorHandle> {
     let mut env = env.clone();
-    let mut binary = PathBuf::from(binary);
-
-    if !binary.is_file() {
-        binary = which::which(binary)?;
-    }
-
-    if !binary.is_file() {
-        bail!("launch_server_binary: {}: not found", binary.display())
-    }
 
     let socket = random_socket_path();
     let error_dump = random_error_dump_path();
@@ -155,13 +152,74 @@ pub async fn launch_server_binary(
         env = passthrough_secrets_from_env(&env)?;
     }
 
-    let args = [name.into(), prefix.into(), socket.clone(), error_dump.clone()];
-    let mut command = &mut tokio::process::Command::new(binary);
+    let mut command = match spec {
+        Spec::Binary { path, protocol } => {
+            let mut binary_path = path.clone();
+            if !binary_path.is_file() {
+                binary_path = which::which(binary_path)?;
+            }
 
-    command = command.args(args);
+            if !binary_path.is_file() {
+                bail!("launch_server_binary: {}: not found", binary_path.display())
+            }
+            let mut command = tokio::process::Command::new(binary_path);
+            let args = [shortname.into(), prefix.into(), socket.clone(), error_dump.clone()];
+            command.args(args);
+            command
+        }
+        Spec::Cargo {
+            name,
+            version,
+            binary,
+            features,
+            protocol,
+        } => {
+            let cargo_home = match std::env::var("CARGO_HOME") {
+                Ok(p) => PathBuf::from(p),
+                Err(_) => {
+                    let Ok(home) = std::env::var("HOME") else {
+                        bail!("$HOME not set!");
+                    };
+                    PathBuf::from(home).join(".cargo")
+                }
+            };
+
+            // TODO Also parse `binary` and check .cargo/.cargo.toml
+            let binary_path = cargo_home.join("bin").join(name);
+
+            if !binary_path.is_file() {
+                bail!("launch_server_binary: {}: not found", binary_path.display())
+            }
+            let mut command = tokio::process::Command::new(binary_path);
+            let args = [shortname.into(), prefix.into(), socket.clone(), error_dump.clone()];
+            command.args(args);
+            command
+        }
+        Spec::CargoLocal {
+            path, binary, features, ..
+        } => {
+            if !path.join("Cargo.toml").is_file() {
+                bail!("launch_server_binary: No Cargo.toml under {}", path.display())
+            }
+
+            let mut command = tokio::process::Command::new("cargo");
+            command.args(["run", "--release"]);
+            if let Some(binary) = binary {
+                command.args(["--bin", binary]);
+            }
+            if let Some(features) = features {
+                if !features.is_empty() {
+                    command.args(["--features", &features.join(",")]);
+                }
+            }
+            command.args([String::from("--"), shortname.to_string()]);
+            command.args([prefix, &socket, &error_dump]);
+            command
+        }
+    };
 
     for (key, val) in env {
-        command = command.env(key, val);
+        command.env(key, val);
     }
 
     let child = command.spawn()?;

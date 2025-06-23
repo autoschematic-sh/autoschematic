@@ -76,10 +76,8 @@ impl ChangeSet {
             }
 
             'connector: for connector_def in prefix.connectors {
-                let connector_shortname = connector_shortname(&connector_def.name)?;
-
                 if let Some(connector_filter) = &connector_filter {
-                    if connector_shortname != *connector_filter {
+                    if connector_def.shortname != *connector_filter {
                         continue 'connector;
                     }
                 }
@@ -87,7 +85,8 @@ impl ChangeSet {
                 let (connector, mut inbox) = self
                     .connector_cache
                     .get_or_spawn_connector(
-                        &connector_def.name,
+                        &connector_def.shortname,
+                        &connector_def.spec,
                         &PathBuf::from(&prefix_name),
                         &connector_def.env,
                         Some(&KEYSTORE),
@@ -119,7 +118,7 @@ impl ChangeSet {
                     let check_run_name = format!(
                         "autoschematic pull-state -p {} -c {} -s ./{}",
                         prefix_name,
-                        &connector_shortname,
+                        &connector_def.shortname,
                         &object.filename.to_string_lossy()
                     );
 
@@ -139,7 +138,7 @@ impl ChangeSet {
 
                     if self
                         .connector_cache
-                        .filter(&connector_def.name, &PathBuf::from(&prefix_name), virt_addr)
+                        .filter(&connector_def.shortname, &PathBuf::from(&prefix_name), virt_addr)
                         .await?
                         == FilterOutput::Resource
                     {
@@ -186,7 +185,7 @@ impl ChangeSet {
                         let mut tick_delete_count = false;
                         if let Some(current) = connector.get(&phy_addr).await.context(format!(
                             "{}::get({})",
-                            connector_shortname,
+                            connector_def.shortname,
                             &phy_addr.to_str().unwrap_or_default()
                         ))? {
                             // TODO if connectors can optionally implement cmp(addr, a: str, b: str),
@@ -265,7 +264,7 @@ impl ChangeSet {
                 if (pull_state_report.import_count + pull_state_report.delete_count) > 0 {
                     let message = format!(
                         "autoschematic pull-state -c {} by @{}: {}",
-                        connector_shortname, comment_username, comment_url
+                        connector_def.shortname, comment_username, comment_url
                     );
                     self.git_commit_and_push(repo, &message)?;
                 }

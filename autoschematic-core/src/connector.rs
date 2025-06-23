@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
 
-use crate::{connector_util::build_out_path, diag::DiagnosticOutput, read_outputs::ReadOutput};
+use crate::{bundle::BundleOutput, connector_util::build_out_path, diag::DiagnosticOutput, read_outputs::ReadOutput};
 
 pub type OutputMap = HashMap<String, Option<String>>;
 pub type OutputMapFile = HashMap<String, String>;
@@ -22,6 +22,7 @@ pub mod r#type;
 pub enum FilterOutput {
     Config,
     Resource,
+    Bundle,
     None,
 }
 
@@ -80,6 +81,13 @@ pub struct OpPlanOutput {
 /// OpExecOutput may be used to store that ID in `outputs`, where it will be
 /// saved and committed as {addr}.output.json file adjacent to the addr at which the.
 pub struct OpExecOutput {
+    pub outputs: Option<HashMap<String, Option<String>>>,
+    pub friendly_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+/// TaskExecOutput represents the result of a Connector successfully executing a Task.
+pub struct TaskExecOutput {
     pub outputs: Option<HashMap<String, Option<String>>>,
     pub friendly_message: Option<String>,
 }
@@ -205,7 +213,7 @@ pub trait Connector: Send + Sync {
 
     /// Connectors may additionally serve docstrings. This is intended to aid development
     /// from an IDE or similar, with a language server hooking into connectors on hover.
-    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> anyhow::Result<Option<GetDocOutput>> {
+    async fn get_docstring(&self, _addr: &Path, _ident: DocIdent) -> anyhow::Result<Option<GetDocOutput>> {
         Ok(None)
     }
 
@@ -221,6 +229,10 @@ pub trait Connector: Send + Sync {
     /// that outline where the parsing failed with error information.
     /// This is intended to aid development from an IDE or similar, with a language server hooking into connectors.
     async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error>;
+
+    async fn unbundle(&self, _addr: &Path, _bundle: &[u8]) -> anyhow::Result<Vec<BundleOutput>> {
+        Ok(Vec::new())
+    }
 }
 
 // Helper traits for defining custom internal types in Connector implementations.
@@ -332,5 +344,9 @@ impl Connector for Box<dyn Connector> {
 
     async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
         Connector::diag(self.as_ref(), addr, a).await
+    }
+
+    async fn unbundle(&self, addr: &Path, bundle: &[u8]) -> anyhow::Result<Vec<BundleOutput>> {
+        Connector::unbundle(self.as_ref(), addr, bundle).await
     }
 }

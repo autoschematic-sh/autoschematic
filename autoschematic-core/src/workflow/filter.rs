@@ -22,15 +22,20 @@ pub async fn filter(
     };
 
     for connector_def in &prefix_def.connectors {
-        let _connector_shortname = connector_shortname(&connector_def.name)?;
-
         let (connector, _inbox) = connector_cache
-            .get_or_spawn_connector(&connector_def.name, prefix, &connector_def.env, keystore)
+            .get_or_spawn_connector(
+                &connector_def.shortname,
+                &connector_def.spec,
+                prefix,
+                &connector_def.env,
+                keystore,
+            )
             .await?;
 
         match connector.filter(addr).await? {
             FilterOutput::Config => return Ok(FilterOutput::Config),
             FilterOutput::Resource => return Ok(FilterOutput::Resource),
+            FilterOutput::Bundle => return Ok(FilterOutput::Bundle),
             FilterOutput::None => continue,
         }
     }

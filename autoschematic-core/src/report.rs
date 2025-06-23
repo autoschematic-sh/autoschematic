@@ -4,6 +4,7 @@ use std::{
 };
 
 use crate::{
+    config::Spec,
     connector::{OpExecOutput, OpPlanOutput},
     error::ErrorMessage,
     read_outputs::ReadOutput,
@@ -32,7 +33,6 @@ pub struct PlanReportSet {
     pub plan_reports: Vec<PlanReport>,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub struct ApplyReport {
     pub outputs: Vec<OpExecOutput>,
@@ -47,9 +47,10 @@ pub struct ApplyReportSet {
 // A PlanReport outlines, for a given plan run at connector:prefix:addr:
 // The error, if any, or
 // The list of ConnectorOps along with their human-readable descriptions
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PlanReportOld {
     pub connector_name: String,
+    pub connector_spec: Spec,
     pub connector_env: HashMap<String, String>,
     pub prefix: String,
     pub virt_addr: PathBuf,

@@ -20,6 +20,7 @@ use tokio::net::{UnixListener, UnixStream};
 use tracing_subscriber::EnvFilter;
 
 use crate::{
+    bundle::BundleOutput,
     connector::{
         Connector, ConnectorOutbox, DocIdent, FilterOutput, GetDocOutput, GetResourceOutput, OpExecOutput, OpPlanOutput,
         SkeletonOutput, VirtToPhyOutput,
@@ -34,31 +35,21 @@ pub trait TarpcConnector {
 
     async fn filter(addr: PathBuf) -> Result<FilterOutput, ErrorMessage>;
 
-    /// List all "extant" (E.G., currently existing in AWS) object paths, whether they exist in local config or not
-    //
     async fn list(subpath: PathBuf) -> Result<Vec<PathBuf>, ErrorMessage>;
 
-    /// Get the current "real" state of the object at `addr`
     async fn get(addr: PathBuf) -> Result<Option<GetResourceOutput>, ErrorMessage>;
 
-    /// Determine how to set current -> desired
-    /// Returns a sequence of Ops that can be executed by op_exec.
     async fn plan(addr: PathBuf, current: Option<Vec<u8>>, desired: Option<Vec<u8>>)
     -> Result<Vec<OpPlanOutput>, ErrorMessage>;
 
-    /// Execute an Op.
-    /// OpExecOutput may include output files, containing, for example,
-    ///  the resultant IDs of created resources such as EC2 instances or VPCs.
-    /// This will be stored at ./{prefix}/{addr}.out.json,
-    ///  or merged if already present.
     async fn op_exec(addr: PathBuf, op: String) -> Result<OpExecOutput, ErrorMessage>;
-
     async fn addr_virt_to_phy(addr: PathBuf) -> Result<VirtToPhyOutput, ErrorMessage>;
     async fn addr_phy_to_virt(addr: PathBuf) -> Result<Option<PathBuf>, ErrorMessage>;
     async fn get_skeletons() -> Result<Vec<SkeletonOutput>, ErrorMessage>;
     async fn get_docstring(addr: PathBuf, ident: DocIdent) -> Result<Option<GetDocOutput>, ErrorMessage>;
     async fn eq(addr: PathBuf, a: Vec<u8>, b: Vec<u8>) -> Result<bool, ErrorMessage>;
     async fn diag(addr: PathBuf, a: Vec<u8>) -> Result<DiagnosticOutput, ErrorMessage>;
+    async fn unbundle(addr: PathBuf, a: Vec<u8>) -> Result<Vec<BundleOutput>, ErrorMessage>;
 }
 
 #[derive(Clone)]
@@ -75,19 +66,15 @@ impl TarpcConnector for ConnectorServer {
         Ok(Connector::filter(&*self.connector.lock().await, &addr).await?)
     }
 
-    #[doc = " List all \"extant\" (E.G., currently existing in AWS) object paths, whether they exist in local config or not"]
     async fn list(self, _context: ::tarpc::context::Context, subpath: PathBuf) -> Result<Vec<PathBuf>, ErrorMessage> {
         let res = Connector::list(&*self.connector.lock().await, &subpath).await;
         Ok(res?)
     }
 
-    #[doc = " Get the current \"real\" state of the object at `addr`"]
     async fn get(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<Option<GetResourceOutput>, ErrorMessage> {
         Ok(Connector::get(&*self.connector.lock().await, &addr).await?)
     }
 
-    #[doc = " Determine how to set current -> desired"]
-    #[doc = " Returns a sequence of Ops that can be executed by op_exec."]
     async fn plan(
         self,
         _context: ::tarpc::context::Context,
@@ -98,11 +85,6 @@ impl TarpcConnector for ConnectorServer {
         Ok(Connector::plan(&*self.connector.lock().await, &addr, current, desired).await?)
     }
 
-    #[doc = " Execute an Op."]
-    #[doc = " OpExecOutput may include output files, containing, for example, "]
-    #[doc = "  the resultant IDs of created resources such as EC2 instances or VPCs."]
-    #[doc = " This will be stored at ./{prefix}/{addr}.out.json, "]
-    #[doc = "  or merged if already present."]
     async fn op_exec(
         self,
         _context: ::tarpc::context::Context,
@@ -153,6 +135,15 @@ impl TarpcConnector for ConnectorServer {
     ) -> Result<DiagnosticOutput, ErrorMessage> {
         Ok(Connector::diag(&*self.connector.lock().await, &addr, &a).await?)
     }
+
+    async fn unbundle(
+        self,
+        _context: tarpc::context::Context,
+        addr: PathBuf,
+        resource: Vec<u8>,
+    ) -> Result<Vec<BundleOutput>, ErrorMessage> {
+        Ok(Connector::unbundle(&*self.connector.lock().await, &addr, &resource).await?)
+    }
 }
 
 impl<C: Connector> TarpcConnector for C {
@@ -164,18 +155,14 @@ impl<C: Connector> TarpcConnector for C {
         Ok(Connector::filter(&self, &addr).await?)
     }
 
-    #[doc = " List all \"extant\" (E.G., currently existing in AWS) object paths, whether they exist in local config or not"]
     async fn list(self, _context: ::tarpc::context::Context, subpath: PathBuf) -> Result<Vec<PathBuf>, ErrorMessage> {
         Ok(Connector::list(&self, &subpath).await?)
     }
 
-    #[doc = " Get the current \"real\" state of the object at `addr`"]
     async fn get(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<Option<GetResourceOutput>, ErrorMessage> {
         Ok(Connector::get(&self, &addr).await?)
     }
 
-    #[doc = " Determine how to set current -> desired"]
-    #[doc = " Returns a sequence of Ops that can be executed by op_exec."]
     async fn plan(
         self,
         _context: ::tarpc::context::Context,
@@ -186,11 +173,6 @@ impl<C: Connector> TarpcConnector for C {
         Ok(Connector::plan(&self, &addr, current, desired).await?)
     }
 
-    #[doc = " Execute an Op."]
-    #[doc = " OpExecOutput may include output files, containing, for example, "]
-    #[doc = "  the resultant IDs of created resources such as EC2 instances or VPCs."]
-    #[doc = " This will be stored at ./{prefix}/{addr}.out.json, "]
-    #[doc = "  or merged if already present."]
     async fn op_exec(
         self,
         _context: ::tarpc::context::Context,
@@ -240,6 +222,15 @@ impl<C: Connector> TarpcConnector for C {
         a: Vec<u8>,
     ) -> Result<DiagnosticOutput, ErrorMessage> {
         Ok(Connector::diag(&self, &addr, &a).await?)
+    }
+
+    async fn unbundle(
+        self,
+        _context: tarpc::context::Context,
+        addr: PathBuf,
+        resource: Vec<u8>,
+    ) -> Result<Vec<BundleOutput>, ErrorMessage> {
+        Ok(Connector::unbundle(&self, &addr, &resource).await?)
     }
 }
 
@@ -327,6 +318,12 @@ impl Connector for TarpcConnectorClient {
 
     async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
         Ok(self.diag(context_1m_deadline(), addr.to_path_buf(), a.to_owned()).await??)
+    }
+
+    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> Result<Vec<BundleOutput>, anyhow::Error> {
+        Ok(self
+            .unbundle(context_1m_deadline(), addr.to_path_buf(), resource.to_owned())
+            .await??)
     }
 }
 

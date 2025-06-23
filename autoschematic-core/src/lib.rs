@@ -1,5 +1,6 @@
-#[cfg(feature = "sandbox")]
-pub mod binary_cache;
+// #[cfg(feature = "sandbox")]
+// pub mod binary_cache;
+pub mod bundle;
 pub mod config;
 pub mod config_bundle;
 pub mod config_rbac;
@@ -21,6 +22,7 @@ pub mod report;
 pub mod secret;
 // pub mod grpc_bridge;
 pub mod tarpc_bridge;
+pub mod task;
 pub mod tracing_panic;
 pub mod unescape;
 pub mod util;

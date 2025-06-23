@@ -1,88 +1,77 @@
-use std::sync::Arc;
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use anyhow::{bail, Context};
-use autoschematic_core::{lockfile::AutoschematicLockfile, util::{repo_root, RON}};
+use anyhow::{Context, bail};
+use autoschematic_core::{config::AutoschematicConfig, connector::parse::parse_connector_name};
 use dialoguer::Select;
 use regex::Regex;
+use toml::Table;
 
-use crate::{sso::load_github_token, validate::validate};
+use crate::{config::load_autoschematic_config, sso::load_github_token, validate::validate};
 
-pub async fn install(url: &str, version: Option<String>) -> anyhow::Result<()> {
-    let config_path = repo_root()?.join("autoschematic.ron");
-    let lock_path = repo_root()?.join("autoschematic.lock");
+pub async fn install() -> anyhow::Result<()> {
+    let config = load_autoschematic_config()?;
 
-    // Ensure autoschematic.ron is valid
-    validate().context("Reading autoschematic.ron")?;
+    cargo_install_missing(&config).await?;
 
-    let re = Regex::new(
-        r"^(?:git@|https:\/\/)github.com[:/](?<owner>[\w\.-]+)\/(?<repo>[\w\.-]+)(.git)?$",
-    )?;
+    Ok(())
+}
 
-    let Some(caps) = re.captures(url) else {
-        bail!(
-            "Error: {} doesn't appear to be a valid Github repository URL.",
-            url
-        )
-    };
-
-
-    let client = match load_github_token()? {
-        Some(access_token) => {
-            Arc::new(octocrab::OctocrabBuilder::new()
-            .personal_token(access_token.into_secret())
-            .build()?)
-        }
-        None => octocrab::instance()
-    };
-
-    let tag = match version {
-        Some(version) => version,
-        None => {
-            let releases = client
-                .repos(&caps["owner"], &caps["repo"])
-                .releases()
-                .list()
-                .per_page(100)
-                .send()
-                .await.context("Failed to get releases \n(Hint: if this is a private repo, you may need to log in.)\n")?;
-
-            let release_tags: Vec<&String> = releases.items.iter().map(|r| &r.tag_name).collect();
-
-            let selection = Select::new()
-                .with_prompt("Select version")
-                .items(&release_tags)
-                .max_length(10)
-                .interact()
-                .unwrap();
-
-            release_tags.get(selection).unwrap().to_string()
+pub async fn cargo_install_missing(config: &AutoschematicConfig) -> anyhow::Result<()> {
+    let cargo_home = match std::env::var("CARGO_HOME") {
+        Ok(p) => PathBuf::from(p),
+        Err(_) => {
+            let Ok(home) = std::env::var("HOME") else {
+                bail!("$HOME not set!");
+            };
+            PathBuf::from(home).join(".cargo")
         }
     };
 
-    let release = client
-        .repos(&caps["owner"], &caps["repo"])
-        .releases()
-        .get_by_tag(&tag)
-        .await?;
-
-    let asset_names: Vec<&String> = release.assets.iter().map(|a| &a.name).collect();
-    let selection = Select::new()
-        .with_prompt("Select asset")
-        .items(&asset_names)
-        .max_length(10)
-        .interact()
-        .unwrap();
-    
-    let asset_name = asset_names.get(selection).unwrap().to_string();
-
-    let lock_file: AutoschematicLockfile = match lock_path.is_file() {
-        true => RON.from_str(&std::fs::read_to_string(lock_path).context("Reading autoschematic.lock")?)?,
-        false => AutoschematicLockfile::default(),
+    let cargo_registry = std::fs::read_to_string(cargo_home.join(".crates.toml"))?.parse::<Table>()?;
+    let Some(cargo_registry_v1) = cargo_registry.get("v1") else {
+        bail!("No key `v1` in $CARGO_HOME/.crates.toml");
     };
 
-    // Use a github client to get the manifest from the repository.
-    // let manifest: ConnectorManifest = ron::from_str(s)?;
-    // lock_file.entries.insert(manifest.n, v)?;
+    let pkg_table = cargo_registry_v1.as_table().unwrap();
 
+    type PackageName = String;
+    type Version = String;
+    type Binary = String;
+    let mut pkg_map: HashMap<PackageName, HashMap<Version, Vec<Binary>>> = HashMap::new();
+
+    for (pkg, binaries) in pkg_table {
+        let pkg_name: Vec<&str> = pkg.split(" ").collect();
+        if !(pkg_map.contains_key(pkg_name[0])) {
+            pkg_map.insert(pkg_name[0].to_string(), HashMap::new());
+        }
+        let binaries: Vec<String> = binaries
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s.as_str().unwrap().to_string())
+            .collect();
+
+        pkg_map
+            .get_mut(pkg_name[0])
+            .unwrap()
+            .insert(pkg_name[1].to_string(), binaries);
+    }
+
+    println!("{:#?}", pkg_map);
+
+    for (prefix_name, prefix) in &config.prefixes {
+        for connector in &prefix.connectors {
+            match &connector.spec {
+                autoschematic_core::config::Spec::Cargo {
+                    name,
+                    version,
+                    binary,
+                    features,
+                    protocol,
+                } => todo!(),
+                _ => continue,
+            }
+        }
+    }
     Ok(())
 }

@@ -30,6 +30,7 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
         let Some(plan_report) =
             autoschematic_core::workflow::plan::plan(&config, &connector_cache, keystore, connector, &path).await?
         else {
+            spinner_stop.send(()).unwrap();
             continue;
         };
 
@@ -54,6 +55,7 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
         print_frame_end();
     }
 
+    println!(" ◇ Plan complete.");
     if !have_nonempty_plan {
         println!(
             " ≡ All plans are empty, implying that the remote configuration matches the desired configuration for all staged files."
@@ -72,19 +74,37 @@ pub fn print_frame_end() {
     println!("╚════════════════════════════════════════════════════════════════════════════════════════════════════╝");
 }
 
-pub fn print_plan(plan_report: &PlanReport) {
-    let prefix = plan_report.prefix.to_string_lossy().to_string().dark_grey();
-    let virt_addr = plan_report.virt_addr.to_string_lossy().to_string().bold();
-    let phy_addr = plan_report
-        .phy_addr
-        .as_ref()
-        .map(|a| a.to_string_lossy().to_string().underline_dark_grey());
+pub fn print_plan_addr(plan_report: &PlanReport) {
+    println!(
+        "║ At {}/{}:",
+        plan_report.prefix.display().to_string().dark_grey(),
+        plan_report.virt_addr.display().to_string().bold()
+    );
 
-    println!("║ At {}/{}:", prefix, virt_addr);
-
-    if let Some(phy_addr) = phy_addr {
-        println!("║  ↪ {}/{}:", prefix, phy_addr);
+    if let Some(phy_addr) = &plan_report.phy_addr {
+        println!(
+            "║  ↪ {}/{}:",
+            plan_report.prefix.display().to_string().dark_grey(),
+            phy_addr.display().to_string().underline_dark_grey()
+        );
     }
+}
+
+pub fn print_plan(plan_report: &PlanReport) {
+    // let prefix = plan_report.prefix.to_string_lossy().to_string().dark_grey();
+    // let virt_addr = plan_report.virt_addr.to_string_lossy().to_string().bold();
+    // let phy_addr = plan_report
+    //     .phy_addr
+    //     .as_ref()
+    //     .map(|a| a.to_string_lossy().to_string().underline_dark_grey());
+
+    // println!("║ At {}/{}:", prefix, virt_addr);
+
+    // if let Some(phy_addr) = phy_addr {
+    //     println!("║  ↪ {}/{}:", prefix, phy_addr);
+    // }
+
+    print_plan_addr(plan_report);
 
     for connector_op in &plan_report.connector_ops {
         let friendly_message = connector_op
