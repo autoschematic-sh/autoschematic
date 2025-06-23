@@ -198,12 +198,13 @@ pub async fn launch_server_binary(
         Spec::CargoLocal {
             path, binary, features, ..
         } => {
-            if !path.join("Cargo.toml").is_file() {
+            let manifest_path = path.join("Cargo.toml");
+            if !manifest_path.is_file() {
                 bail!("launch_server_binary: No Cargo.toml under {}", path.display())
             }
 
             let mut command = tokio::process::Command::new("cargo");
-            command.args(["run", "--release"]);
+            command.args(["run", "--release", "--manifest-path", manifest_path.to_str().unwrap()]);
             if let Some(binary) = binary {
                 command.args(["--bin", binary]);
             }
