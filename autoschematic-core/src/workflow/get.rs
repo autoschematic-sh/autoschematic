@@ -13,7 +13,7 @@ pub async fn get(
     connector_cache: &ConnectorCache,
     keystore: Option<&Box<dyn KeyStore>>,
     prefix: &Path,
-    addr: &Path,
+    virt_addr: &Path,
 ) -> Result<Option<Vec<u8>>, AutoschematicError> {
     let Some(prefix_str) = prefix.to_str() else {
         return Ok(None);
@@ -34,9 +34,24 @@ pub async fn get(
             )
             .await?;
 
-        if connector.filter(addr).await? == FilterOutput::Resource {
-            if let Some(body) = connector.get(addr).await? {
-                return Ok(Some(body.resource_definition));
+        if connector.filter(virt_addr).await? == FilterOutput::Resource {
+            match connector.addr_virt_to_phy(virt_addr).await? {
+                crate::connector::VirtToPhyOutput::NotPresent => {
+                    return Ok(None);
+                }
+                crate::connector::VirtToPhyOutput::Deferred(read_outputs) => {
+                    return Ok(None);
+                }
+                crate::connector::VirtToPhyOutput::Present(phy_addr) => {
+                    if let Some(body) = connector.get(&phy_addr).await? {
+                        return Ok(Some(body.resource_definition));
+                    }
+                }
+                crate::connector::VirtToPhyOutput::Null(virt_addr) => {
+                    if let Some(body) = connector.get(&virt_addr).await? {
+                        return Ok(Some(body.resource_definition));
+                    }
+                }
             }
         }
     }

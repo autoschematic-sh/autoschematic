@@ -13,6 +13,9 @@ use crate::connector::{OutputMapFile, ResourceAddress};
 // TODO Annotate these with custom types so that accidental misuse is impossible
 // TODO Add unit tests
 
+/// From a given physical address, form the path pointing to the 
+/// out.json file for that resource.
+/// For virtual addresses
 pub fn build_out_path(prefix: &Path, addr: &Path) -> PathBuf {
     // Start with prefix
     let mut output = prefix.to_path_buf();
@@ -40,10 +43,8 @@ pub fn build_out_path(prefix: &Path, addr: &Path) -> PathBuf {
     }
     new_filename.push(".out.json");
 
-    // Final push sets the new filename
     output.push(new_filename);
 
-    // tracing::error!("build_out_path: {:?} / {:?} -> {:?}", prefix, addr, output);
     output
 }
 
@@ -109,6 +110,7 @@ pub fn output_phy_to_virt<A: ResourceAddress>(prefix: &Path, addr: &A) -> anyhow
             // HACK ALERT HACK ALERT
             // If we change the assumption that all connectors and commands run from the root of the repository,
             // or if a connector runs cd for some reason, this will break!
+            // TODO use chwd and repo_root() to ensure that this runs from the root of the repo
             let virt_out_path = virt_out_path.strip_prefix(std::env::current_dir()?)?;
             Ok(Some(A::from_path(&unbuild_out_path(prefix, virt_out_path)?)?))
         } else {

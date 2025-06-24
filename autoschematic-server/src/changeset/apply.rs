@@ -116,6 +116,7 @@ impl ChangeSet {
                             VirtToPhyOutput::NotPresent => connector.op_exec(&virt_addr, &op.op_definition).await,
                             VirtToPhyOutput::Deferred(_read_outputs) => connector.op_exec(&virt_addr, &op.op_definition).await,
                             VirtToPhyOutput::Present(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await,
+                            VirtToPhyOutput::Null(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await,
                         };
 
                         match res {

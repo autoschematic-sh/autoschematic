@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use autoschematic_core::{
     connector::{self, parse::connector_shortname},
-    connector_cache::ConnectorCache,
+    connector_cache::ConnectorCache, workflow::import::ImportMessage,
 };
 use crossterm::style::Stylize;
 use dialoguer::MultiSelect;
@@ -67,34 +67,53 @@ pub async fn import(
                 .get_mut(prefix_selection)
                 .unwrap()
                 .push(items.first().unwrap().to_string());
-        }
+        } else {
+            let selection = MultiSelect::new()
+                .with_prompt(format!(
+                    " ⊆ In prefix {}, with which connectors should we query and import remote resources?",
+                    prefix_selection.clone().dark_grey(),
+                ))
+                .items(&items)
+                .interact()
+                .unwrap();
 
-        let selection = MultiSelect::new()
-            .with_prompt(format!(
-                " ⊆ In prefix {}, with which connectors should we query and import remote resources?",
-                prefix_selection.clone().dark_grey(),
-            ))
-            .items(&items)
-            .interact()
-            .unwrap();
-
-        for i in selection {
-            connector_selections
-                .get_mut(prefix_selection)
-                .unwrap()
-                .push(items[i].to_string());
-            // prefix_selections.push(items[i].to_string());
+            for i in selection {
+                connector_selections
+                    .get_mut(prefix_selection)
+                    .unwrap()
+                    .push(items[i].to_string());
+            }
         }
     }
 
     eprintln!("Starting import. This may take a while!");
+    
+    let (sender, mut receiver) = tokio::sync::mpsc::channel(64);
+    
+    let reader_handle = tokio::spawn(async move {
+        loop {
+            match receiver.recv().await {
+                Some(msg) => match msg {
+                    ImportMessage::SkipExisting(path_buf) => {
+                    }
+                    ImportMessage::StartGet(path_buf) => {
+                    }
+                    ImportMessage::GetSuccess(path_buf) => {
+                    }
+                }
+                None => break
+            }
+        }
+    });
 
     for (prefix_name, connector_names) in connector_selections {
         for connector_name in connector_names {
+            eprintln!("{prefix_name}, {connector_name}");
             let import_counts = autoschematic_core::workflow::import::import_all(
                 &config,
                 &connector_cache,
                 keystore,
+                sender.clone(),
                 subpath.clone(),
                 Some(prefix_name.clone()),
                 Some(connector_name.clone()),

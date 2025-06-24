@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, bail};
+use anyhow::{bail};
 use async_trait::async_trait;
 use regex::Regex;
 
@@ -8,7 +8,6 @@ mod fuzz_test;
 
 use autoschematic_core::{
     error::{AutoschematicError, AutoschematicErrorType},
-    git_util::clone_repo,
     task::{Task, TaskInbox, TaskOutbox, message::TaskMessage, state::TaskState, util::drain_inbox},
 };
 

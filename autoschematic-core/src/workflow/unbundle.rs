@@ -31,6 +31,7 @@ pub async fn plan_connector(
             return Ok(Some(plan_report));
         }
         VirtToPhyOutput::Present(phy_addr) => Some(phy_addr),
+        VirtToPhyOutput::Null(phy_addr) => Some(phy_addr),
     };
 
     let current = match phy_addr {

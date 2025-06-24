@@ -106,6 +106,9 @@ pub fn link_phy_output_file(
         }
 
         std::fs::create_dir_all(phy_parent)?;
+        // TODO Windows users can't use symlinks unless privileged! 
+        // (What in the name of god???)
+        // We gotta figure out another way. Christ.
         std::os::unix::fs::symlink(&rel_path, phy_output_path)?;
     } else {
         bail!(

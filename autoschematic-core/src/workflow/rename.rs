@@ -1,0 +1,95 @@
+use crate::{
+    config::AutoschematicConfig,
+    connector::{FilterOutput, VirtToPhyOutput},
+    connector_cache::ConnectorCache,
+    connector_util::build_out_path,
+    keystore::KeyStore,
+    util::{repo_root, split_prefix_addr},
+    write_output::{link_phy_output_file, unlink_phy_output_file, write_virt_output_file},
+};
+use anyhow::{bail, Context};
+use std::path::Path;
+
+pub async fn rename(
+    autoschematic_config: &AutoschematicConfig,
+    connector_cache: &ConnectorCache,
+    keystore: Option<&Box<dyn KeyStore>>,
+    old_addr: &Path,
+    new_addr: &Path,
+) -> anyhow::Result<()> {
+    // TODO chwd to the root of the git repo
+    let root = repo_root()?;
+
+    let Some((old_prefix, old_virt_addr)) = split_prefix_addr(autoschematic_config, old_addr) else {
+        bail!("Not in any prefix: {}", old_addr.display());
+    };
+
+    let Some((prefix, new_virt_addr)) = split_prefix_addr(autoschematic_config, new_addr) else {
+        bail!("Not in any prefix: {}", new_addr.display());
+    };
+    
+    if old_prefix != prefix {
+        bail!("Can't modify prefix during a rename");
+    }
+
+    let Some(prefix_def) = autoschematic_config.prefixes.get(prefix.to_str().unwrap()) else {
+        bail!("No such prefix: {}", prefix.display());
+    };
+
+    let mut have_filter = false;
+
+    'connector: for connector_def in &prefix_def.connectors {
+        let (connector, mut inbox) = connector_cache
+            .get_or_spawn_connector(
+                &connector_def.shortname,
+                &connector_def.spec,
+                &prefix,
+                &connector_def.env,
+                keystore,
+            )
+            .await?;
+
+        let _reader_handle = tokio::spawn(async move {
+            loop {
+                match inbox.recv().await {
+                    Ok(Some(stdout)) => {
+                        eprintln!("{}", stdout);
+                    }
+                    Ok(None) => {}
+                    Err(_) => break,
+                }
+            }
+        });
+
+        if connector_cache.filter(&connector_def.shortname, &prefix, &old_virt_addr).await? == FilterOutput::Resource {
+            match connector.addr_virt_to_phy(&old_virt_addr).await? {
+                VirtToPhyOutput::NotPresent => bail!("Phy address not present to rename"),
+                VirtToPhyOutput::Deferred(_) => bail!("Phy address not present to rename"),
+                VirtToPhyOutput::Null(_) => bail!("Rename: not a phy address"),
+                VirtToPhyOutput::Present(phy_addr) => {
+                    let old_virt_output_path = build_out_path(&prefix, &old_virt_addr);
+                    let new_virt_output_path = build_out_path(&prefix, &new_virt_addr);
+                    
+                    if let Some(parent) = new_virt_output_path.parent() {
+                        std::fs::create_dir_all(parent)?;
+                    }
+
+                    std::fs::copy(&prefix.join(&old_virt_addr), &prefix.join(&new_virt_addr)).context("copy virt")?;
+                    std::fs::copy(&old_virt_output_path, &new_virt_output_path).context("copy res")?;
+
+                    let phy_output_path = build_out_path(&prefix, &phy_addr);
+
+                    unlink_phy_output_file(&phy_output_path).context("unlink_phy")?;
+
+                    std::fs::remove_file(&old_virt_output_path)?;
+                    
+                    link_phy_output_file(&new_virt_output_path, &phy_output_path)?;
+                    
+                    std::fs::remove_file(prefix.join(&old_virt_addr))?;
+                }
+            }
+        }
+    }
+
+    Ok(())
+}

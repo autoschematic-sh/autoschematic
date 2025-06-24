@@ -77,6 +77,35 @@ pub fn lsp_param_to_path(params: ExecuteCommandParams) -> Option<PathBuf> {
     Some(file_path.into())
 }
 
+pub fn lsp_param_to_rename_path(params: ExecuteCommandParams) -> Option<(PathBuf, PathBuf)> {
+    if params.arguments.len() != 2 {
+        return None;
+    }
+
+    let (old_path_arg, new_path_arg) = (params.arguments[0].clone(), params.arguments[1].clone());
+
+    let Ok(old_file_path) = serde_json::from_value::<String>(old_path_arg.clone()) else {
+        return None;
+    };
+
+    let Ok(new_file_path) = serde_json::from_value::<String>(new_path_arg.clone()) else {
+        return None;
+    };
+
+    let old_file_path = PathBuf::from(old_file_path);
+    let new_file_path = PathBuf::from(new_file_path);
+
+    let Ok(old_file_path) = old_file_path.strip_prefix(std::env::current_dir().unwrap()) else {
+        return None;
+    };
+
+    let Ok(new_file_path) = new_file_path.strip_prefix(std::env::current_dir().unwrap()) else {
+        return None;
+    };
+
+    Some((old_file_path.into(), new_file_path.into()))
+}
+
 pub fn pos_byte_index(line: usize, col: usize, s: &str) -> Option<usize> {
     let mut line_no = 1;
     let mut col_no = 1;

@@ -15,7 +15,7 @@ use autoschematic_core::{
     connector_cache::ConnectorCache,
     git_util::{get_staged_files, git_add},
     report::PlanReportSet,
-    util::{RON, repo_root},
+    util::repo_root,
 };
 
 use crate::{

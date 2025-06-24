@@ -33,6 +33,7 @@ pub async fn apply_connector(
                 bail!("Apply run on plan with deferred outputs.")
             }
             VirtToPhyOutput::Present(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await?,
+            VirtToPhyOutput::Null(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await?,
         };
 
         if let Some(outputs) = &op_exec_output.outputs {

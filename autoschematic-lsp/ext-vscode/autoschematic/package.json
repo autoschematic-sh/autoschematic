@@ -30,13 +30,33 @@
       {
         "command": "autoschematic.compareWithRemote",
         "title": "Autoschematic: Compare with remote"
+      },
+      {
+        "command": "autoschematic.rename",
+        "title": "Autoschematic: Rename"
+      },
+      {
+        "command": "autoschematic.pullRemoteState",
+        "title": "Pull Remote State",
+        "icon": "$(cloud-download)"
       }
     ],
     "menus": {
       "explorer/context": [
         {
           "command": "autoschematic.compareWithRemote",
+          "group": "navigation@98"
+        },
+        {
+          "command": "autoschematic.rename",
           "group": "navigation@99"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "autoschematic.pullRemoteState",
+          "when": "resourceScheme == autoschematic-remote || (diffEditorMode && resourceScheme == file)",
+          "group": "navigation"
         }
       ]
     },

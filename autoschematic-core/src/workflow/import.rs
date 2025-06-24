@@ -15,6 +15,15 @@ use crate::{
     write_output::{link_phy_output_file, write_virt_output_file},
 };
 
+pub enum ImportMessage {
+    SkipExisting(PathBuf),
+    StartGet(PathBuf),
+    GetSuccess(PathBuf)
+}
+
+pub type ImportOutbox = tokio::sync::mpsc::Sender<ImportMessage>;
+pub type ImportInbox = tokio::sync::mpsc::Sender<ImportMessage>;
+
 pub async fn import_resource(
     connector_shortname: &str,
     connector: &Box<dyn Connector>,
@@ -115,6 +124,7 @@ pub async fn import_all(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: &ConnectorCache,
     keystore: Option<&Box<dyn KeyStore>>,
+    outbox: ImportOutbox,
     subpath: Option<PathBuf>,
     prefix_filter: Option<String>,
     connector_filter: Option<String>,
@@ -146,9 +156,6 @@ pub async fn import_all(
             // subcount represents the number of resources imported by this connector,
             // count represents the number of resources imported by all connectors
             let mut imported_subcount: usize = 0;
-            // temporarily cd into the repo...
-            // I.E. `cd /tmp/autoschematic-298347928/pfnsec/autoschematic-playground`
-            // let _chwd = self.chwd_to_repo();
 
             tracing::info!("connector init: {}", connector_def.shortname);
             let (connector, mut inbox) = connector_cache
@@ -160,17 +167,11 @@ pub async fn import_all(
                     keystore,
                 )
                 .await?;
-            // let sender_trace_handle = trace_handle.clone();
             let _reader_handle = tokio::spawn(async move {
                 loop {
                     match inbox.recv().await {
                         Ok(Some(stdout)) => {
                             eprintln!("{}", stdout);
-                            // let res = append_run_log(&sender_trace_handle, stdout).await;
-                            // match res {
-                            //     Ok(_) => {}
-                            //     Err(_) => {}
-                            // }
                         }
                         Err(RecvError::Closed) => break,
                         _ => {}

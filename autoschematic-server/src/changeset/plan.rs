@@ -129,6 +129,7 @@ impl ChangeSet {
                             continue 'object;
                         }
                         VirtToPhyOutput::Present(phy_addr) => Some(phy_addr),
+                        VirtToPhyOutput::Null(phy_addr) => Some(phy_addr),
                     };
 
                     if self

@@ -137,8 +137,9 @@ pub enum VirtToPhyOutput {
     Deferred(Vec<ReadOutput>),
     /// The virtual address resolved successfully to a physical address.
     /// For example, an EC2 instance within a repository exists and resolved to its canonical instance-id-derived address.
-    /// Alternatively, for virtual addresses that have no need to map to physical addresses, this represents that trivial mapping.
     Present(PathBuf),
+    /// For virtual addresses that have no need to map to physical addresses, this represents that trivial mapping.
+    Null(PathBuf),
 }
 
 #[async_trait]
@@ -196,7 +197,7 @@ pub trait Connector: Send + Sync {
     /// user-provided "fake" ID, into a physical path, with the actual canonical resource ID.
     /// Connectors `addr_virt_to_phy`
     async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyOutput, anyhow::Error> {
-        Ok(VirtToPhyOutput::Present(addr.into()))
+        Ok(VirtToPhyOutput::Null(addr.into()))
     }
 
     async fn addr_phy_to_virt(&self, addr: &Path) -> Result<Option<PathBuf>, anyhow::Error> {
