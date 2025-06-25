@@ -19,7 +19,7 @@ debug = 1
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-autoschematic-core = { path = "../autoschematic-core", version = "0.5.0", features = [
+autoschematic-core = { path = "../autoschematic-core", version = "0.5.1", features = [
 ] }
 anyhow = { version = "1.0.97", features = ["backtrace"] }
 askama = "0.14.0"

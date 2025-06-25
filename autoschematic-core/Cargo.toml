@@ -3,7 +3,7 @@ cargo-features = ["edition2024"]
 name = "autoschematic-core"
 description = "Core shared functionality for Autoschematic."
 license = "MIT"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 # build = "build.rs"
 
