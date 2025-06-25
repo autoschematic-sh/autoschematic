@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    config::AutoschematicConfig, connector::parse::connector_shortname, connector_cache::ConnectorCache,
+    config::AutoschematicConfig, connector_cache::ConnectorCache,
     error::AutoschematicError, keystore::KeyStore,
 };
 

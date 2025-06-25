@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{DocIdent, FilterOutput, GetDocOutput, parse::connector_shortname},
+    connector::{DocIdent, FilterOutput, GetDocOutput},
     connector_cache::ConnectorCache,
     error::AutoschematicError,
     keystore::KeyStore,

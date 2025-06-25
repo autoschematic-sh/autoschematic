@@ -12,7 +12,7 @@ pub fn load_autoschematic_config() -> anyhow::Result<AutoschematicConfig> {
     let config_body = std::fs::read_to_string(config_path).context("Reading autoschematic.ron")?;
     let config_file: AutoschematicConfig = RON.from_str(&config_body).context("Parsing autoschematic.ron")?;
 
-    for (prefix, _) in &config_file.prefixes {
+    for prefix in config_file.prefixes.keys() {
         if prefix.trim() != prefix {
             bail!("Autoschematic prefix \"{}\" contains trailing whitespace.", prefix)
         }
@@ -57,8 +57,8 @@ pub fn load_autoschematic_config() -> anyhow::Result<AutoschematicConfig> {
         }
     }
 
-    for (prefix, _) in &config_file.prefixes {
-        for (other_prefix, _) in &config_file.prefixes {
+    for prefix in config_file.prefixes.keys() {
+        for other_prefix in config_file.prefixes.keys() {
             if prefix == other_prefix {
                 continue;
             }

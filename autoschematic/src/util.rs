@@ -10,11 +10,11 @@ pub fn colour_op_message(message: &str) -> String {
 
     let re = Regex::new(r"(Create|create|CREATE)").unwrap();
 
-    let message = re
+    
+
+    re
         .replace_all(&message, |captures: &regex::Captures| match &captures[0] {
             s => s.green().bold().to_string(),
         })
-        .into();
-
-    message
+        .into()
 }

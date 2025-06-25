@@ -7,10 +7,10 @@ use std::{
 use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;
 use anyhow::Context;
-use autoschematic_core::report::{PlanReport, PlanReportSet, PlanReportSetOld};
-use autoschematic_core::{connector::FilterOutput, report::PlanReportOld};
+use autoschematic_core::report::{PlanReport, PlanReportSet};
+use autoschematic_core::connector::FilterOutput;
 use autoschematic_core::{
-    connector::{Connector, VirtToPhyOutput, parse::connector_shortname},
+    connector::{Connector, VirtToPhyOutput},
     glob::addr_matches_filter,
     read_outputs::template_config,
 };

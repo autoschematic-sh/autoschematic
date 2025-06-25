@@ -2,7 +2,6 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, command};
-use sso::{login_via_github, persist_github_token};
 use tracing_subscriber::EnvFilter;
 
 mod apply;

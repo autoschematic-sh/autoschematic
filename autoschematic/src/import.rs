@@ -1,7 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use autoschematic_core::{
-    connector::{self, parse::connector_shortname},
     connector_cache::ConnectorCache, workflow::import::ImportMessage,
 };
 use crossterm::style::Stylize;

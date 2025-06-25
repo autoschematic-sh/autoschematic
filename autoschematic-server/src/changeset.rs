@@ -7,7 +7,6 @@ use anyhow::{Context, anyhow};
 use askama::Template;
 use autoschematic_core::{config::AutoschematicConfig, connector::Connector, connector_cache::ConnectorCache, report::PlanReportSet};
 
-use autoschematic_core::report::PlanReportSetOld;
 use futures_util::TryStreamExt;
 use git2::{Cred, IndexAddOption, PushOptions, RemoteCallbacks, Repository};
 use octocrab::{

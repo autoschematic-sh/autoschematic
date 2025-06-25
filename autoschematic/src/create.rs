@@ -7,7 +7,7 @@ use dialoguer::{Confirm, Input, Select};
 use regex::Regex;
 
 use autoschematic_core::{
-    connector::{FilterOutput, parse::connector_shortname},
+    connector::FilterOutput,
     connector_cache::ConnectorCache,
     util::repo_root,
     workflow,

@@ -34,7 +34,7 @@ pub async fn rename(
         bail!("No such prefix: {}", prefix.display());
     };
 
-    let mut have_filter = false;
+    let have_filter = false;
 
     'connector: for connector_def in &prefix_def.connectors {
         let (connector, mut inbox) = connector_cache
@@ -80,7 +80,7 @@ pub async fn rename(
 
                     output_map_file.write(&prefix, &new_virt_addr)?;
 
-                    std::fs::copy(&prefix.join(&old_virt_addr), &prefix.join(&new_virt_addr)).context("copy virt")?;
+                    std::fs::copy(prefix.join(&old_virt_addr), prefix.join(&new_virt_addr)).context("copy virt")?;
                     
                     std::fs::remove_file(prefix.join(&old_virt_addr))?;
                 }

@@ -1,13 +1,11 @@
 use regex::{Captures, Regex};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, HashSet},
-    fs::File,
-    io::BufReader,
+    collections::HashSet,
     path::{Path, PathBuf},
 };
 
-use crate::connector::{OutputMapFile, PhysicalAddress};
+use crate::connector::OutputMapFile;
 
 // use crate::connector_util::build_out_path;
 

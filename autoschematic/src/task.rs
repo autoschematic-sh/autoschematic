@@ -1,6 +1,6 @@
 pub mod test_task;
 
-use std::{cell::OnceCell, path::Path, sync::OnceLock};
+use std::{path::Path, sync::OnceLock};
 
 use anyhow::{Context, bail};
 use autoschematic_core::{
@@ -70,7 +70,7 @@ pub async fn spawn_task(
                             }
                         }
                         TaskMessage::IssueComment(ref comment) => {
-                            println!("")
+                            println!()
                         }
                         TaskMessage::LogLines(s) => {
                             println!("{}", s);
@@ -118,7 +118,7 @@ pub async fn spawn_task(
             }
         }
     });
-    let registry = TASK_REGISTRY.get_or_init(|| TaskRegistry::default());
+    let registry = TASK_REGISTRY.get_or_init(TaskRegistry::default);
 
     let mut registry = registry.entries.write().await;
 

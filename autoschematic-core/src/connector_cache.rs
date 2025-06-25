@@ -8,7 +8,6 @@ use crate::{
     config::Spec,
     connector::{
         Connector, ConnectorInbox, FilterOutput,
-        parse::{connector_shortname, parse_connector_name},
         spawn::spawn_connector,
     },
     error::AutoschematicError,
@@ -102,7 +101,7 @@ impl ConnectorCache {
         // let filter_key = (connector_key.clone(), addr.into());
 
         // Get the filter cache for connector `name` at prefix `prefix`, or initialize it.
-        let mut connector_filter_cache = { self.filter_cache.entry(connector_key.clone()).or_insert_with(HashMap::new) };
+        let mut connector_filter_cache = { self.filter_cache.entry(connector_key.clone()).or_default() };
 
         if let Some(value) = connector_filter_cache.get(addr) {
             Ok(*value)

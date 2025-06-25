@@ -48,7 +48,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
         if let Some(registry) = TASK_REGISTRY.get() {
             let entries = &*registry.entries.read().await;
 
-            for (key, entry) in entries.into_iter() {
+            for (key, entry) in entries.iter() {
                 tracing::error!("webhook sending message {:?}", &task_message);
                 let _ = entry.outbox.send(task_message.clone()).await;
             }

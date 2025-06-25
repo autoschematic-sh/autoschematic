@@ -1,4 +1,3 @@
-use std::time::Duration;
 
 use crate::util::extract_template_message_type;
 use anyhow::bail;
@@ -7,7 +6,6 @@ use autoschematic_core::task::{
     message::{IssueComment, TaskMessage, TaskRegistryMessage},
 };
 use octocrab::models::webhook_events::{WebhookEvent, WebhookEventPayload, payload::IssueCommentWebhookEventAction};
-use tokio::sync::mpsc::error::TryRecvError;
 
 pub async fn wait_for_comment_types(
     owner: &str,

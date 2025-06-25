@@ -93,7 +93,7 @@ impl OutputMapFile {
 
             match &output {
                 OutputMapFile::PointerToVirtual(virt_addr) => {
-                    return Self::read_recurse(prefix, &virt_addr);
+                    return Self::read_recurse(prefix, virt_addr);
                 }
                 OutputMapFile::OutputMap(_) => return Ok(Some(output)),
             }
@@ -130,7 +130,7 @@ impl OutputMapFile {
 
             match &output {
                 OutputMapFile::PointerToVirtual(virtual_address) => {
-                    return self.write_recurse(prefix, &virtual_address);
+                    return self.write_recurse(prefix, virtual_address);
                 }
                 OutputMapFile::OutputMap(_) => {
                     if let Some(parent) = output_path.parent() {
@@ -152,9 +152,9 @@ impl OutputMapFile {
 
         match output {
             OutputMapFile::PointerToVirtual(virtual_address) => {
-                return Self::resolve(prefix, &virtual_address);
+                Self::resolve(prefix, &virtual_address)
             }
-            OutputMapFile::OutputMap(_) => return Ok(Some(VirtualAddress(addr.to_path_buf()))),
+            OutputMapFile::OutputMap(_) => Ok(Some(VirtualAddress(addr.to_path_buf()))),
         }
     }
 
@@ -165,9 +165,9 @@ impl OutputMapFile {
 
         match output {
             OutputMapFile::PointerToVirtual(virtual_address) => {
-                return Self::get(prefix, &virtual_address, key);
+                Self::get(prefix, &virtual_address, key)
             }
-            OutputMapFile::OutputMap(map) => return Ok(map.get(key).cloned()),
+            OutputMapFile::OutputMap(map) => Ok(map.get(key).cloned()),
         }
     }
 
@@ -503,7 +503,7 @@ pub trait ResourceAddress: Send + Sync + Clone + std::fmt::Debug {
             return Ok(None);
         };
 
-        return Ok(Some(Self::from_path(&virt_addr.0)?));
+        Ok(Some(Self::from_path(&virt_addr.0)?))
     }
 }
 

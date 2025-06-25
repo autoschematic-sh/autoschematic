@@ -1,16 +1,11 @@
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::path::{Path, PathBuf};
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use rand::{Rng, distr::Alphanumeric};
 use serde::{Deserialize, Serialize};
 
 use autoschematic_core::{
-    git_util::{
-        checkout_branch, checkout_new_branch, get_head_sha, git_add, git_commit, git_commit_and_push, pull_with_rebase,
-    },
+    git_util::git_add,
     util::{RON, copy_dir_all},
 };
 

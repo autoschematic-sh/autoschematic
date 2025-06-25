@@ -5,7 +5,7 @@ use super::util::check_run_url;
 use anyhow::Context;
 use autoschematic_core::connector::{FilterOutput, OutputMapFile};
 use autoschematic_core::{
-    connector::{Connector, VirtToPhyOutput, parse::connector_shortname},
+    connector::{Connector, VirtToPhyOutput},
     glob::addr_matches_filter,
     read_outputs::{ReadOutput, template_config},
 };
@@ -200,11 +200,11 @@ impl ChangeSet {
                                     let output_map_file = OutputMapFile::OutputMap(outputs);
                                     let prefix = PathBuf::from(&prefix_name);
 
-                                    let virt_output_path = output_map_file.write(&prefix, &virt_addr)?;
+                                    let virt_output_path = output_map_file.write(&prefix, virt_addr)?;
                                     self.git_add(repo, &virt_output_path)?;
 
                                     if virt_addr != phy_addr {
-                                        let phy_output_path = OutputMapFile::write_link(&prefix, &phy_addr, &virt_addr)?;
+                                        let phy_output_path = OutputMapFile::write_link(&prefix, &phy_addr, virt_addr)?;
                                         self.git_add(repo, &phy_output_path)?;
                                     }
                                 }

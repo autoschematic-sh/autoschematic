@@ -4,7 +4,7 @@ use std::{
 };
 
 use super::trace::{append_run_log, finish_run, start_run};
-use anyhow::{Context, bail};
+use anyhow::Context;
 use autoschematic_core::{
     connector::{Connector, OutputMapFile, parse::connector_shortname},
     glob::addr_matches_filter,
@@ -83,12 +83,12 @@ impl ChangeSet {
                         if !outputs.is_empty() {
                             let output_map_file = OutputMapFile::OutputMap(outputs);
 
-                            let virt_output_path = output_map_file.write(&prefix, &virt_addr)?;
+                            let virt_output_path = output_map_file.write(prefix, &virt_addr)?;
                             self.git_add(repo, &virt_output_path)?;
 
                             // TODO can import ever delete/unlink an output file?
                             if virt_addr != phy_addr {
-                                let phy_output_path = OutputMapFile::write_link(&prefix, &phy_addr, &virt_addr)?;
+                                let phy_output_path = OutputMapFile::write_link(prefix, phy_addr, &virt_addr)?;
                                 self.git_add(repo, &phy_output_path)?;
                             }
                         }

@@ -4,7 +4,7 @@ use anyhow::Context;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{Connector, FilterOutput, VirtToPhyOutput, parse::connector_shortname},
+    connector::{Connector, FilterOutput, VirtToPhyOutput},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
     read_outputs::template_config,

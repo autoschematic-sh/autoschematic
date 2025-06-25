@@ -1,7 +1,5 @@
 use std::{
     env,
-    fs::{self},
-    io,
     path::Path,
 };
 

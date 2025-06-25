@@ -3,13 +3,10 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::Context;
 use colored::Colorize;
 use crossterm::style::Stylize;
 use dialoguer::Confirm;
 use rand::Rng;
-use ron::ser::PrettyConfig;
-use ron_pfnsec_fork as ron;
 
 use autoschematic_core::{
     connector_cache::ConnectorCache,
@@ -78,7 +75,7 @@ pub async fn apply(
 
         spinner_stop.send(()).unwrap();
 
-        if plan_report.connector_ops.len() == 0 {
+        if plan_report.connector_ops.is_empty() {
             continue;
         }
 

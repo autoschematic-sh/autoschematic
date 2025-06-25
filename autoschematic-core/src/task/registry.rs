@@ -4,10 +4,7 @@ use anyhow::{Context, bail};
 // use indexmap::IndexMap;
 use tokio::{sync::RwLock, task::JoinHandle};
 
-use crate::{
-    config::Task,
-    task::message::{TaskMessage, TaskRegistryMessage},
-};
+use crate::task::message::{TaskMessage, TaskRegistryMessage};
 
 use super::{TaskRegistryBroadcast, TaskRegistryOutbox, state::TaskState};
 

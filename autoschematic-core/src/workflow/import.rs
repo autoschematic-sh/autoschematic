@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use tokio::sync::broadcast::error::RecvError;
 
 use crate::{
@@ -80,10 +80,10 @@ pub async fn import_resource(
                     if !outputs.is_empty() {
 
                         let output_map_file = OutputMapFile::OutputMap(outputs);
-                        output_map_file.write(&prefix, &virt_addr)?;
+                        output_map_file.write(prefix, &virt_addr)?;
 
                         if virt_addr != phy_addr {
-                            OutputMapFile::write_link(&prefix, &phy_addr, &virt_addr)?;
+                            OutputMapFile::write_link(prefix, phy_addr, &virt_addr)?;
                         }
                     }
                 }

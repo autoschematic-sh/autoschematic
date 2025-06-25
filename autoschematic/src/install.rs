@@ -1,12 +1,10 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf};
 
-use anyhow::{Context, bail};
-use autoschematic_core::{config::AutoschematicConfig, connector::parse::parse_connector_name};
-use dialoguer::Select;
-use regex::Regex;
+use anyhow::bail;
+use autoschematic_core::config::AutoschematicConfig;
 use toml::Table;
 
-use crate::{config::load_autoschematic_config, sso::load_github_token, validate::validate};
+use crate::config::load_autoschematic_config;
 
 pub async fn install() -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;

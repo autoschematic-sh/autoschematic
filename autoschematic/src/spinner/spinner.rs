@@ -1,10 +1,7 @@
 use std::{io::Write, time::Duration};
 
 use colored::Colorize;
-use tokio::{
-    io,
-    time::{interval, sleep},
-};
+use tokio::time::interval;
 
 #[derive(Debug, Clone)]
 pub struct SpinnerData {

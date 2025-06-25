@@ -3,12 +3,8 @@ use std::path::PathBuf;
 use super::trace::{append_run_log, finish_run, start_run};
 use anyhow::bail;
 use autoschematic_core::connector::Connector;
-use autoschematic_core::connector::VirtToPhyOutput;
-use autoschematic_core::connector::parse::connector_shortname;
 use autoschematic_core::report::ApplyReport;
-use autoschematic_core::report::ApplyReportOld;
 use autoschematic_core::report::ApplyReportSet;
-use autoschematic_core::report::ApplyReportSetOld;
 use autoschematic_core::workflow;
 use git2::Repository;
 use octocrab::params::checks::{CheckRunConclusion, CheckRunStatus};
@@ -92,7 +88,7 @@ impl ChangeSet {
                 .connector_cache
                 .get_or_spawn_connector(
                     &plan_report.connector_shortname,
-                    &connector_spec,
+                    connector_spec,
                     &PathBuf::from(&prefix),
                     &plan_report.connector_env,
                     Some(&*KEYSTORE),
@@ -120,10 +116,10 @@ impl ChangeSet {
                     .create_check_run(None, &check_run_name, &check_run_url, CheckRunStatus::InProgress, None)
                     .await?;
 
-                let mut op_exec_outputs = Vec::new();
-                let mut wrote_files = Vec::new();
+                let op_exec_outputs = Vec::new();
+                let wrote_files = Vec::new();
                 let mut exec_error = None;
-                let mut report_phy_addr: Option<PathBuf> = None;
+                let report_phy_addr: Option<PathBuf> = None;
 
                 match workflow::apply::apply_connector(&plan_report.connector_shortname, &connector, plan_report).await {
                     Ok(Some(apply_report)) => apply_report_set.apply_reports.push(apply_report),

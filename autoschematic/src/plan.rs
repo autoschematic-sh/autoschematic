@@ -1,8 +1,6 @@
-use std::io::copy;
 
 use autoschematic_core::{connector_cache::ConnectorCache, git_util::get_staged_files, report::PlanReport};
 use crossterm::style::Stylize;
-use regex::Regex;
 
 use crate::{config::load_autoschematic_config, spinner::spinner::show_spinner, util::colour_op_message};
 use colored::Colorize;
@@ -38,7 +36,7 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
 
         spinner_stop.send(()).unwrap();
 
-        if plan_report.connector_ops.len() == 0 {
+        if plan_report.connector_ops.is_empty() {
             continue;
         }
 

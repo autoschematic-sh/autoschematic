@@ -5,11 +5,10 @@ use crate::{
     connector::{Connector, ConnectorInbox},
     keystore::KeyStore,
 };
-use anyhow::{Context, bail};
+use anyhow::Context;
 #[cfg(feature = "python")]
 use python::PythonConnector;
 
-use super::r#type::ConnectorType;
 
 #[cfg(feature = "python")]
 pub mod python;

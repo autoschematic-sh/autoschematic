@@ -43,10 +43,9 @@ use autoschematic_core::{
 };
 use dashboard::api_util::get_self;
 use error::{AutoschematicServerError, AutoschematicServerErrorType};
-use indexmap::IndexMap;
 use octocrab::models::webhook_events::WebhookEvent;
 use once_cell::{self, sync::OnceCell};
-use repolock::{RepoLockStore, repolockstore_init};
+use repolock::RepoLockStore;
 use ron_pfnsec_fork as ron;
 use serde::Deserialize;
 use std::{collections::HashMap, env, path::PathBuf};
