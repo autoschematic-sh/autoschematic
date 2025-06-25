@@ -5,4 +5,4 @@ CRATE_VERSION=$(toml get --toml-path autoschematic-lsp/Cargo.toml package.versio
 
 python scripts/version_check.py $META_VERSION $CRATE_VERSION
 
-cargo publish -p autoschematic-core 
+cargo publish -p autoschematic-lsp 
