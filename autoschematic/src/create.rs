@@ -1,5 +1,4 @@
 use std::{
-    os::unix::ffi::OsStrExt,
     path::{Component, PathBuf},
 };
 
@@ -64,7 +63,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
 
     for component in skeleton.addr.components() {
         if let Component::Normal(dir) = component {
-            let dir = str::from_utf8(dir.as_bytes())?;
+            let dir = dir.to_str().unwrap();
 
             let re = Regex::new(r"\[(?<template>[^\[\]]+)\]")?;
 

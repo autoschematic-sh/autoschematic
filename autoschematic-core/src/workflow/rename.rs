@@ -1,11 +1,9 @@
 use crate::{
     config::AutoschematicConfig,
-    connector::{FilterOutput, VirtToPhyOutput},
+    connector::{FilterOutput, OutputMapFile, VirtToPhyOutput},
     connector_cache::ConnectorCache,
-    connector_util::build_out_path,
     keystore::KeyStore,
     util::{repo_root, split_prefix_addr},
-    write_output::{link_phy_output_file, unlink_phy_output_file, write_virt_output_file},
 };
 use anyhow::{bail, Context};
 use std::path::Path;
@@ -67,23 +65,22 @@ pub async fn rename(
                 VirtToPhyOutput::Deferred(_) => bail!("Phy address not present to rename"),
                 VirtToPhyOutput::Null(_) => bail!("Rename: not a phy address"),
                 VirtToPhyOutput::Present(phy_addr) => {
-                    let old_virt_output_path = build_out_path(&prefix, &old_virt_addr);
-                    let new_virt_output_path = build_out_path(&prefix, &new_virt_addr);
+                    // let old_virt_output_path = build_out_path(&prefix, &old_virt_addr);
+                    // let new_virt_output_path = build_out_path(&prefix, &new_virt_addr);
                     
-                    if let Some(parent) = new_virt_output_path.parent() {
-                        std::fs::create_dir_all(parent)?;
-                    }
+                    // if let Some(parent) = new_virt_output_path.parent() {
+                    //     std::fs::create_dir_all(parent)?;
+                    // }
+                    
+                    let Some(output_map_file) = OutputMapFile::read_recurse(&prefix, &old_virt_addr)? else {
+                        bail!("Rename: No output file found at {}/{}", prefix.display(), old_virt_addr.display())
+                    };
+
+                    OutputMapFile::write_link(&prefix, &phy_addr, &new_virt_addr)?;
+
+                    output_map_file.write(&prefix, &new_virt_addr)?;
 
                     std::fs::copy(&prefix.join(&old_virt_addr), &prefix.join(&new_virt_addr)).context("copy virt")?;
-                    std::fs::copy(&old_virt_output_path, &new_virt_output_path).context("copy res")?;
-
-                    let phy_output_path = build_out_path(&prefix, &phy_addr);
-
-                    unlink_phy_output_file(&phy_output_path).context("unlink_phy")?;
-
-                    std::fs::remove_file(&old_virt_output_path)?;
-                    
-                    link_phy_output_file(&new_virt_output_path, &phy_output_path)?;
                     
                     std::fs::remove_file(prefix.join(&old_virt_addr))?;
                 }

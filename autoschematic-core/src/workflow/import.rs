@@ -2,23 +2,20 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, bail};
 use tokio::sync::broadcast::error::RecvError;
-use tokio_stream::StreamExt;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{Connector, parse::connector_shortname},
+    connector::{Connector, OutputMapFile},
     connector_cache::ConnectorCache,
-    connector_util::build_out_path,
     error::AutoschematicError,
     glob::addr_matches_filter,
     keystore::KeyStore,
-    write_output::{link_phy_output_file, write_virt_output_file},
 };
 
 pub enum ImportMessage {
     SkipExisting(PathBuf),
     StartGet(PathBuf),
-    GetSuccess(PathBuf)
+    GetSuccess(PathBuf),
 }
 
 pub type ImportOutbox = tokio::sync::mpsc::Sender<ImportMessage>;
@@ -36,34 +33,25 @@ pub async fn import_resource(
     } else {
         phy_addr
     };
-    let path = PathBuf::from(prefix).join(phy_addr);
 
-    let phy_out_path = build_out_path(prefix, phy_addr);
+    let virt_addr = connector.addr_phy_to_virt(phy_addr).await?.unwrap_or(phy_addr.to_path_buf());
 
-    if path.exists() && !overwrite_existing {
+    let phy_path = prefix.join(phy_addr);
+    let phy_out_path = OutputMapFile::path(prefix, phy_addr);
+    let virt_out_path = OutputMapFile::path(prefix, &virt_addr);
+    let virt_path = prefix.join(&virt_addr);
+
+    if virt_path.exists() && !overwrite_existing {
+        eprintln!("\u{1b}[92m [SKIP] \u{1b}[39m {} (already exists)", virt_path.display());
+    } else if phy_path.exists() && !overwrite_existing {
         // Here, the physical address returned by list() already
         // has a corresponding file in the repo.
         // tracing::info!("import: already exists at path: {:?}", path);
-        eprintln!("\u{1b}[92m [SKIP] \u{1b}[39m {} (already exists)", path.display());
+        eprintln!("\u{1b}[92m [SKIP] \u{1b}[39m {} (already exists)", phy_path.display());
     } else if phy_out_path.exists() && !overwrite_existing {
-        // Here, the output file corresponding to the physical address returned by list() already
-        // exists. This may be the real output file, or a symlink to the output file
-        // corresponding to a virtual address.
-        // tracing::info!("import: already exists at path: {:?}", path);
-        // eprintln!("\u{1b}[92m [SKIP] \u{1b}[39m {}", path.display());
+    } else if virt_out_path.exists() && !overwrite_existing {
     } else {
-        tracing::info!("import at path: {:?}", path);
-
-        // let mut have_virt_addr = false;
-        // let virt_addr = if phy_out_path.is_symlink() {
-        //     have_virt_addr = true;
-        //     unbuild_out_path(prefix, &fs::read_link(phy_out_path)?)?
-        // } else {
-        //     phy_addr.to_path_buf()
-        // };
-        let Some(virt_addr) = connector.addr_phy_to_virt(phy_addr).await? else {
-            bail!("Couldn't resolve phy addr to virt: {:?}", phy_addr)
-        };
+        tracing::info!("import at path: {:?}", virt_path);
 
         match connector
             .get(phy_addr)
@@ -90,19 +78,12 @@ pub async fn import_resource(
 
                 if let Some(outputs) = get_resource_output.outputs {
                     if !outputs.is_empty() {
-                        let virt_output_path = build_out_path(prefix, &virt_addr);
-                        let phy_output_path = build_out_path(prefix, phy_addr);
 
-                        if let Some(_virt_output_path) = write_virt_output_file(&virt_output_path, &outputs, true)? {
-                            // self.git_add(repo, &virt_output_path)?;
-                        }
+                        let output_map_file = OutputMapFile::OutputMap(outputs);
+                        output_map_file.write(&prefix, &virt_addr)?;
 
-                        // TODO can import ever delete/unlink an output file?
                         if virt_addr != phy_addr {
-                            if let Some(_phy_output_path) = link_phy_output_file(&virt_output_path, &phy_output_path)? {
-                                // self.git_add(repo, &phy_output_path)?;
-                            }
-                            // let phy_output_path = build_out_path(prefix, &phy_addr);
+                            OutputMapFile::write_link(&prefix, &phy_addr, &virt_addr)?;
                         }
                     }
                 }
@@ -110,7 +91,7 @@ pub async fn import_resource(
                 return Ok(true);
             }
             None => {
-                tracing::error!("No remote resource at addr:{:?} path: {:?}", phy_addr, path);
+                tracing::error!("No remote resource at addr:{:?} path: {:?}", phy_addr, virt_path);
                 // TODO bail on an error here, this indicates a probable connector bug!
             }
         }
@@ -199,7 +180,7 @@ pub async fn import_all(
                                 continue 'phy_addr;
                             }
 
-                            if build_out_path(neighbour_prefix, &phy_addr).exists() {
+                            if OutputMapFile::path(neighbour_prefix, &phy_addr).exists() {
                                 continue 'phy_addr;
                             }
                         }

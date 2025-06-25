@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use askama::Template;
 use rand::seq::IndexedRandom;
 
@@ -35,7 +37,7 @@ pub struct GreetingTemplate {
 #[derive(Template)]
 #[template(path = "plan_error.md")]
 pub struct PlanErrorTemplate {
-    pub prefix: String,
+    pub prefix: PathBuf,
     pub filename: String,
     pub failure_emoji: &'static str,
     pub error_message: String,

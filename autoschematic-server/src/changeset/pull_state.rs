@@ -3,13 +3,11 @@ use std::{collections::HashSet, path::PathBuf};
 use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;
 use anyhow::Context;
-use autoschematic_core::connector::FilterOutput;
+use autoschematic_core::connector::{FilterOutput, OutputMapFile};
 use autoschematic_core::{
     connector::{Connector, VirtToPhyOutput, parse::connector_shortname},
-    connector_util::build_out_path,
     glob::addr_matches_filter,
     read_outputs::{ReadOutput, template_config},
-    write_output::{link_phy_output_file, unlink_phy_output_file, write_virt_output_file},
 };
 use git2::Repository;
 use octocrab::params::checks::{CheckRunConclusion, CheckRunStatus};
@@ -189,10 +187,6 @@ impl ChangeSet {
                             connector_def.shortname,
                             &phy_addr.to_str().unwrap_or_default()
                         ))? {
-                            // TODO if connectors can optionally implement cmp(addr, a: str, b: str),
-                            // we can have a much more coherent definition of "equality",
-                            // since connectors can E.G. parse their own Ron!
-                            // if !current.resource_definition.trim() != desired.trim() {
                             if !connector.eq(&phy_addr, &current.resource_definition, &desired).await? {
                                 tick_import_count = true;
                                 tokio::fs::write(&object.filename, current.resource_definition).await?;
@@ -201,37 +195,23 @@ impl ChangeSet {
 
                             if let Some(outputs) = current.outputs {
                                 if !outputs.is_empty() {
-                                    let virt_output_path = build_out_path(&PathBuf::from(&prefix_name), virt_addr);
-                                    let phy_output_path = build_out_path(&PathBuf::from(&prefix_name), &phy_addr);
                                     tick_import_count = true;
 
-                                    if let Some(_) = write_virt_output_file(&virt_output_path, &outputs, true)? {
-                                        self.git_add(repo, &virt_output_path)?;
+                                    let output_map_file = OutputMapFile::OutputMap(outputs);
+                                    let prefix = PathBuf::from(&prefix_name);
 
-                                        if virt_addr != phy_addr {
-                                            if let Some(phy_output_path) =
-                                                link_phy_output_file(&virt_output_path, &phy_output_path)?
-                                            {
-                                                self.git_add(repo, &phy_output_path)?;
-                                            }
-                                        }
-                                    } else {
-                                        tick_import_count = true;
-                                        self.git_add(repo, &virt_output_path)?;
+                                    let virt_output_path = output_map_file.write(&prefix, &virt_addr)?;
+                                    self.git_add(repo, &virt_output_path)?;
 
-                                        if virt_addr != phy_addr {
-                                            if let Some(_) = unlink_phy_output_file(&phy_output_path)? {
-                                                self.git_add(repo, &phy_output_path)?;
-                                            }
-                                        }
+                                    if virt_addr != phy_addr {
+                                        let phy_output_path = OutputMapFile::write_link(&prefix, &phy_addr, &virt_addr)?;
+                                        self.git_add(repo, &phy_output_path)?;
                                     }
                                 }
                             }
                         } else if delete {
+                            // Resource didn't exist remotely, and `delete` was indicated, so let's delete it!
                             let prefix = PathBuf::from(&prefix_name);
-
-                            let virt_output_path = build_out_path(&prefix, virt_addr);
-                            let phy_output_path = build_out_path(&prefix, &phy_addr);
 
                             if prefix.join(virt_addr).is_file() {
                                 tick_delete_count = true;
@@ -239,17 +219,11 @@ impl ChangeSet {
                                 self.git_add(repo, &prefix.join(virt_addr))?;
                             }
 
-                            if phy_output_path.exists() {
-                                tick_delete_count = true;
-                                std::fs::remove_file(&phy_output_path)?;
-                                self.git_add(repo, &phy_output_path)?;
-                            }
+                            let phy_output_path = OutputMapFile::delete(&prefix, &phy_addr)?;
+                            self.git_add(repo, &phy_output_path)?;
 
-                            if virt_output_path.is_file() {
-                                tick_delete_count = true;
-                                std::fs::remove_file(&virt_output_path)?;
-                                self.git_add(repo, &virt_output_path)?;
-                            }
+                            let virt_output_path = OutputMapFile::delete(&prefix, virt_addr)?;
+                            self.git_add(repo, &virt_output_path)?;
                         };
 
                         if tick_delete_count {

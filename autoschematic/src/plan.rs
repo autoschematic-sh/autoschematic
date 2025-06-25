@@ -67,23 +67,29 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
 }
 
 pub fn print_frame_start() {
-    println!("╔════════════════════════════════════════════════════════════════════════════════════════════════════╗");
+    println!("{}", "╔════════════════════════════════════════════════════════════════════════════════════════════════════╗".dark_grey());
+}
+
+pub fn frame() -> String {
+    "║".dark_grey().to_string()
 }
 
 pub fn print_frame_end() {
-    println!("╚════════════════════════════════════════════════════════════════════════════════════════════════════╝");
+    println!("{}", "╚════════════════════════════════════════════════════════════════════════════════════════════════════╝".dark_grey());
 }
 
 pub fn print_plan_addr(plan_report: &PlanReport) {
     println!(
-        "║ At {}/{}:",
+        "{} At {}/{}:",
+        frame(),
         plan_report.prefix.display().to_string().dark_grey(),
         plan_report.virt_addr.display().to_string().bold()
     );
 
     if let Some(phy_addr) = &plan_report.phy_addr {
         println!(
-            "║  ↪ {}/{}:",
+            "{}  ↪ {}/{}:",
+            frame(),
             plan_report.prefix.display().to_string().dark_grey(),
             phy_addr.display().to_string().underline_dark_grey()
         );
@@ -112,7 +118,7 @@ pub fn print_plan(plan_report: &PlanReport) {
             .clone()
             .unwrap_or(connector_op.op_definition.clone());
 
-        println!("║  ⟣ {}", colour_op_message(&friendly_message));
+        println!("{}  ⟣ {}", frame(), colour_op_message(&friendly_message));
     }
     // println!("");
 }

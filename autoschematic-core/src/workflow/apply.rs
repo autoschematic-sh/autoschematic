@@ -2,12 +2,10 @@ use anyhow::bail;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{Connector, FilterOutput, VirtToPhyOutput, parse::connector_shortname},
+    connector::{Connector, FilterOutput, OutputMapFile, VirtToPhyOutput},
     connector_cache::ConnectorCache,
-    connector_util::build_out_path,
     keystore::KeyStore,
     report::{ApplyReport, PlanReport},
-    write_output::{link_phy_output_file, unlink_phy_output_file, write_virt_output_file},
 };
 
 pub async fn apply_connector(
@@ -38,30 +36,26 @@ pub async fn apply_connector(
 
         if let Some(outputs) = &op_exec_output.outputs {
             if !outputs.is_empty() {
-                let virt_output_path = build_out_path(&plan.prefix, &plan.virt_addr);
-
-                if let Some(_) = write_virt_output_file(&virt_output_path, outputs, true)? {
+                // We have changes to apply to the output file, so let's apply them and see if the output file was created/modified or deleted.
+                if let Some(virt_output_path) = OutputMapFile::apply_output_map(&plan.prefix, &plan.virt_addr, outputs)? {
+                    // Created/modified, so check for a separate physical output file, link it, and record it.
                     if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
-                        let phy_output_path = build_out_path(&plan.prefix, &phy_addr);
-
                         if phy_addr != plan.virt_addr {
-                            // apply_report.phy_addr = Some(phy_addr.clone());
-
-                            let _phy_output_path = link_phy_output_file(&virt_output_path, &phy_output_path)?;
+                            let phy_output_path = OutputMapFile::write_link(&plan.prefix, &phy_addr, &plan.virt_addr)?;
                             apply_report.wrote_files.push(phy_output_path);
                         }
-
-                        apply_report.wrote_files.push(virt_output_path);
                     }
+                    apply_report.wrote_files.push(virt_output_path);
                 } else if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
-                    let phy_output_path = build_out_path(&plan.prefix, &phy_addr);
+                    // Applying this change resulted in an empty output file, so delete it,
+                    // check for a separate physical output file, and delete that too.
+                    let virt_output_path = OutputMapFile::delete(&plan.prefix, &plan.virt_addr)?;
+                    apply_report.wrote_files.push(virt_output_path);
 
                     if phy_addr != plan.virt_addr {
-                        unlink_phy_output_file(&phy_output_path)?;
+                        let phy_output_path = OutputMapFile::delete(&plan.prefix, &phy_addr)?;
                         apply_report.wrote_files.push(phy_output_path);
                     }
-
-                    apply_report.wrote_files.push(virt_output_path);
                 }
             }
         }

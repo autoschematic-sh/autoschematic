@@ -2,13 +2,13 @@
 macro_rules! get_resource_output {
     ($resource:expr) => {{
         Ok(Some(GetResourceOutput {
-            resource_definition: Resource::to_bytes(&$resource).context("Resource::to_string")?,
+            resource_definition: Resource::to_bytes(&$resource).context("Resource::to_bytes")?,
             outputs: None,
         }))
     }};
     ($resource:expr, $outputs:expr) => {{
         Ok(Some(GetResourceOutput {
-            resource_definition: Resource::to_bytes(&$resource).context("Resource::to_string")?,
+            resource_definition: Resource::to_bytes(&$resource).context("Resource::to_bytes")?,
             outputs: Some(HashMap::from_iter($outputs.into_iter().map(|(k, v)| (k.to_string(), v)))),
         }))
     }};

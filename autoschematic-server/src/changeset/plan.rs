@@ -7,7 +7,7 @@ use std::{
 use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;
 use anyhow::Context;
-use autoschematic_core::report::PlanReportSetOld;
+use autoschematic_core::report::{PlanReport, PlanReportSet, PlanReportSetOld};
 use autoschematic_core::{connector::FilterOutput, report::PlanReportOld};
 use autoschematic_core::{
     connector::{Connector, VirtToPhyOutput, parse::connector_shortname},
@@ -40,7 +40,7 @@ impl ChangeSet {
         let _chwd = self.chwd_to_repo();
         let subpath = subpath.unwrap_or(PathBuf::from("./"));
 
-        let mut plan_report_set = PlanReportSetOld {
+        let mut plan_report_set = PlanReportSet {
             overall_success: true,
             apply_success: false,
             plan_reports: Vec::new(),
@@ -230,16 +230,17 @@ impl ChangeSet {
                                 )
                                 .await?;
 
-                                plan_report_set.plan_reports.push(PlanReportOld {
-                                    connector_name: connector_def.shortname.clone(),
-                                    connector_spec: connector_def.spec.clone(),
+                                plan_report_set.plan_reports.push(PlanReport {
+                                    connector_shortname: connector_def.shortname.clone(),
+                                    connector_spec: Some(connector_def.spec.clone()),
                                     connector_env: connector_def.env.clone(),
-                                    prefix: prefix_name.clone(),
+                                    prefix: PathBuf::from(&prefix_name),
                                     virt_addr: virt_addr.to_path_buf(),
                                     phy_addr: phy_addr.clone(),
                                     connector_ops,
                                     reads_outputs,
                                     error: None,
+                                    missing_outputs: Vec::new(),
                                 });
                             }
 
@@ -254,15 +255,16 @@ impl ChangeSet {
                                 .await?;
 
                                 plan_report_set.overall_success = false;
-                                plan_report_set.plan_reports.push(PlanReportOld {
-                                    connector_name: connector_def.shortname.clone(),
-                                    connector_spec: connector_def.spec.clone(),
+                                plan_report_set.plan_reports.push(PlanReport {
+                                    connector_shortname: connector_def.shortname.clone(),
+                                    connector_spec: Some(connector_def.spec.clone()),
                                     connector_env: connector_def.env.clone(),
-                                    prefix: prefix_name.clone(),
+                                    prefix: PathBuf::from(&prefix_name),
                                     virt_addr: virt_addr.to_path_buf(),
                                     phy_addr,
                                     connector_ops: Vec::new(),
                                     reads_outputs: Vec::new(),
+                                    missing_outputs: Vec::new(),
                                     error: Some(e.into()),
                                 });
                                 if !continue_on_error {
@@ -277,17 +279,17 @@ impl ChangeSet {
 
         finish_run(&trace_handle).await?;
 
-        // TODO actually send a message...
-        // Have deferrals? Let's make sure we're not in a loop!
-        if !plan_report_set.deferred_pending_outputs.is_empty() {
-            if let Some(last_plan) = &self.last_plan {
-                // If we fully applied the last plan, and we're still deferring on the
-                // same output keys, we're in a loop!
-                if last_plan.apply_success && (last_plan.deferred_pending_outputs == plan_report_set.deferred_pending_outputs) {
-                    // bail!("Loop detected! The last plan ran fully, but still deferred on keys")
-                }
-            }
-        }
+        // // TODO actually send a message...
+        // // Have deferrals? Let's make sure we're not in a loop!
+        // if !plan_report_set.deferred_pending_outputs.is_empty() {
+        //     if let Some(last_plan) = &self.last_plan {
+        //         // If we fully applied the last plan, and we're still deferring on the
+        //         // same output keys, we're in a loop!
+        //         if last_plan.apply_success && (last_plan.deferred_pending_outputs == plan_report_set.deferred_pending_outputs) {
+        //             // bail!("Loop detected! The last plan ran fully, but still deferred on keys")
+        //         }
+        //     }
+        // }
 
         self.last_plan = Some(plan_report_set);
         Ok(())

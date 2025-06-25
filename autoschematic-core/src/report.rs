@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub struct PlanReport {
     pub prefix: PathBuf,
+    pub connector_shortname: String,
+    pub connector_spec: Option<Spec>,
+    pub connector_env: HashMap<String, String>,
     pub virt_addr: PathBuf,
     /// Optional: if different to virt_addr, represents the \
     /// result of Connector::addr_virt_to_phy()
@@ -26,22 +29,39 @@ pub struct PlanReport {
     // TODO we don't distinguish between missing outputs used to template and missing parent resource
     // outputs to compute Connector::addr_virt_to_phy(). Should we?
     pub missing_outputs: Vec<ReadOutput>,
+    pub error: Option<ErrorMessage>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct PlanReportSet {
+    pub overall_success: bool,
+    pub apply_success: bool,
     pub plan_reports: Vec<PlanReport>,
+    pub deferred_count: usize,
+    pub object_count: usize,
+    pub deferred_pending_outputs: HashSet<ReadOutput>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub struct ApplyReport {
+    pub connector_shortname: String,
+    pub prefix: PathBuf,
+    pub virt_addr: PathBuf,
+    pub phy_addr: Option<PathBuf>,
     pub outputs: Vec<OpExecOutput>,
     pub wrote_files: Vec<PathBuf>,
+    pub error: Option<ErrorMessage>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ApplyReportSet {
+    pub connector_shortname: String,
+    pub prefix: PathBuf,
+    pub virt_addr: PathBuf,
+    pub phy_addr: Option<PathBuf>,
+    pub overall_success: bool,
     pub apply_reports: Vec<ApplyReport>,
+    pub error: Option<ErrorMessage>,
 }
 
 // A PlanReport outlines, for a given plan run at connector:prefix:addr:
@@ -74,8 +94,8 @@ pub struct PlanReportSetOld {
 // The list of ConnectorOps along with their human-readable descriptions
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub struct ApplyReportOld {
-    pub connector_name: String,
-    pub prefix: String,
+    pub connector_shortname: String,
+    pub prefix: PathBuf,
     pub virt_addr: PathBuf,
     pub phy_addr: Option<PathBuf>,
     pub outputs: Vec<OpExecOutput>,

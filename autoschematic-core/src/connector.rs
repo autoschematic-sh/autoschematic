@@ -1,18 +1,221 @@
 use std::{
     collections::HashMap,
+    ffi::OsString,
     fs::File,
     io::BufReader,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
+use anyhow::bail;
+use ron_pfnsec_fork::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
 
-use crate::{bundle::BundleOutput, connector_util::build_out_path, diag::DiagnosticOutput, read_outputs::ReadOutput};
+use crate::{bundle::BundleOutput, diag::DiagnosticOutput, read_outputs::ReadOutput, util::RON};
 
-pub type OutputMap = HashMap<String, Option<String>>;
-pub type OutputMapFile = HashMap<String, String>;
+/// ConnectorOps output by Connector::plan() may declare a set of output values
+/// that they will set or delete on execution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum OutputValuePlan {
+    Set,
+    Delete,
+}
+
+pub type OutputValueExec = Option<String>;
+
+pub type OutputMapPlan = HashMap<String, OutputValuePlan>;
+pub type OutputMapExec = HashMap<String, OutputValueExec>;
+
+pub type OutputMap = HashMap<String, String>;
+
+#[derive(Serialize, Deserialize)]
+pub enum OutputMapFile {
+    PointerToVirtual(PathBuf),
+    OutputMap(OutputMap),
+}
+
+impl OutputMapFile {
+    pub fn path(prefix: &Path, addr: &Path) -> PathBuf {
+        let mut output = prefix.to_path_buf();
+
+        output.push(".outputs");
+
+        // Join the parent portion of `addr`, if it exists
+        if let Some(parent) = addr.parent() {
+            // Guard against pathological cases like ".." or "." parents
+            // by only pushing normal components
+            for comp in parent.components() {
+                if let Component::Normal(_) = comp {
+                    output.push(comp)
+                }
+            }
+        }
+
+        let mut new_filename = OsString::new();
+        if let Some(fname) = addr.file_name() {
+            new_filename.push(fname);
+        } else {
+            // If there's no file name at all, we'll just use ".out.ron"
+            // so `new_filename` right now is just "." — that's fine.
+            // We'll end up producing something like "./office/east/ec2/us-east-1/.out.ron"
+        }
+        new_filename.push(".out.ron");
+
+        output.push(new_filename);
+
+        output
+    }
+
+    pub fn read(prefix: &Path, addr: &Path) -> anyhow::Result<Option<Self>> {
+        let output_path = Self::path(prefix, addr);
+
+        if output_path.is_file() {
+            let file = File::open(&output_path)?;
+            let reader = BufReader::new(file);
+
+            let output: Self = RON.from_reader(reader)?;
+
+            return Ok(Some(output));
+        }
+
+        Ok(None)
+    }
+
+    pub fn read_recurse(prefix: &Path, addr: &Path) -> anyhow::Result<Option<Self>> {
+        let output_path = Self::path(prefix, addr);
+
+        if output_path.is_file() {
+            let file = File::open(&output_path)?;
+            let reader = BufReader::new(file);
+
+            let output: Self = RON.from_reader(reader)?;
+
+            match &output {
+                OutputMapFile::PointerToVirtual(virt_addr) => {
+                    return Self::read_recurse(prefix, &virt_addr);
+                }
+                OutputMapFile::OutputMap(_) => return Ok(Some(output)),
+            }
+        }
+
+        Ok(None)
+    }
+
+    pub fn write(&self, prefix: &Path, addr: &Path) -> anyhow::Result<PathBuf> {
+        let output_path = Self::path(prefix, addr);
+        let pretty_config = PrettyConfig::default();
+
+        let contents = RON.to_string_pretty(self, pretty_config)?;
+
+        if let Some(parent) = output_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        if output_path.exists() {
+            std::fs::remove_file(&output_path)?;
+        }
+
+        std::fs::write(&output_path, contents)?;
+
+        Ok(output_path)
+    }
+
+    pub fn write_recurse(&self, prefix: &Path, addr: &Path) -> anyhow::Result<()> {
+        let output_path = Self::path(prefix, addr);
+
+        if output_path.is_file() {
+            let contents = std::fs::read_to_string(&output_path)?;
+
+            let output: Self = RON.from_str(&contents)?;
+
+            match &output {
+                OutputMapFile::PointerToVirtual(virtual_address) => {
+                    return self.write_recurse(prefix, &virtual_address);
+                }
+                OutputMapFile::OutputMap(_) => {
+                    if let Some(parent) = output_path.parent() {
+                        std::fs::create_dir_all(parent)?;
+                    }
+                    std::fs::write(&output_path, RON.to_string_pretty(self, PrettyConfig::default())?)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    // TODO we should disallow infinite recursive links somehow
+    pub fn resolve(prefix: &Path, addr: &Path) -> anyhow::Result<Option<VirtualAddress>> {
+        let Some(output) = Self::read(prefix, addr)? else {
+            return Ok(None);
+        };
+
+        match output {
+            OutputMapFile::PointerToVirtual(virtual_address) => {
+                return Self::resolve(prefix, &virtual_address);
+            }
+            OutputMapFile::OutputMap(_) => return Ok(Some(VirtualAddress(addr.to_path_buf()))),
+        }
+    }
+
+    pub fn get(prefix: &Path, addr: &Path, key: &str) -> anyhow::Result<Option<String>> {
+        let Some(output) = Self::read(prefix, addr)? else {
+            return Ok(None);
+        };
+
+        match output {
+            OutputMapFile::PointerToVirtual(virtual_address) => {
+                return Self::get(prefix, &virtual_address, key);
+            }
+            OutputMapFile::OutputMap(map) => return Ok(map.get(key).cloned()),
+        }
+    }
+
+    pub fn apply_output_map(prefix: &Path, addr: &Path, output_map_exec: &OutputMapExec) -> anyhow::Result<Option<PathBuf>> {
+        let original = Self::read_recurse(prefix, addr)?.unwrap_or(OutputMapFile::OutputMap(HashMap::new()));
+
+        let OutputMapFile::OutputMap(mut original_map) = original else {
+            bail!(
+                "apply_output_map({}, {}): resolved to a link file!",
+                prefix.display(),
+                addr.display()
+            );
+        };
+
+        for (key, value) in output_map_exec {
+            match value {
+                Some(value) => {
+                    original_map.insert(key.clone(), value.clone());
+                }
+                None => {
+                    original_map.remove(key);
+                }
+            }
+        }
+
+        if original_map.is_empty() {
+            Ok(None)
+        } else {
+            OutputMapFile::OutputMap(original_map).write_recurse(prefix, addr)?;
+            Ok(Some(Self::path(prefix, addr)))
+        }
+    }
+
+    pub fn write_link(prefix: &Path, phy_addr: &Path, virt_addr: &Path) -> anyhow::Result<PathBuf> {
+        let output_map = Self::PointerToVirtual(virt_addr.to_path_buf());
+        output_map.write(prefix, phy_addr)?;
+        Ok(Self::path(prefix, phy_addr))
+    }
+
+    pub fn delete(prefix: &Path, addr: &Path) -> anyhow::Result<PathBuf> {
+        // TODO this oughta return Option<PathBuf> so the user can know if a file was actually deleted
+        let path = Self::path(prefix, addr);
+        if path.is_file() {
+            std::fs::remove_file(&path)?;
+        }
+        Ok(path)
+    }
+}
 
 pub mod parse;
 pub mod spawn;
@@ -25,6 +228,12 @@ pub enum FilterOutput {
     Bundle,
     None,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VirtualAddress(pub PathBuf);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PhysicalAddress(pub PathBuf);
 
 #[derive(Debug, Serialize, Deserialize)]
 /// GetResourceOutput represents the successful result of Connector.get(addr).
@@ -81,7 +290,7 @@ pub struct OpPlanOutput {
 /// OpExecOutput may be used to store that ID in `outputs`, where it will be
 /// saved and committed as {addr}.output.json file adjacent to the addr at which the.
 pub struct OpExecOutput {
-    pub outputs: Option<HashMap<String, Option<String>>>,
+    pub outputs: Option<OutputMapExec>,
     pub friendly_message: Option<String>,
 }
 
@@ -102,6 +311,8 @@ pub struct SkeletonOutput {
     pub body: Vec<u8>,
 }
 
+/// ConnectorOutbox is primarily used to transmit logs for tracestores across
+/// the remote bridge, i.e. tarpc. The usefulness of this may be reexamined later.
 pub type ConnectorOutbox = tokio::sync::broadcast::Sender<Option<String>>;
 pub type ConnectorInbox = tokio::sync::broadcast::Receiver<Option<String>>;
 
@@ -127,16 +338,17 @@ pub enum VirtToPhyOutput {
     /// drafted in the repository, but because it doesn't exist yet, its physical address
     /// (in essence its EC2 instance ID) is undefined.
     NotPresent,
-    // Partial(PathBuf),
     /// The resource is defined at a "virtual" address, but its physical address is not populated
     /// because it does not exist yet, and in addition, its physical address relies on a
     /// parent resource that also does not exist yet.
     /// For example, a new subnet within a new VPC may have been
     /// drafted in the repository, but because the VPC does not exist yet,
-    /// the subnet is "deferred".
+    /// the subnet is "deferred". It cannot even be planned until the parent VPC exists.
     Deferred(Vec<ReadOutput>),
     /// The virtual address resolved successfully to a physical address.
     /// For example, an EC2 instance within a repository exists and resolved to its canonical instance-id-derived address.
+    /// E.G: aws/ec2/instances/main_supercomputer_1.ron
+    /// E.G: aws/ec2/instances/i-398180832.ron
     Present(PathBuf),
     /// For virtual addresses that have no need to map to physical addresses, this represents that trivial mapping.
     Null(PathBuf),
@@ -231,6 +443,8 @@ pub trait Connector: Send + Sync {
     /// This is intended to aid development from an IDE or similar, with a language server hooking into connectors.
     async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error>;
 
+    /// Where a Connector or Bundle implementation may define a bundle, with its associated ResourceAddress and Resource formats,
+    /// This is where that bundle will be unpacked into one or more resources.
     async fn unbundle(&self, _addr: &Path, _bundle: &[u8]) -> anyhow::Result<Vec<BundleOutput>> {
         Ok(Vec::new())
     }
@@ -263,29 +477,60 @@ pub trait ResourceAddress: Send + Sync + Clone + std::fmt::Debug {
     where
         Self: Sized;
 
-    fn load_resource_outputs(&self, prefix: &Path) -> anyhow::Result<Option<OutputMapFile>> {
+    fn get_output(&self, prefix: &Path, key: &str) -> anyhow::Result<Option<String>> {
         let addr = self.to_path_buf();
-        let output_path = build_out_path(prefix, &addr);
+        OutputMapFile::get(prefix, &addr, key)
+    }
+    // fn load_resource_outputs(&self, prefix: &Path) -> anyhow::Result<Option<OutputMapFile>> {
+    //     let addr = self.to_path_buf();
+    //     OutputMapFile::get(prefix, addr, key)
+    //     // let output_path = build_out_path(prefix, &addr);
 
-        if output_path.exists() {
-            let file = File::open(&output_path)?;
-            let reader = BufReader::new(file);
+    //     // if output_path.exists() {
+    //     //     let file = File::open(&output_path)?;
+    //     //     let reader = BufReader::new(file);
 
-            let existing_hashmap: OutputMapFile = serde_json::from_reader(reader)?;
+    //     //     let existing_hashmap: OutputMapFile = RON.from_reader(reader)?;
 
-            Ok(Some(existing_hashmap))
-        } else {
-            Ok(None)
-        }
+    //     //     Ok(Some(existing_hashmap))
+    //     // } else {
+    //     //     Ok(None)
+    //     // }
+    // }
+
+    fn phy_to_virt(&self, prefix: &Path) -> anyhow::Result<Option<Self>> {
+        let Some(virt_addr) = OutputMapFile::resolve(prefix, &self.to_path_buf())? else {
+            return Ok(None);
+        };
+
+        return Ok(Some(Self::from_path(&virt_addr.0)?));
     }
 }
 
-/// A ConnectorOp represents a
+/// A ConnectorOp represents a single discrete operation that a Connector can execute.
+/// Not all ConnectorOps can be truly idempotent, but they should make efforts to be so.
+/// ConnectorOps should be as granular as the Connector requires.
+/// ConnectorOps are always executed with an associated ResourceAddress
+/// through Connector::op_exec(ResourceAddress, ConnectorOp).
 pub trait ConnectorOp: Send + Sync + std::fmt::Debug {
     fn to_string(&self) -> Result<String, anyhow::Error>;
     fn from_str(s: &str) -> Result<Self, anyhow::Error>
     where
         Self: Sized;
+    /// A human-readable message in plain english explaining what this connector op will do.
+    /// You should use the imperative mood, for example:
+    /// "Modify tags for IAM role Steve", or
+    /// "Delete VPC vpc-923898 in region us-south-5"
+    fn friendly_plan_message(&self) -> Option<String> {
+        None
+    }
+    /// A human-readable message in plain english explaining what this connector op has just done.
+    /// You should use the past-tense indicative mood, for example:
+    /// "Modified tags for IAM role Steve", or
+    /// "Deleted VPC vpc-923898 in region us-south-5"
+    fn friendly_exec_message(&self) -> Option<String> {
+        None
+    }
 }
 
 #[async_trait]

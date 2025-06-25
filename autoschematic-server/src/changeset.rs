@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{Context, anyhow};
 use askama::Template;
-use autoschematic_core::{config::AutoschematicConfig, connector::Connector, connector_cache::ConnectorCache};
+use autoschematic_core::{config::AutoschematicConfig, connector::Connector, connector_cache::ConnectorCache, report::PlanReportSet};
 
 use autoschematic_core::report::PlanReportSetOld;
 use futures_util::TryStreamExt;
@@ -56,7 +56,7 @@ pub struct ChangeSet {
     pub client: Octocrab,
     pub objects: Vec<Object>,
     connector_cache: ConnectorCache,
-    pub last_plan: Option<PlanReportSetOld>,
+    pub last_plan: Option<PlanReportSet>,
 }
 
 impl ChangeSet {

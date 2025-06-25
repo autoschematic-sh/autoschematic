@@ -20,7 +20,7 @@ use autoschematic_core::{
 
 use crate::{
     config::load_autoschematic_config,
-    plan::{print_frame_end, print_frame_start, print_plan, print_plan_addr},
+    plan::{frame, print_frame_end, print_frame_start, print_plan, print_plan_addr},
     spinner::spinner::show_spinner,
 };
 
@@ -56,6 +56,7 @@ pub async fn apply(
     let mut plan_report_set = PlanReportSet::default();
 
     let mut need_print_frame_start = true;
+    let mut need_print_frame_end = false;
 
     if staged_files.is_empty() {
         println!(" ∅  No files staged in git. Stage modified files with git add to plan or apply them.");
@@ -83,6 +84,7 @@ pub async fn apply(
 
         if need_print_frame_start {
             need_print_frame_start = false;
+            need_print_frame_end = true;
             print_frame_start();
         }
 
@@ -91,7 +93,9 @@ pub async fn apply(
         plan_report_set.plan_reports.push(plan_report);
     }
 
-    print_frame_end();
+    if need_print_frame_end {
+        print_frame_end();
+    }
 
     const CHARSET: &[u8] = b"1234567890";
     const PASSWORD_LEN: usize = 4;
@@ -164,7 +168,7 @@ pub async fn apply(
 
         for output in apply_report.outputs {
             if let Some(friendly_message) = output.friendly_message {
-                println!("║  ⟖ {}", friendly_message);
+                println!("{}  ⟖ {}", frame(), friendly_message);
             }
         }
 

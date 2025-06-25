@@ -6,10 +6,8 @@ use std::{
 use super::trace::{append_run_log, finish_run, start_run};
 use anyhow::{Context, bail};
 use autoschematic_core::{
-    connector::{Connector, parse::connector_shortname},
-    connector_util::build_out_path,
+    connector::{Connector, OutputMapFile, parse::connector_shortname},
     glob::addr_matches_filter,
-    write_output::{link_phy_output_file, write_virt_output_file},
 };
 use git2::{Cred, IndexAddOption, PushOptions, RemoteCallbacks, Repository};
 use secrecy::ExposeSecret;
@@ -42,7 +40,7 @@ impl ChangeSet {
             fs::create_dir_all(parent)?;
         }
 
-        let phy_out_path = build_out_path(prefix, phy_addr);
+        let phy_out_path = OutputMapFile::path(prefix, phy_addr);
 
         if path.exists() && !overwrite_existing {
             // Here, the physical address returned by list() already
@@ -56,16 +54,7 @@ impl ChangeSet {
         } else {
             tracing::info!("import at path: {:?}", path);
 
-            // let mut have_virt_addr = false;
-            // let virt_addr = if phy_out_path.is_symlink() {
-            //     have_virt_addr = true;
-            //     unbuild_out_path(prefix, &fs::read_link(phy_out_path)?)?
-            // } else {
-            //     phy_addr.to_path_buf()
-            // };
-            let Some(virt_addr) = connector.addr_phy_to_virt(phy_addr).await? else {
-                bail!("Couldn't resolve phy addr to virt: {:?}", phy_addr)
-            };
+            let virt_addr = connector.addr_phy_to_virt(phy_addr).await?.unwrap_or(phy_addr.to_path_buf());
 
             tracing::error!("addr_phy_to_virt: {:?} -> {:?}", phy_addr, virt_addr);
 
@@ -92,19 +81,15 @@ impl ChangeSet {
 
                     if let Some(outputs) = get_resource_output.outputs {
                         if !outputs.is_empty() {
-                            let virt_output_path = build_out_path(prefix, &virt_addr);
-                            let phy_output_path = build_out_path(prefix, phy_addr);
+                            let output_map_file = OutputMapFile::OutputMap(outputs);
 
-                            if let Some(virt_output_path) = write_virt_output_file(&virt_output_path, &outputs, true)? {
-                                self.git_add(repo, &virt_output_path)?;
-                            }
+                            let virt_output_path = output_map_file.write(&prefix, &virt_addr)?;
+                            self.git_add(repo, &virt_output_path)?;
 
                             // TODO can import ever delete/unlink an output file?
                             if virt_addr != phy_addr {
-                                if let Some(phy_output_path) = link_phy_output_file(&virt_output_path, &phy_output_path)? {
-                                    self.git_add(repo, &phy_output_path)?;
-                                }
-                                // let phy_output_path = build_out_path(prefix, &phy_addr);
+                                let phy_output_path = OutputMapFile::write_link(&prefix, &phy_addr, &virt_addr)?;
+                                self.git_add(repo, &phy_output_path)?;
                             }
                         }
                     }
@@ -210,7 +195,7 @@ impl ChangeSet {
                                     continue 'phy_addr;
                                 }
 
-                                if build_out_path(neighbour_prefix, &phy_addr).exists() {
+                                if OutputMapFile::path(neighbour_prefix, &phy_addr).exists() {
                                     continue 'phy_addr;
                                 }
                             }
