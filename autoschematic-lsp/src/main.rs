@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use dashmap::DashMap;
 
@@ -9,14 +12,14 @@ use autoschematic_core::{
     connector::FilterOutput,
     connector_cache::ConnectorCache,
     manifest::ConnectorManifest,
-    util::{split_prefix_addr, RON},
+    util::{RON, split_prefix_addr},
     workflow::{filter::filter, get::get, get_docstring::get_docstring, rename},
 };
 use lsp_types::*;
 use path_at::ident_at;
 use ron_pfnsec_fork as ron;
 use serde::de::DeserializeOwned;
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, task::JoinSet};
 use tower_lsp_server::{Client, LanguageServer, LspService, Server, jsonrpc::Error as LspError, lsp_types};
 use util::{diag_to_lsp, lsp_error, lsp_param_to_path};
 
@@ -31,7 +34,7 @@ struct Backend {
     client: Client,
     docs: DashMap<Uri, String>,
     autoschematic_config: RwLock<Option<AutoschematicConfig>>,
-    connector_cache: ConnectorCache,
+    connector_cache: Arc<ConnectorCache>,
 }
 
 impl LanguageServer for Backend {
@@ -225,7 +228,7 @@ impl LanguageServer for Backend {
                     return Ok(Some(serde_json::to_value(false).unwrap()));
                 };
 
-                if let Ok(res) = filter(autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await {
+                if let Ok(res) = filter(autoschematic_config, &self.connector_cache, keystore, None, &prefix, &addr).await {
                     match res {
                         FilterOutput::Config => {
                             return Ok(Some(serde_json::to_value("Config").unwrap()));
@@ -316,9 +319,7 @@ impl Backend {
     async fn validate(&self, uri: &Uri, text: &str) {
         match self.try_deserialize(uri, text).await {
             Ok(diag) => {
-                self.client
-                    .publish_diagnostics(uri.clone(), diag, None)
-                    .await;
+                self.client.publish_diagnostics(uri.clone(), diag, None).await;
             }
             Err(e) => {
                 eprintln!("{}", e);
@@ -384,39 +385,49 @@ impl Backend {
             return Ok(());
         };
 
-        for (prefix_name, prefix) in &autoschematic_config.prefixes {
-            for connector_def in &prefix.connectors {
+        let autoschematic_config = autoschematic_config.clone();
+        // let mut handles = Vec::new();
+        let mut joinset: JoinSet<anyhow::Result<()>> = JoinSet::new();
+
+        for (prefix_name, prefix) in autoschematic_config.prefixes {
+            for connector_def in prefix.connectors {
                 eprintln!("launching connector, {}", connector_def.shortname);
 
-                let (connector, mut inbox) = self
-                    .connector_cache
-                    .get_or_spawn_connector(
-                        &connector_def.shortname,
-                        &connector_def.spec,
-                        &PathBuf::from(&prefix_name),
-                        &connector_def.env,
-                        None,
-                    )
-                    .await?;
+                let connector_cache = self.connector_cache.clone();
+                let prefix_name = prefix_name.clone();
 
-                // let sender_trace_handle = trace_handle.clone();
-                let _reader_handle = tokio::spawn(async move {
-                    loop {
-                        match inbox.recv().await {
-                            Ok(Some(stdout)) => {
-                                // dbg!(&stdout);
-                                eprintln!("stdout: {}", stdout);
-                                // self.client.log_message(MessageType::INFO, format!("{}", stdout)).await;
-                                // let res = append_run_log(&sender_trace_handle, stdout).await;
-                                // match res {
-                                //     Ok(_) => {}
-                                //     Err(_) => {}
-                                // }
+                joinset.spawn(async move {
+                    let (connector, mut inbox) = connector_cache
+                        .get_or_spawn_connector(
+                            &connector_def.shortname,
+                            &connector_def.spec,
+                            &PathBuf::from(prefix_name),
+                            &connector_def.env,
+                            None,
+                        )
+                        .await?;
+
+                    // let sender_trace_handle = trace_handle.clone();
+                    let _reader_handle = tokio::spawn(async move {
+                        loop {
+                            match inbox.recv().await {
+                                Ok(Some(stdout)) => {
+                                    // dbg!(&stdout);
+                                    eprintln!("stdout: {}", stdout);
+                                    // self.client.log_message(MessageType::INFO, format!("{}", stdout)).await;
+                                    // let res = append_run_log(&sender_trace_handle, stdout).await;
+                                    // match res {
+                                    //     Ok(_) => {}
+                                    //     Err(_) => {}
+                                    // }
+                                }
+                                Ok(None) => {}
+                                Err(_) => break,
                             }
-                            Ok(None) => {}
-                            Err(_) => break,
                         }
-                    }
+                    });
+
+                    Ok(())
                 });
             }
         }
@@ -571,7 +582,7 @@ async fn main() -> Result<()> {
         client,
         docs: DashMap::new(),
         autoschematic_config: RwLock::new(None),
-        connector_cache: ConnectorCache::default(),
+        connector_cache: Arc::new(ConnectorCache::default()),
     });
     Server::new(stdin, stdout, socket).serve(service).await;
     Ok(())

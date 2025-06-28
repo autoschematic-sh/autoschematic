@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::{bail, Result};
 use chacha20poly1305::{aead::Aead, AeadCore, KeyInit};
@@ -131,7 +131,7 @@ pub trait KeyStore: Send + Sync + std::fmt::Debug {
 
 /// Initialize a keystore at a given URI.
 /// E.G. ondisk:///some_secure_directory
-pub fn keystore_init(name: &str) -> Result<Box<dyn KeyStore>> {
+pub fn keystore_init(name: &str) -> Result<Arc<dyn KeyStore>> {
     let re = Regex::new(r"^(?<type>[^:/]+)://(?<path>.+)$")?;
 
     let Some(caps) = re.captures(name) else {
@@ -142,7 +142,7 @@ pub fn keystore_init(name: &str) -> Result<Box<dyn KeyStore>> {
     };
 
     match &caps["type"] {
-        "ondisk" => Ok(Box::new(OndiskKeyStore::new(&caps["path"])?)),
+        "ondisk" => Ok(Arc::new(OndiskKeyStore::new(&caps["path"])?)),
         _ => Err(AutoschematicError {
             kind: AutoschematicErrorType::InvalidConnectorString(name.to_string()),
         }

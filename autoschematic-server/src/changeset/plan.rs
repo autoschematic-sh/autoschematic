@@ -90,7 +90,7 @@ impl ChangeSet {
                         &connector_def.spec,
                         &PathBuf::from(&prefix_name),
                         &connector_def.env,
-                        Some(&KEYSTORE),
+                        Some(KEYSTORE.clone()),
                     )
                     .await?;
                 let sender_trace_handle = trace_handle.clone();

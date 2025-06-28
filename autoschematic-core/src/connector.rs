@@ -139,6 +139,11 @@ impl OutputMapFile {
                     std::fs::write(&output_path, RON.to_string_pretty(self, PrettyConfig::default())?)?;
                 }
             }
+        } else {
+            if let Some(parent) = output_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(&output_path, RON.to_string_pretty(self, PrettyConfig::default())?)?;
         }
 
         Ok(())
@@ -151,9 +156,7 @@ impl OutputMapFile {
         };
 
         match output {
-            OutputMapFile::PointerToVirtual(virtual_address) => {
-                Self::resolve(prefix, &virtual_address)
-            }
+            OutputMapFile::PointerToVirtual(virtual_address) => Self::resolve(prefix, &virtual_address),
             OutputMapFile::OutputMap(_) => Ok(Some(VirtualAddress(addr.to_path_buf()))),
         }
     }
@@ -164,9 +167,7 @@ impl OutputMapFile {
         };
 
         match output {
-            OutputMapFile::PointerToVirtual(virtual_address) => {
-                Self::get(prefix, &virtual_address, key)
-            }
+            OutputMapFile::PointerToVirtual(virtual_address) => Self::get(prefix, &virtual_address, key),
             OutputMapFile::OutputMap(map) => Ok(map.get(key).cloned()),
         }
     }
@@ -207,13 +208,15 @@ impl OutputMapFile {
         Ok(Self::path(prefix, phy_addr))
     }
 
-    pub fn delete(prefix: &Path, addr: &Path) -> anyhow::Result<PathBuf> {
+    pub fn delete(prefix: &Path, addr: &Path) -> anyhow::Result<Option<PathBuf>> {
         // TODO this oughta return Option<PathBuf> so the user can know if a file was actually deleted
         let path = Self::path(prefix, addr);
         if path.is_file() {
             std::fs::remove_file(&path)?;
+            Ok(Some(path))
+        } else {
+            Ok(None)
         }
-        Ok(path)
     }
 }
 

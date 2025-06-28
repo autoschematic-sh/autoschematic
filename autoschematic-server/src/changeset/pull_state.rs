@@ -87,7 +87,7 @@ impl ChangeSet {
                         &connector_def.spec,
                         &PathBuf::from(&prefix_name),
                         &connector_def.env,
-                        Some(&KEYSTORE),
+                        Some(KEYSTORE.clone()),
                     )
                     .await?;
 
@@ -219,11 +219,13 @@ impl ChangeSet {
                                 self.git_add(repo, &prefix.join(virt_addr))?;
                             }
 
-                            let phy_output_path = OutputMapFile::delete(&prefix, &phy_addr)?;
-                            self.git_add(repo, &phy_output_path)?;
+                            if let Some(phy_output_path) = OutputMapFile::delete(&prefix, &phy_addr)? {
+                                self.git_add(repo, &phy_output_path)?;
+                            }
 
-                            let virt_output_path = OutputMapFile::delete(&prefix, virt_addr)?;
-                            self.git_add(repo, &virt_output_path)?;
+                            if let Some(virt_output_path) = OutputMapFile::delete(&prefix, virt_addr)? {
+                                self.git_add(repo, &virt_output_path)?;
+                            }
                         };
 
                         if tick_delete_count {

@@ -290,7 +290,7 @@ impl Connector for TarpcConnectorClient {
 
     async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecOutput, anyhow::Error> {
         Ok(self
-            .op_exec(context_1m_deadline(), addr.to_path_buf(), op.to_string())
+            .op_exec(context_100m_deadline(), addr.to_path_buf(), op.to_string())
             .await??)
     }
 

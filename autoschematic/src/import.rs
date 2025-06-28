@@ -111,7 +111,7 @@ pub async fn import(
             let import_counts = autoschematic_core::workflow::import::import_all(
                 &config,
                 &connector_cache,
-                keystore,
+                keystore.clone(),
                 sender.clone(),
                 subpath.clone(),
                 Some(prefix_name.clone()),

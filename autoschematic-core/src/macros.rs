@@ -62,3 +62,37 @@ macro_rules! skeleton {
         }
     }};
 }
+
+#[macro_export]
+macro_rules! virt_to_phy {
+    (
+        $enum:path, $addr:ident, $prefix:expr,
+        trivial => [ $( $triv_variant:ident { $triv_field:ident } ),* $(,)? ],
+        null => [ $( $null_variant:ident { $null_field:ident } ),* $(,)? ],
+        todo => [ $( $todo_variant:ident { $($todo_field:ident),* } ),* $(,)? ]
+    ) => {
+        match &$addr {
+            $(
+                <$enum>::$triv_variant { .. } => {
+                    if let Some($triv_field) = $addr.get_output($prefix, stringify!($triv_field))? {
+                        Ok(VirtToPhyOutput::Present(
+                            <$enum>::$triv_variant { $triv_field }.to_path_buf(),
+                        ))
+                    } else {
+                        Ok(VirtToPhyOutput::NotPresent)
+                    }
+                }
+            )*
+            $(
+                <$enum>::$null_variant { $null_field } => {
+                    Ok(VirtToPhyOutput::Null(<$enum>::$null_variant { $null_field: $null_field.into() }.to_path_buf()))
+                }
+            )*
+            $(
+                <$enum>::$todo_variant { .. } => {
+                    todo!()
+                }
+            )*
+        }
+    };
+}

@@ -1,6 +1,7 @@
 use std::{
     io::Write,
     process::{Command, Stdio},
+    sync::Arc,
 };
 
 use colored::Colorize;
@@ -33,7 +34,7 @@ pub async fn apply(
 
     let staged_files = get_staged_files()?;
 
-    let connector_cache = ConnectorCache::default();
+    let connector_cache = Arc::new(ConnectorCache::default());
 
     let keystore = None;
 
@@ -67,7 +68,7 @@ pub async fn apply(
         //     // autoschematic_core::workflow::filter::filter(&config, &connector_cache, keystore, prefix, addr)
 
         let Some(plan_report) =
-            autoschematic_core::workflow::plan::plan(&config, &connector_cache, keystore, &connector, &path).await?
+            autoschematic_core::workflow::plan::plan(&config, connector_cache.clone(), keystore.clone(), &connector, &path).await?
         else {
             spinner_stop.send(()).unwrap();
             continue;
@@ -147,7 +148,7 @@ pub async fn apply(
     for plan_report in plan_report_set.plan_reports {
         let spinner_stop = show_spinner().await;
         let Some(apply_report) =
-            autoschematic_core::workflow::apply::apply(&config, &connector_cache, keystore, &connector, &plan_report).await?
+            autoschematic_core::workflow::apply::apply(&config, connector_cache.clone(), keystore.clone(), &connector, &plan_report).await?
         else {
             spinner_stop.send(()).unwrap();
             continue;

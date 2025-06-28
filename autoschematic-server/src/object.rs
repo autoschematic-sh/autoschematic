@@ -66,8 +66,6 @@ pub fn sort_objects_by_apply_order(objects: &Vec<Object>) -> Vec<Object> {
     let mut objects = created_obj;
     objects.append(&mut deleted_obj);
 
-    
-
     objects.into_iter().cloned().collect()
 }
 

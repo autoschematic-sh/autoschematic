@@ -21,6 +21,9 @@ type HashKey = (String, PathBuf);
 
 #[derive(Default)]
 pub struct ConnectorCache {
+    // TODO when we run different connectors init() in parallel, we're fine. But we were to run the same init() in parallel,
+    // we'd currently end up initializing two instances and only writing the second one under this scheme.
+    // TODO: make this a map of <HashKey, RwLock<...>> or similar, and let consumers instead block on read() until the background init holding write() is finished!
     cache: Arc<DashMap<HashKey, (Arc<Box<dyn Connector>>, ConnectorInbox)>>,
     /// Used to cache the results of Connector::filter(addr), which are assumed to be
     /// static. Since filter() is the most common call, this can speed up workflows by
@@ -48,7 +51,7 @@ impl ConnectorCache {
         spec: &Spec,
         prefix: &Path,
         env: &HashMap<String, String>,
-        keystore: Option<&Box<dyn KeyStore>>,
+        keystore: Option<Arc<dyn KeyStore>>,
     ) -> Result<(Arc<Box<dyn Connector>>, ConnectorInbox), AutoschematicError> {
         let key = (name.into(), prefix.into());
 

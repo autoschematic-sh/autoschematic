@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use anyhow::bail;
+use tokio::task::JoinSet;
 
 use crate::{
     config::AutoschematicConfig,
@@ -49,12 +52,14 @@ pub async fn apply_connector(
                 } else if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
                     // Applying this change resulted in an empty output file, so delete it,
                     // check for a separate physical output file, and delete that too.
-                    let virt_output_path = OutputMapFile::delete(&plan.prefix, &plan.virt_addr)?;
-                    apply_report.wrote_files.push(virt_output_path);
+                    if let Some(virt_output_path) = OutputMapFile::delete(&plan.prefix, &plan.virt_addr)? {
+                        apply_report.wrote_files.push(virt_output_path);
+                    }
 
                     if phy_addr != plan.virt_addr {
-                        let phy_output_path = OutputMapFile::delete(&plan.prefix, &phy_addr)?;
-                        apply_report.wrote_files.push(phy_output_path);
+                        if let Some(phy_output_path) = OutputMapFile::delete(&plan.prefix, &phy_addr)? {
+                            apply_report.wrote_files.push(phy_output_path);
+                        }
                     }
                 }
             }
@@ -71,21 +76,19 @@ pub async fn apply_connector(
 /// not exist - it is intended to be used from the command line or from LSPs to quickly modify resources.
 pub async fn apply(
     autoschematic_config: &AutoschematicConfig,
-    connector_cache: &ConnectorCache,
-    keystore: Option<&Box<dyn KeyStore>>,
+    connector_cache: Arc<ConnectorCache>,
+    keystore: Option<Arc<dyn KeyStore>>,
     connector_filter: &Option<String>,
     plan_report: &PlanReport,
 ) -> Result<Option<ApplyReport>, anyhow::Error> {
-    // let Some((prefix, virt_addr)) = split_prefix_addr(autoschematic_config, path) else {
-    //     return Ok(None);
-    // };
-
     let Some(prefix_def) = autoschematic_config
         .prefixes
         .get(plan_report.prefix.to_str().unwrap_or_default())
     else {
         return Ok(None);
     };
+
+    // let mut joinset: JoinSet<anyhow::Result<Option<PlanReport>>> = JoinSet::new();
 
     'connector: for connector_def in &prefix_def.connectors {
         if let Some(connector_filter) = &connector_filter {
@@ -100,7 +103,7 @@ pub async fn apply(
                 &connector_def.spec,
                 &plan_report.prefix,
                 &connector_def.env,
-                keystore,
+                keystore.clone(),
             )
             .await?;
 

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 use crate::{
     config::Spec,
@@ -25,7 +25,7 @@ pub async fn spawn_connector(
     prefix: &Path,
     env: &HashMap<String, String>,
     // binary_cache: &BinaryCache,
-    keystore: Option<&Box<dyn KeyStore>>,
+    keystore: Option<Arc<dyn KeyStore>>,
 ) -> Result<(Box<dyn Connector>, ConnectorInbox), anyhow::Error> {
     let (outbox, inbox) = tokio::sync::broadcast::channel(64);
 

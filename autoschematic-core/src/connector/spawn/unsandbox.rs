@@ -1,8 +1,5 @@
 use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    thread::JoinHandle,
-    time::SystemTime,
+    collections::HashMap, path::{Path, PathBuf}, process::Stdio, sync::Arc, thread::JoinHandle, time::SystemTime
 };
 
 use crate::{
@@ -139,7 +136,7 @@ pub async fn launch_server_binary(
     prefix: &Path,
     env: &HashMap<String, String>,
     outbox: ConnectorOutbox,
-    keystore: Option<&Box<dyn KeyStore>>,
+    keystore: Option<Arc<dyn KeyStore>>,
 ) -> anyhow::Result<UnsandboxConnectorHandle> {
     let mut env = env.clone();
 
@@ -151,6 +148,8 @@ pub async fn launch_server_binary(
     } else {
         env = passthrough_secrets_from_env(&env)?;
     }
+
+    let mut pre_command = None;
 
     let mut command = match spec {
         Spec::Binary { path, protocol } => {
@@ -203,7 +202,23 @@ pub async fn launch_server_binary(
                 bail!("launch_server_binary: No Cargo.toml under {}", path.display())
             }
 
+            let mut build_command = tokio::process::Command::new("cargo");
+            build_command.kill_on_drop(true);
+
+            build_command.args(["build", "--release", "--manifest-path", manifest_path.to_str().unwrap()]);
+            if let Some(binary) = binary {
+                build_command.args(["--bin", binary]);
+            }
+            if let Some(features) = features {
+                if !features.is_empty() {
+                    build_command.args(["--features", &features.join(",")]);
+                }
+            }
+
+            pre_command = Some(build_command);
+
             let mut command = tokio::process::Command::new("cargo");
+            command.kill_on_drop(true);
             command.args(["run", "--release", "--manifest-path", manifest_path.to_str().unwrap()]);
             if let Some(binary) = binary {
                 command.args(["--bin", binary]);
@@ -221,6 +236,15 @@ pub async fn launch_server_binary(
 
     for (key, val) in env {
         command.env(key, val);
+    }
+
+    if let Some(mut pre_command) = pre_command {
+        eprintln!("Running {:?}", pre_command);
+        let output = pre_command.stdin(Stdio::inherit()).stdout(Stdio::inherit()).output().await?;
+        
+        if !output.status.success() {
+            bail!("Pre-command failed: {:?}: {}", pre_command, output.status)
+        }
     }
 
     let child = command.spawn()?;
@@ -241,6 +265,10 @@ pub async fn launch_server_binary(
 
 impl Drop for UnsandboxConnectorHandle {
     fn drop(&mut self) {
+        tracing::info!("DROP on UnsandboxConnectorHandle! Killing subprocess");
+        self.child.start_kill().unwrap();
+        self.child.try_wait().unwrap();
+
         match std::fs::remove_file(&self.socket) {
             Ok(_) => {}
             Err(e) => tracing::warn!("Couldn't remove socket {:?}: {}", self.socket, e),
@@ -251,12 +279,7 @@ impl Drop for UnsandboxConnectorHandle {
             Err(e) => tracing::warn!("Couldn't remove error_dump {:?}: {}", self.error_dump, e),
         }
 
-        if self.read_thread.is_some() {
-            // handle.
-        }
-
-        tracing::info!("DROP on UnsandboxConnectorHandle! Killing subprocess");
-        self.child.start_kill().unwrap();
+        if self.read_thread.is_some() {}
     }
 }
 

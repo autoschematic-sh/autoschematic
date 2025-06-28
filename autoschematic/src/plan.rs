@@ -1,3 +1,4 @@
+use std::sync::Arc;
 
 use autoschematic_core::{connector_cache::ConnectorCache, git_util::get_staged_files, report::PlanReport};
 use crossterm::style::Stylize;
@@ -10,7 +11,7 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
 
     let staged_files = get_staged_files()?;
 
-    let connector_cache = ConnectorCache::default();
+    let connector_cache = Arc::new(ConnectorCache::default());
 
     let keystore = None;
 
@@ -26,7 +27,8 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
         let spinner_stop = show_spinner().await;
 
         let Some(plan_report) =
-            autoschematic_core::workflow::plan::plan(&config, &connector_cache, keystore, connector, &path).await?
+            autoschematic_core::workflow::plan::plan(&config, connector_cache.clone(), keystore.clone(), connector, &path)
+                .await?
         else {
             spinner_stop.send(()).unwrap();
             continue;
@@ -65,7 +67,10 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
 }
 
 pub fn print_frame_start() {
-    println!("{}", "╔════════════════════════════════════════════════════════════════════════════════════════════════════╗".dark_grey());
+    println!(
+        "{}",
+        "╔════════════════════════════════════════════════════════════════════════════════════════════════════╗".dark_grey()
+    );
 }
 
 pub fn frame() -> String {
@@ -73,7 +78,10 @@ pub fn frame() -> String {
 }
 
 pub fn print_frame_end() {
-    println!("{}", "╚════════════════════════════════════════════════════════════════════════════════════════════════════╝".dark_grey());
+    println!(
+        "{}",
+        "╚════════════════════════════════════════════════════════════════════════════════════════════════════╝".dark_grey()
+    );
 }
 
 pub fn print_plan_addr(plan_report: &PlanReport) {

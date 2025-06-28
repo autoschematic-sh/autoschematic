@@ -48,7 +48,7 @@ use once_cell::{self, sync::OnceCell};
 use repolock::RepoLockStore;
 use ron_pfnsec_fork as ron;
 use serde::Deserialize;
-use std::{collections::HashMap, env, path::PathBuf};
+use std::{collections::HashMap, env, path::PathBuf, sync::Arc};
 use tera::Tera;
 use tokio::sync::RwLock;
 use tracestore::{InMemTraceStore, TraceStore};
@@ -74,7 +74,7 @@ lazy_static::lazy_static! {
     .with_default_extension(ron::extensions::Extensions::UNWRAP_NEWTYPES)
     .with_default_extension(ron::extensions::Extensions::UNWRAP_VARIANT_NEWTYPES)
     .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME);
-    pub static ref KEYSTORE: Box<dyn KeyStore> = env::var("KEYSTORE")
+    pub static ref KEYSTORE: Arc<dyn KeyStore> = env::var("KEYSTORE")
         .context("Missing KEYSTORE environment variable")
         .map(|path| keystore_init(&path).expect("Failed to init keystore"))
         .unwrap();

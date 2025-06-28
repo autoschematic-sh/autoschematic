@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use crate::{
     config::AutoschematicConfig,
@@ -10,7 +10,8 @@ use crate::{
 pub async fn filter(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: &ConnectorCache,
-    keystore: Option<&Box<dyn KeyStore>>,
+    keystore: Option<Arc<dyn KeyStore>>,
+    connector_filter: Option<&str>, 
     prefix: &Path,
     addr: &Path,
 ) -> anyhow::Result<FilterOutput> {
@@ -22,13 +23,16 @@ pub async fn filter(
     };
 
     for connector_def in &prefix_def.connectors {
+        if connector_filter.is_some_and(|f| f != connector_def.shortname) {
+            continue;
+        }
         let (connector, _inbox) = connector_cache
             .get_or_spawn_connector(
                 &connector_def.shortname,
                 &connector_def.spec,
                 prefix,
                 &connector_def.env,
-                keystore,
+                keystore.clone(),
             )
             .await?;
 

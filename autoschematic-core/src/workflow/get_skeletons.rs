@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use crate::{
     config, config::AutoschematicConfig, connector::SkeletonOutput, connector_cache::ConnectorCache, error::AutoschematicError,
@@ -8,7 +8,7 @@ use crate::{
 pub async fn get_skeletons(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: &ConnectorCache,
-    keystore: Option<&Box<dyn KeyStore>>,
+    keystore: Option<Arc<dyn KeyStore>>,
     prefix: &Path,
     connector_def: &config::Connector,
 ) -> Result<Vec<SkeletonOutput>, AutoschematicError> {
@@ -25,7 +25,7 @@ pub async fn get_skeletons(
             &connector_def.spec,
             prefix,
             &connector_def.env,
-            keystore,
+            keystore.clone(),
         )
         .await?;
 

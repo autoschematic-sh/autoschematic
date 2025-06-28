@@ -1,19 +1,12 @@
-use std::{
-    path::{Component, PathBuf},
-};
+use std::path::{Component, PathBuf};
 
 use anyhow::bail;
 use dialoguer::{Confirm, Input, Select};
 use regex::Regex;
 
-use autoschematic_core::{
-    connector::FilterOutput,
-    connector_cache::ConnectorCache,
-    util::repo_root,
-    workflow,
-};
+use autoschematic_core::{connector::FilterOutput, connector_cache::ConnectorCache, util::repo_root, workflow};
 
-use crate::config::load_autoschematic_config;
+use crate::{config::load_autoschematic_config, spinner::spinner::show_spinner};
 
 pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;
@@ -21,12 +14,20 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
     let connector_cache = ConnectorCache::default();
 
     let prefix_names: Vec<&String> = config.prefixes.iter().map(|a| a.0).collect();
-    let prefix_i = Select::new()
-        .with_prompt("Select prefix")
-        .items(&prefix_names)
-        .max_length(10)
-        .interact()
-        .unwrap();
+    if prefix_names.is_empty() {
+        println!("Autoschematic: No prefix in which to create resources.");
+        return Ok(());
+    }
+    let prefix_i = if prefix_names.len() > 1 {
+        Select::new()
+            .with_prompt("Select prefix")
+            .items(&prefix_names)
+            .max_length(10)
+            .interact()
+            .unwrap()
+    } else {
+        0
+    };
 
     let prefix = prefix_names.get(prefix_i).unwrap().to_owned();
 
@@ -44,8 +45,10 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
 
     let connector_def = prefix_def.connectors.get(connector_i).unwrap();
 
+    let spinner_stop = show_spinner().await;
     let skeletons =
         workflow::get_skeletons::get_skeletons(&config, &connector_cache, None, &PathBuf::from(prefix), connector_def).await?;
+    spinner_stop.send(()).unwrap();
 
     let skeleton_paths: Vec<String> = skeletons.iter().map(|a| a.addr.to_str().unwrap().to_string()).collect();
     let skeleton_i = Select::new()
@@ -57,7 +60,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
 
     let skeleton = skeletons.get(skeleton_i).unwrap();
 
-    let walk_path = repo_root()?.join(prefix);
+    // let walk_path = repo_root()?.join(prefix);
 
     let mut output_addr = skeleton.addr.to_str().unwrap().to_string();
 
@@ -84,7 +87,9 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
         bail!("Error: output path {} already exists.", output_path.display())
     }
 
-    if workflow::filter::filter(&config, &connector_cache, None, &prefix, &output_path).await? == FilterOutput::None {
+    let spinner_stop = show_spinner().await;
+    if workflow::filter::filter(&config, &connector_cache, None, None, &prefix, &output_path).await? == FilterOutput::None {
+        spinner_stop.send(()).unwrap();
         let write_override = Confirm::new()
             .with_prompt(
                 format!("The resulting output path:\n {}\n didn't match any enabled connectors. This file won't do anything.\nWant to write to it anyway?",
@@ -96,6 +101,8 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
         if !write_override {
             return Ok(());
         }
+    } else {
+        spinner_stop.send(()).unwrap();
     }
 
     println!("Writing {}/{}", prefix.display(), output_path.display());

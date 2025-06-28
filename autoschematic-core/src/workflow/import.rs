@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}, sync::Arc};
 
 use anyhow::Context;
 use tokio::sync::broadcast::error::RecvError;
@@ -104,7 +104,7 @@ pub async fn import_complete() {}
 pub async fn import_all(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: &ConnectorCache,
-    keystore: Option<&Box<dyn KeyStore>>,
+    keystore: Option<Arc<dyn KeyStore>>,
     outbox: ImportOutbox,
     subpath: Option<PathBuf>,
     prefix_filter: Option<String>,
@@ -145,7 +145,7 @@ pub async fn import_all(
                     &connector_def.spec,
                     &PathBuf::from(&prefix_name),
                     &connector_def.env,
-                    keystore,
+                    keystore.clone(),
                 )
                 .await?;
             let _reader_handle = tokio::spawn(async move {

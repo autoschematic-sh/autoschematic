@@ -5,13 +5,13 @@ use crate::{
     keystore::KeyStore,
     util::{repo_root, split_prefix_addr},
 };
-use anyhow::{bail, Context};
-use std::path::Path;
+use anyhow::{Context, bail};
+use std::{path::Path, sync::Arc};
 
 pub async fn rename(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: &ConnectorCache,
-    keystore: Option<&Box<dyn KeyStore>>,
+    keystore: Option<Arc<dyn KeyStore>>,
     old_addr: &Path,
     new_addr: &Path,
 ) -> anyhow::Result<()> {
@@ -25,7 +25,7 @@ pub async fn rename(
     let Some((prefix, new_virt_addr)) = split_prefix_addr(autoschematic_config, new_addr) else {
         bail!("Not in any prefix: {}", new_addr.display());
     };
-    
+
     if old_prefix != prefix {
         bail!("Can't modify prefix during a rename");
     }
@@ -43,7 +43,7 @@ pub async fn rename(
                 &connector_def.spec,
                 &prefix,
                 &connector_def.env,
-                keystore,
+                keystore.clone(),
             )
             .await?;
 
@@ -59,7 +59,11 @@ pub async fn rename(
             }
         });
 
-        if connector_cache.filter(&connector_def.shortname, &prefix, &old_virt_addr).await? == FilterOutput::Resource {
+        if connector_cache
+            .filter(&connector_def.shortname, &prefix, &old_virt_addr)
+            .await?
+            == FilterOutput::Resource
+        {
             match connector.addr_virt_to_phy(&old_virt_addr).await? {
                 VirtToPhyOutput::NotPresent => bail!("Phy address not present to rename"),
                 VirtToPhyOutput::Deferred(_) => bail!("Phy address not present to rename"),
@@ -67,21 +71,31 @@ pub async fn rename(
                 VirtToPhyOutput::Present(phy_addr) => {
                     // let old_virt_output_path = build_out_path(&prefix, &old_virt_addr);
                     // let new_virt_output_path = build_out_path(&prefix, &new_virt_addr);
-                    
+
                     // if let Some(parent) = new_virt_output_path.parent() {
                     //     std::fs::create_dir_all(parent)?;
                     // }
-                    
+
                     let Some(output_map_file) = OutputMapFile::read_recurse(&prefix, &old_virt_addr)? else {
-                        bail!("Rename: No output file found at {}/{}", prefix.display(), old_virt_addr.display())
+                        bail!(
+                            "Rename: No output file found at {}/{}",
+                            prefix.display(),
+                            old_virt_addr.display()
+                        )
                     };
 
                     OutputMapFile::write_link(&prefix, &phy_addr, &new_virt_addr)?;
 
                     output_map_file.write(&prefix, &new_virt_addr)?;
 
+                    let new_virt_path = prefix.join(&new_virt_addr);
+
+                    if let Some(parent) = new_virt_path.parent() {
+                        std::fs::create_dir_all(parent)?;
+                    }
+
                     std::fs::copy(prefix.join(&old_virt_addr), prefix.join(&new_virt_addr)).context("copy virt")?;
-                    
+
                     std::fs::remove_file(prefix.join(&old_virt_addr))?;
                 }
             }

@@ -142,15 +142,14 @@ export async function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		// Get the current file path
 		const currentPath = fileUri.path;
 
 		// Show input box with current path pre-populated
 		const newPath = await vscode.window.showInputBox({
-			title: 'Rename File',
-			prompt: 'Enter the new file path',
+			title: 'Rename Resource',
+			prompt: 'Enter the new resource path',
 			value: currentPath,
-			valueSelection: [currentPath.lastIndexOf('/') + 1, currentPath.length], // Select filename part
+			valueSelection: [currentPath.lastIndexOf('/') + 1, currentPath.lastIndexOf('.') - 1], // Select filename part
 			validateInput: (value: string) => {
 				if (!value || value.trim() === '') {
 					return 'Path cannot be empty';
@@ -168,19 +167,15 @@ export async function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		// Confirm callback - this is where you can add your rename logic
 		try {
-			// TODO: Add your actual rename logic here
-			// For now, we'll just show a message with the paths
 			const action = await vscode.window.showInformationMessage(
-				`Rename "${currentPath}" to "${newPath}"?`,
+				`Rename resource \n   "${currentPath}"\nto "${newPath}"?`,
 				{ modal: true },
 				'Confirm',
 				'Cancel'
 			);
 
 			if (action === 'Confirm') {
-				// This is where your confirm callback logic goes
 				await handleRenameConfirm(currentPath, newPath, client);
 			}
 		} catch (error) {

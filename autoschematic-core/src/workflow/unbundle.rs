@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use anyhow::Context;
 
@@ -120,12 +120,14 @@ pub async fn plan_connector(
 /// not exist - it is intended to be used from the command line or from LSPs to quickly modify resources.
 pub async fn unbundle(
     autoschematic_config: &AutoschematicConfig,
-    connector_cache: &ConnectorCache,
-    keystore: Option<&Box<dyn KeyStore>>,
+    connector_cache: Arc<ConnectorCache>,
+    keystore: Option<Arc<dyn KeyStore>>,
     connector_filter: &Option<String>,
     path: &Path,
 ) -> Result<Option<PlanReport>, anyhow::Error> {
-    let Some((prefix, virt_addr)) = split_prefix_addr(autoschematic_config, path) else {
+    let autoschematic_config = autoschematic_config.clone();
+
+    let Some((prefix, virt_addr)) = split_prefix_addr(&autoschematic_config, path) else {
         return Ok(None);
     };
 
@@ -133,39 +135,49 @@ pub async fn unbundle(
         return Ok(None);
     };
 
-    'connector: for connector_def in &prefix_def.connectors {
+    let prefix_def = prefix_def.clone();
+    let mut handles = Vec::new();
+    'connector: for connector_def in prefix_def.connectors {
         if let Some(connector_filter) = &connector_filter {
             if connector_def.shortname != *connector_filter {
                 continue 'connector;
             }
         }
 
-        let (connector, mut inbox) = connector_cache
-            .get_or_spawn_connector(
-                &connector_def.shortname,
-                &connector_def.spec,
-                &prefix,
-                &connector_def.env,
-                keystore,
-            )
-            .await?;
+        let connector_cache = connector_cache.clone();
+        let keystore = keystore.clone();
+        let prefix = prefix.clone();
+        handles.push(tokio::spawn(async move {
+            let (connector, mut inbox) = connector_cache
+                .get_or_spawn_connector(
+                    &connector_def.shortname,
+                    &connector_def.spec,
+                    &prefix,
+                    &connector_def.env,
+                    keystore,
+                )
+                .await
+                .unwrap();
 
-        let _reader_handle = tokio::spawn(async move {
-            loop {
-                match inbox.recv().await {
-                    Ok(Some(stdout)) => {
-                        eprintln!("{}", stdout);
+            let _reader_handle = tokio::spawn(async move {
+                loop {
+                    match inbox.recv().await {
+                        Ok(Some(stdout)) => {
+                            eprintln!("{}", stdout);
+                        }
+                        Ok(None) => {}
+                        Err(_) => break,
                     }
-                    Ok(None) => {}
-                    Err(_) => break,
                 }
-            }
-        });
+            });
 
-        if connector_cache.filter(&connector_def.shortname, &prefix, &virt_addr).await? == FilterOutput::Resource {
-            let plan_report = plan_connector(&connector_def.shortname, &connector, &prefix, &virt_addr).await?;
-            return Ok(plan_report);
-        }
+            return connector;
+        }));
+
+        // if connector_cache.filter(&connector_def.shortname, &prefix, &virt_addr).await? == FilterOutput::Resource {
+        //     let plan_report = plan_connector(&connector_def.shortname, &connector, &prefix, &virt_addr).await?;
+        //     return Ok(plan_report);
+        // }
     }
 
     Ok(None)

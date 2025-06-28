@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}, sync::Arc};
 
 use crate::{
     config::AutoschematicConfig, connector_cache::ConnectorCache,
@@ -8,7 +8,7 @@ use crate::{
 pub async fn list(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: &ConnectorCache,
-    keystore: Option<&Box<dyn KeyStore>>,
+    keystore: Option<Arc<dyn KeyStore>>,
     prefix: &Path,
     connector_filter: &str,
     subpath: &Path,

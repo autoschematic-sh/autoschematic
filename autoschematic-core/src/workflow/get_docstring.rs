@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use crate::{
     config::AutoschematicConfig,
@@ -11,7 +11,7 @@ use crate::{
 pub async fn get_docstring(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: &ConnectorCache,
-    keystore: Option<&Box<dyn KeyStore>>,
+    keystore: Option<Arc<dyn KeyStore>>,
     prefix: &Path,
     addr: &Path,
     ident: DocIdent,
@@ -31,7 +31,7 @@ pub async fn get_docstring(
                 &connector_def.spec,
                 prefix,
                 &connector_def.env,
-                keystore,
+                keystore.clone(),
             )
             .await?;
 
