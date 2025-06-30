@@ -97,6 +97,22 @@ impl From<anyhow::Error> for AutoschematicError {
     }
 }
 
+impl From<tokio::task::JoinError> for AutoschematicError {
+    fn from(err: tokio::task::JoinError) -> Self {
+        AutoschematicError {
+            kind: AutoschematicErrorType::InternalError(err.into()),
+        }
+    }
+}
+
+impl<T: Send + Sync + 'static> From<tokio::sync::mpsc::error::SendError<T>> for AutoschematicError {
+    fn from(err: tokio::sync::mpsc::error::SendError<T>) -> Self {
+        AutoschematicError {
+            kind: AutoschematicErrorType::InternalError(err.into()),
+        }
+    }
+}
+
 impl From<regex::Error> for AutoschematicError {
     fn from(err: regex::Error) -> Self {
         AutoschematicError {

@@ -62,7 +62,7 @@ impl ChangeSet {
                     if global_addr.starts_with(&prefix_name) {
                         if let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name) {
                             // If this address is not under `subpath`, skip it.
-                            return addr_matches_filter(&PathBuf::from(&prefix_name), virt_addr, &subpath);
+                            return addr_matches_filter(virt_addr, &subpath);
                         }
                     }
                     false

@@ -26,7 +26,7 @@ pub async fn spawn_connector(
     env: &HashMap<String, String>,
     // binary_cache: &BinaryCache,
     keystore: Option<Arc<dyn KeyStore>>,
-) -> Result<(Box<dyn Connector>, ConnectorInbox), anyhow::Error> {
+) -> Result<(Arc<dyn Connector>, ConnectorInbox), anyhow::Error> {
     let (outbox, inbox) = tokio::sync::broadcast::channel(64);
 
     // let lockfile = load_lockfile().await?;
@@ -37,31 +37,31 @@ pub async fn spawn_connector(
     match spec {
         Spec::Binary { path, protocol } => match protocol {
             crate::config::Protocol::Tarpc => Ok((
-                Box::new(
+                Arc::new(
                     unsandbox::launch_server_binary(spec, shortname, prefix, env, outbox, keystore)
                         .await
                         .context("launch_server_binary()")?,
-                ) as Box<dyn Connector>,
+                ) as Arc<dyn Connector>,
                 inbox,
             )),
         },
         Spec::Cargo { protocol, .. } => match protocol {
             crate::config::Protocol::Tarpc => Ok((
-                Box::new(
+                Arc::new(
                     unsandbox::launch_server_binary(spec, shortname, prefix, env, outbox, keystore)
                         .await
                         .context("launch_server_binary()")?,
-                ) as Box<dyn Connector>,
+                ) as Arc<dyn Connector>,
                 inbox,
             )),
         },
         Spec::CargoLocal { protocol, .. } => match protocol {
             crate::config::Protocol::Tarpc => Ok((
-                Box::new(
+                Arc::new(
                     unsandbox::launch_server_binary(spec, shortname, prefix, env, outbox, keystore)
                         .await
                         .context("launch_server_binary()")?,
-                ) as Box<dyn Connector>,
+                ) as Arc<dyn Connector>,
                 inbox,
             )),
         },

@@ -1,6 +1,6 @@
 use std::{
     fs::{self},
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, sync::Arc,
 };
 
 use super::trace::{append_run_log, finish_run, start_run};
@@ -22,7 +22,7 @@ impl ChangeSet {
         &self,
         repo: &Repository,
         connector_shortname: &str,
-        connector: &Box<dyn Connector>,
+        connector: Arc<dyn Connector>,
         prefix: &Path,
         phy_addr: &Path,
         overwrite_existing: bool,
@@ -182,7 +182,7 @@ impl ChangeSet {
                 ))?;
 
                 'phy_addr: for phy_addr in phy_addrs {
-                    if !addr_matches_filter(&prefix_name, &phy_addr, &subpath) {
+                    if !addr_matches_filter(&phy_addr, &subpath) {
                         continue 'phy_addr;
                     }
 
@@ -206,7 +206,7 @@ impl ChangeSet {
                         .import_resource(
                             &repo,
                             &connector_shortname,
-                            &connector,
+                            connector.clone(),
                             &prefix_name,
                             &phy_addr,
                             overwrite_existing,

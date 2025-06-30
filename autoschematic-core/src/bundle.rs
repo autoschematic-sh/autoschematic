@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use async_trait::async_trait;
@@ -22,7 +23,7 @@ pub struct BundleOutput {
 
 #[async_trait]
 pub trait Bundle: Connector {
-    async fn new(name: &str, prefix: &Path) -> Result<Box<dyn Bundle>, anyhow::Error>
+    async fn new(name: &str, prefix: &Path) -> Result<Arc<dyn Bundle>, anyhow::Error>
     where
         Self: Sized;
 
@@ -47,9 +48,9 @@ pub trait Bundle: Connector {
 }
 
 #[async_trait]
-impl Bundle for Box<dyn Bundle> {
-    async fn new(name: &str, prefix: &Path) -> Result<Box<dyn Bundle>, anyhow::Error> {
-        return <Box<dyn Bundle> as Bundle>::new(name, prefix).await;
+impl Bundle for Arc<dyn Bundle> {
+    async fn new(name: &str, prefix: &Path) -> Result<Arc<dyn Bundle>, anyhow::Error> {
+        return <Arc<dyn Bundle> as Bundle>::new(name, prefix).await;
     }
 
     async fn init(&self) -> Result<(), anyhow::Error> {
@@ -78,9 +79,9 @@ impl Bundle for Box<dyn Bundle> {
 }
 
 #[async_trait]
-impl Connector for Box<dyn Bundle> {
-    async fn new(name: &str, prefix: &Path, _outbox: ConnectorOutbox) -> Result<Box<dyn Connector>, anyhow::Error> {
-        let bundle: Box<dyn Bundle> = <Box<(dyn Bundle + 'static)> as Bundle>::new(name, prefix).await?;
+impl Connector for Arc<dyn Bundle> {
+    async fn new(name: &str, prefix: &Path, _outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
+        let bundle: Arc<dyn Bundle> = <Arc<(dyn Bundle + 'static)> as Bundle>::new(name, prefix).await?;
         Ok(bundle)
     }
 
@@ -93,6 +94,10 @@ impl Connector for Box<dyn Bundle> {
     }
 
     async fn list(&self, _subpath: &Path) -> anyhow::Result<Vec<PathBuf>> {
+        Ok(Vec::new())
+    }
+
+    async fn subpaths(&self) -> anyhow::Result<Vec<PathBuf>> {
         Ok(Vec::new())
     }
 

@@ -37,6 +37,8 @@ pub trait TarpcConnector {
 
     async fn list(subpath: PathBuf) -> Result<Vec<PathBuf>, ErrorMessage>;
 
+    async fn subpaths() -> Result<Vec<PathBuf>, ErrorMessage>;
+
     async fn get(addr: PathBuf) -> Result<Option<GetResourceOutput>, ErrorMessage>;
 
     async fn plan(addr: PathBuf, current: Option<Vec<u8>>, desired: Option<Vec<u8>>)
@@ -54,7 +56,7 @@ pub trait TarpcConnector {
 
 #[derive(Clone)]
 pub struct ConnectorServer {
-    connector: Arc<Mutex<Box<dyn Connector>>>,
+    connector: Arc<Mutex<Arc<dyn Connector>>>,
 }
 
 impl TarpcConnector for ConnectorServer {
@@ -68,6 +70,11 @@ impl TarpcConnector for ConnectorServer {
 
     async fn list(self, _context: ::tarpc::context::Context, subpath: PathBuf) -> Result<Vec<PathBuf>, ErrorMessage> {
         let res = Connector::list(&*self.connector.lock().await, &subpath).await;
+        Ok(res?)
+    }
+
+    async fn subpaths(self, _context: ::tarpc::context::Context) -> Result<Vec<PathBuf>, ErrorMessage> {
+        let res = Connector::subpaths(&*self.connector.lock().await).await;
         Ok(res?)
     }
 
@@ -157,6 +164,10 @@ impl<C: Connector> TarpcConnector for C {
 
     async fn list(self, _context: ::tarpc::context::Context, subpath: PathBuf) -> Result<Vec<PathBuf>, ErrorMessage> {
         Ok(Connector::list(&self, &subpath).await?)
+    }
+
+    async fn subpaths(self, _context: ::tarpc::context::Context) -> Result<Vec<PathBuf>, ErrorMessage> {
+        Ok(Connector::subpaths(&self).await?)
     }
 
     async fn get(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<Option<GetResourceOutput>, ErrorMessage> {
@@ -254,7 +265,7 @@ fn context_1m_deadline() -> tarpc::context::Context {
 
 #[async_trait]
 impl Connector for TarpcConnectorClient {
-    async fn new(_name: &str, _prefix: &Path, _outbox: ConnectorOutbox) -> Result<Box<dyn Connector>, anyhow::Error> {
+    async fn new(_name: &str, _prefix: &Path, _outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
         bail!("TarpcConnectorClient::new() is a stub!")
     }
 
@@ -270,6 +281,11 @@ impl Connector for TarpcConnectorClient {
 
     async fn list(&self, subpath: &Path) -> Result<Vec<PathBuf>, anyhow::Error> {
         let res = self.list(context_100m_deadline(), subpath.to_path_buf()).await;
+        Ok(res??)
+    }
+
+    async fn subpaths(&self) -> Result<Vec<PathBuf>, anyhow::Error> {
+        let res = self.subpaths(context_10m_deadline()).await;
         Ok(res??)
     }
 

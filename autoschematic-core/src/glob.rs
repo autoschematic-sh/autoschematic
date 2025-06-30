@@ -6,58 +6,80 @@ mod tests {
 
     #[test]
     fn test_addr_matches_filter_exact_match() {
-        let prefix = Path::new("some/prefix");
         let addr = Path::new("aws/iam/user/jon.ron");
-        let filter = Path::new("some/prefix/aws/iam/user/jon.ron");
-        assert_eq!(addr_matches_filter(prefix, addr, filter), true);
+        let filter = Path::new("./aws/iam/user/jon.ron");
+        assert_eq!(addr_matches_filter(addr, filter), true);
     }
 
     #[test]
     fn test_addr_matches_filter_prefix_match() {
-        let prefix = Path::new("some/prefix");
         let addr = Path::new("aws/iam/user/jon.ron");
-        let filter = Path::new("some/prefix");
-        assert_eq!(addr_matches_filter(prefix, addr, filter), true);
+        let filter = Path::new("./");
+        assert_eq!(addr_matches_filter(addr, filter), true);
     }
 
     #[test]
     fn test_addr_matches_filter_parent_prefix_match() {
-        let prefix = Path::new("some/prefix");
         let addr = Path::new("aws/iam/user/jon.ron");
-        let filter = Path::new("./some/*");
-        assert_eq!(addr_matches_filter(prefix, addr, filter), true);
+        let filter = Path::new("./aws/*");
+        assert_eq!(addr_matches_filter(addr, filter), true);
     }
 
     #[test]
-    fn test_addr_matches_filter_no_match() {
-        let prefix = Path::new("another/prefix");
+    fn test_addr_matches_filter_parent() {
         let addr = Path::new("aws/iam/user/jon.ron");
-        let filter = Path::new("some/./");
-        assert_eq!(addr_matches_filter(prefix, addr, filter), false);
+        let filter = Path::new("./aws/");
+        assert_eq!(addr_matches_filter(addr, filter), true);
+    }
+
+    #[test]
+    fn test_addr_matches_filter_region() {
+        let addr = Path::new("./aws/vpc/us-east-1/vpcs/main.ron");
+        let filter = Path::new("aws/vpc/us-east-1");
+        assert_eq!(addr_matches_filter(addr, filter), true);
+    }
+
+    #[test]
+    fn test_addr_matches_filter_wrong_region() {
+        let addr = Path::new("aws/vpc/us-east-1/vpcs/main.ron");
+        let filter = Path::new("./aws/vpc/us-east-2");
+        assert_eq!(addr_matches_filter(addr, filter), false);
+    }
+
+    #[test]
+    fn test_addr_matches_filter_region_wildcard() {
+        let addr = Path::new("./aws/vpc/us-east-1/vpcs/main.ron");
+        let filter = Path::new("aws/vpc/*/vpcs");
+        assert_eq!(addr_matches_filter(addr, filter), true);
+    }
+
+
+    #[test]
+    fn test_addr_matches_filter_no_match() {
+        let addr = Path::new("aws/iam/user/jon.ron");
+        let filter = Path::new("aws/vpc/./");
+        assert_eq!(addr_matches_filter(addr, filter), false);
     }
 
     #[test]
     fn test_addr_matches_filter_wildcard_match() {
-        let prefix = Path::new("some/prefix");
         let addr = Path::new("aws/iam/user/jon.ron");
-        let filter = Path::new("*/*/aws");
-        assert_eq!(addr_matches_filter(prefix, addr, filter), true);
+        let filter = Path::new("*/*/user");
+        assert_eq!(addr_matches_filter(addr, filter), true);
     }
 
     #[test]
     fn test_addr_matches_filter_wildcard_mismatch() {
-        let prefix = Path::new("some/prefix");
         let addr = Path::new("aws/iam/user/jon.ron");
         let filter = Path::new("*/iam/user/other");
-        assert_eq!(addr_matches_filter(prefix, addr, filter), false);
+        assert_eq!(addr_matches_filter(addr, filter), false);
     }
 
     #[test]
     fn test_addr_matches_filter_wildcard_at_start() {
-        let prefix = Path::new("some/prefix");
         let addr = Path::new("aws/iam/user/jon.ron");
-        let filter = Path::new("*/*/aws/iam/user/jon.ron");
-        assert_eq!(addr_matches_filter(prefix, addr, filter), true);
+        let filter = Path::new("*/*/user/jon.ron");
+        assert_eq!(addr_matches_filter(addr, filter), true);
     }
 }
 
@@ -76,26 +98,16 @@ mod tests {
 /// addr_matches_filter("another/prefix". "aws/iam/user/jon.ron", "*/prefix") -> true
 ///
 /// addr_matches_filter("some/prefix". "aws/iam/user/jon.ron", "*/\*/aws") -> true
-pub fn addr_matches_filter(prefix: &Path, addr: &Path, filter: &Path) -> bool {
-    let full_path = prefix.join(addr);
-
-    let full_path_components: Vec<Component<'_>> = full_path
-        .components()
-        .filter(|c| *c != Component::CurDir)
-        .collect();
-    let filter_components: Vec<Component<'_>> = filter
-        .components()
-        .filter(|c| *c != Component::CurDir)
-        .collect();
+pub fn addr_matches_filter(addr: &Path, filter: &Path) -> bool {
+    let full_path_components: Vec<Component<'_>> = addr.components().filter(|c| *c != Component::CurDir).collect();
+    let filter_components: Vec<Component<'_>> = filter.components().filter(|c| *c != Component::CurDir).collect();
 
     // Filter can't possibly match.
     if filter_components.len() > full_path_components.len() {
         return false;
     }
 
-    for (full_path_component, filter_component) in
-        full_path_components.iter().zip(filter_components)
-    {
+    for (full_path_component, filter_component) in full_path_components.iter().zip(filter_components) {
         match (full_path_component, filter_component) {
             (Component::Normal(full), Component::Normal(filter)) => {
                 if *full == filter {

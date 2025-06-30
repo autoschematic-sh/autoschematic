@@ -15,7 +15,7 @@ use crate::{
 
 pub async fn plan_connector(
     connector_shortname: &str,
-    connector: &Box<dyn Connector>,
+    connector: Arc<dyn Connector>,
     prefix: &Path,
     virt_addr: &Path,
 ) -> Result<Option<PlanReport>, anyhow::Error> {
@@ -178,7 +178,7 @@ pub async fn plan(
             });
 
             if connector_cache.filter(&connector_def.shortname, &prefix, &virt_addr).await? == FilterOutput::Resource {
-                let plan_report = plan_connector(&connector_def.shortname, &connector, &prefix, &virt_addr).await?;
+                let plan_report = plan_connector(&connector_def.shortname, connector, &prefix, &virt_addr).await?;
                 return Ok(plan_report);
             }
 

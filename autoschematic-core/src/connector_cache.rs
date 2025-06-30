@@ -24,7 +24,7 @@ pub struct ConnectorCache {
     // TODO when we run different connectors init() in parallel, we're fine. But we were to run the same init() in parallel,
     // we'd currently end up initializing two instances and only writing the second one under this scheme.
     // TODO: make this a map of <HashKey, RwLock<...>> or similar, and let consumers instead block on read() until the background init holding write() is finished!
-    cache: Arc<DashMap<HashKey, (Arc<Box<dyn Connector>>, ConnectorInbox)>>,
+    cache: Arc<DashMap<HashKey, (Arc<dyn Connector>, ConnectorInbox)>>,
     /// Used to cache the results of Connector::filter(addr), which are assumed to be
     /// static. Since filter() is the most common call, this can speed up workflows by
     /// avoiding calling out to the connectors so many times.
@@ -35,7 +35,7 @@ pub struct ConnectorCache {
 /// A ConnectorCache represents a handle to multiple Connector instances. The server, CLI, and LSP
 /// implementations all use a ConnectorCache to initialize connectors on-demand.
 impl ConnectorCache {
-    pub async fn get_connector(&self, name: &str, prefix: &Path) -> Option<(Arc<Box<dyn Connector>>, ConnectorInbox)> {
+    pub async fn get_connector(&self, name: &str, prefix: &Path) -> Option<(Arc<dyn Connector>, ConnectorInbox)> {
         let key = (name.into(), prefix.into());
         if let Some(entry) = self.cache.get(&key) {
             let (connector, inbox) = &*entry;
@@ -52,7 +52,7 @@ impl ConnectorCache {
         prefix: &Path,
         env: &HashMap<String, String>,
         keystore: Option<Arc<dyn KeyStore>>,
-    ) -> Result<(Arc<Box<dyn Connector>>, ConnectorInbox), AutoschematicError> {
+    ) -> Result<(Arc<dyn Connector>, ConnectorInbox), AutoschematicError> {
         let key = (name.into(), prefix.into());
 
         if !self.cache.contains_key(&key) {

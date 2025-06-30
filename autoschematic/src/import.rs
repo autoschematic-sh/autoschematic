@@ -1,10 +1,9 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use autoschematic_core::{
-    connector_cache::ConnectorCache, workflow::import::ImportMessage,
-};
+use autoschematic_core::{connector_cache::ConnectorCache, workflow::import::ImportMessage};
 use crossterm::style::Stylize;
 use dialoguer::MultiSelect;
+use tokio::sync::Semaphore;
 
 use crate::config::load_autoschematic_config;
 
@@ -86,39 +85,60 @@ pub async fn import(
     }
 
     eprintln!("Starting import. This may take a while!");
-    
-    let (sender, mut receiver) = tokio::sync::mpsc::channel(64);
-    
-    let reader_handle = tokio::spawn(async move {
-        loop {
-            match receiver.recv().await {
-                Some(msg) => match msg {
-                    ImportMessage::SkipExisting(path_buf) => {
-                    }
-                    ImportMessage::StartGet(path_buf) => {
-                    }
-                    ImportMessage::GetSuccess(path_buf) => {
-                    }
-                }
-                None => break
-            }
-        }
-    });
 
     for (prefix_name, connector_names) in connector_selections {
         for connector_name in connector_names {
-            eprintln!("{prefix_name}, {connector_name}");
+            let (sender, mut receiver) = tokio::sync::mpsc::channel(64);
+            let reader_handle = {
+                let prefix_name = prefix_name.clone();
+                let connector_name = connector_name.clone();
+                tokio::spawn(async move {
+                    loop {
+                        match receiver.recv().await {
+                            Some(msg) => match msg {
+                                ImportMessage::StartImport { subpath } => {
+                                    eprintln!(
+                                        "{}: Starting import under {}/{}",
+                                        &connector_name,
+                                        &prefix_name.clone().dark_grey(),
+                                        subpath.display()
+                                    )
+                                }
+                                ImportMessage::SkipExisting { prefix, addr } => {
+                                    eprintln!(
+                                        " ∋ Skipping {}/{} (already exists)",
+                                        prefix.to_string_lossy().dark_grey(),
+                                        addr.display()
+                                    )
+                                }
+                                ImportMessage::StartGet { prefix, addr } => {}
+                                ImportMessage::GetSuccess { prefix, addr } => {
+                                    eprintln!(" ⋉ Imported {}/{}", &prefix_name.clone().dark_grey(), addr.display())
+                                }
+                                ImportMessage::WroteFile { path } => {}
+                                ImportMessage::NotFound { prefix, addr } => {}
+                            },
+                            None => break,
+                        }
+                    }
+                })
+            };
+
+            let semaphore = Arc::new(Semaphore::new(10));
             let import_counts = autoschematic_core::workflow::import::import_all(
                 &config,
                 &connector_cache,
                 keystore.clone(),
-                sender.clone(),
+                sender,
+                semaphore,
                 subpath.clone(),
                 Some(prefix_name.clone()),
                 Some(connector_name.clone()),
                 overwrite,
             )
             .await?;
+
+            reader_handle.await?;
         }
     }
 

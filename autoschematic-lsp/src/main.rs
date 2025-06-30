@@ -431,6 +431,7 @@ impl Backend {
                 });
             }
         }
+        while let Some(_) = joinset.join_next().await {}
         Ok(())
     }
 

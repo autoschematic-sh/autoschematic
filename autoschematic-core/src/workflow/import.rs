@@ -1,7 +1,13 @@
-use std::{path::{Path, PathBuf}, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::Context;
-use tokio::sync::broadcast::error::RecvError;
+use tokio::{
+    sync::{Semaphore, broadcast::error::RecvError},
+    task::JoinSet,
+};
 
 use crate::{
     config::AutoschematicConfig,
@@ -10,12 +16,17 @@ use crate::{
     error::AutoschematicError,
     glob::addr_matches_filter,
     keystore::KeyStore,
+    workflow::get,
 };
 
+#[derive(Debug)]
 pub enum ImportMessage {
-    SkipExisting(PathBuf),
-    StartGet(PathBuf),
-    GetSuccess(PathBuf),
+    StartImport { subpath: PathBuf },
+    SkipExisting { prefix: PathBuf, addr: PathBuf },
+    StartGet { prefix: PathBuf, addr: PathBuf },
+    WroteFile { path: PathBuf },
+    GetSuccess { prefix: PathBuf, addr: PathBuf },
+    NotFound { prefix: PathBuf, addr: PathBuf },
 }
 
 pub type ImportOutbox = tokio::sync::mpsc::Sender<ImportMessage>;
@@ -23,11 +34,12 @@ pub type ImportInbox = tokio::sync::mpsc::Sender<ImportMessage>;
 
 pub async fn import_resource(
     connector_shortname: &str,
-    connector: &Box<dyn Connector>,
+    connector: Arc<dyn Connector>,
+    outbox: ImportOutbox,
     prefix: &Path,
     phy_addr: &Path,
     overwrite_existing: bool,
-) -> Result<bool, anyhow::Error> {
+) -> anyhow::Result<()> {
     let phy_addr = if phy_addr.is_absolute() {
         phy_addr.strip_prefix("/")?
     } else {
@@ -42,14 +54,33 @@ pub async fn import_resource(
     let virt_path = prefix.join(&virt_addr);
 
     if virt_path.exists() && !overwrite_existing {
-        eprintln!("\u{1b}[92m [SKIP] \u{1b}[39m {} (already exists)", virt_path.display());
+        outbox
+            .send(ImportMessage::SkipExisting {
+                prefix: prefix.to_path_buf(),
+                addr: virt_addr.to_path_buf(),
+            })
+            .await?;
     } else if phy_path.exists() && !overwrite_existing {
-        // Here, the physical address returned by list() already
-        // has a corresponding file in the repo.
-        // tracing::info!("import: already exists at path: {:?}", path);
-        eprintln!("\u{1b}[92m [SKIP] \u{1b}[39m {} (already exists)", phy_path.display());
+        outbox
+            .send(ImportMessage::SkipExisting {
+                prefix: prefix.to_path_buf(),
+                addr: phy_addr.to_path_buf(),
+            })
+            .await?;
     } else if phy_out_path.exists() && !overwrite_existing {
+        outbox
+            .send(ImportMessage::SkipExisting {
+                prefix: prefix.to_path_buf(),
+                addr: phy_addr.to_path_buf(),
+            })
+            .await?;
     } else if virt_out_path.exists() && !overwrite_existing {
+        outbox
+            .send(ImportMessage::SkipExisting {
+                prefix: prefix.to_path_buf(),
+                addr: virt_addr.to_path_buf(),
+            })
+            .await?;
     } else {
         tracing::info!("import at path: {:?}", virt_path);
 
@@ -58,45 +89,60 @@ pub async fn import_resource(
             .await
             .context(format!("{}::get()", connector_shortname))?
         {
-            // Dump the found resource to a string and commit and push!
             Some(get_resource_output) => {
-                let body = get_resource_output.resource_definition;
-                let res_path = prefix.join(&virt_addr);
+                outbox
+                    .send(ImportMessage::GetSuccess {
+                        prefix: prefix.to_path_buf(),
+                        addr: virt_addr.to_path_buf(),
+                    })
+                    .await?;
 
-                if let Some(parent) = res_path.parent() {
-                    tokio::fs::create_dir_all(parent).await?;
+                let wrote_files = get_resource_output.write(prefix, phy_addr, &virt_addr).await?;
+                for wrote_file in wrote_files {
+                    outbox.send(ImportMessage::WroteFile { path: wrote_file }).await?;
                 }
-                // tokio::fs::wr
-                //
-                eprintln!("\u{1b}[92m [PULL] \u{1b}[39m {}", res_path.display());
-                tokio::fs::write(&res_path, body).await?;
+                // let body = get_resource_output.resource_definition;
+                // let res_path = prefix.join(&virt_addr);
 
-                // let mut index = repo.index()?;
+                // if let Some(parent) = res_path.parent() {
+                //     tokio::fs::create_dir_all(parent).await?;
+                // }
+                // // tokio::fs::wr
+                // //
+                // eprintln!("\u{1b}[92m [PULL] \u{1b}[39m {}", res_path.display());
+                // tokio::fs::write(&res_path, body).await?;
 
-                // index.add_all([res_path], IndexAddOption::default(), None)?;
-                // index.write()?;
+                // // let mut index = repo.index()?;
 
-                if let Some(outputs) = get_resource_output.outputs {
-                    if !outputs.is_empty() {
+                // // index.add_all([res_path], IndexAddOption::default(), None)?;
+                // // index.write()?;
 
-                        let output_map_file = OutputMapFile::OutputMap(outputs);
-                        output_map_file.write(prefix, &virt_addr)?;
+                // if let Some(outputs) = get_resource_output.outputs {
+                //     if !outputs.is_empty() {
+                //         let output_map_file = OutputMapFile::OutputMap(outputs);
+                //         output_map_file.write(prefix, &virt_addr)?;
 
-                        if virt_addr != phy_addr {
-                            OutputMapFile::write_link(prefix, phy_addr, &virt_addr)?;
-                        }
-                    }
-                }
+                //         if virt_addr != phy_addr {
+                //             OutputMapFile::write_link(prefix, phy_addr, &virt_addr)?;
+                //         }
+                //     }
+                // }
 
-                return Ok(true);
+                // return Ok(true);
             }
             None => {
+                outbox
+                    .send(ImportMessage::NotFound {
+                        prefix: prefix.to_path_buf(),
+                        addr: phy_addr.to_path_buf(),
+                    })
+                    .await?;
                 tracing::error!("No remote resource at addr:{:?} path: {:?}", phy_addr, virt_path);
                 // TODO bail on an error here, this indicates a probable connector bug!
             }
         }
     }
-    Ok(false)
+    Ok(())
 }
 
 pub async fn import_complete() {}
@@ -106,6 +152,7 @@ pub async fn import_all(
     connector_cache: &ConnectorCache,
     keystore: Option<Arc<dyn KeyStore>>,
     outbox: ImportOutbox,
+    semaphore: Arc<Semaphore>,
     subpath: Option<PathBuf>,
     prefix_filter: Option<String>,
     connector_filter: Option<String>,
@@ -119,6 +166,9 @@ pub async fn import_all(
     let mut imported_count: usize = 0;
     // Number of resources found
     let mut total_count: usize = 0;
+
+    // Represents the joinset for each list() operation.
+    let mut subpath_joinset: JoinSet<anyhow::Result<Vec<PathBuf>>> = JoinSet::new();
 
     for (prefix_name, prefix) in &autoschematic_config.prefixes {
         if let Some(prefix_filter) = &prefix_filter {
@@ -160,49 +210,88 @@ pub async fn import_all(
                 }
             });
 
-            let phy_addrs = connector.list(&subpath.clone()).await.context(format!(
-                "{}::list({})",
-                connector_def.shortname,
-                subpath.to_str().unwrap_or_default()
-            ))?;
+            let connector_subpaths = connector
+                .subpaths()
+                .await
+                .context(format!("{}::subpaths()", connector_def.shortname,))?;
 
-            'phy_addr: for phy_addr in phy_addrs {
-                if !addr_matches_filter(&prefix_name, &phy_addr, &subpath) {
-                    continue 'phy_addr;
+            // Represents the joinset for each import operation.
+            let mut import_joinset: JoinSet<anyhow::Result<()>> = JoinSet::new();
+
+            for connector_subpath in connector_subpaths {
+                // Here, we convert the requested subpath into the orthogonal
+                // sub-address-space as supported by the connector - but only
+                // if the requested subpath is within that subspace.
+                if !(addr_matches_filter(&connector_subpath, &subpath) || addr_matches_filter(&subpath, &connector_subpath)) {
+                    continue;
                 }
 
-                // Skip files that already exist in other resource groups.
-                if let Some(ref resource_group) = prefix.resource_group {
-                    if let Some(neighbour_prefixes) = resource_group_map.get(resource_group) {
-                        // get all prefixes in this resource group except our own
-                        for neighbour_prefix in neighbour_prefixes.iter().filter(|p| **p != prefix_name) {
-                            if neighbour_prefix.join(&phy_addr).exists() {
-                                continue 'phy_addr;
-                            }
+                outbox
+                    .send(ImportMessage::StartImport {
+                        subpath: connector_subpath.clone(),
+                    })
+                    .await?;
 
-                            if OutputMapFile::path(neighbour_prefix, &phy_addr).exists() {
-                                continue 'phy_addr;
+                let connector_shortname = connector_def.shortname.clone();
+                let subpath_connector = connector.clone();
+                subpath_joinset.spawn(async move {
+                    subpath_connector.list(&connector_subpath).await.context(format!(
+                        "{}::list({})",
+                        connector_shortname,
+                        connector_subpath.display()
+                    ))
+                });
+
+                while let Some(res) = subpath_joinset.join_next().await {
+                    let phy_addrs = res??;
+                    'phy_addr: for phy_addr in phy_addrs {
+                        if !addr_matches_filter(&phy_addr, &subpath) {
+                            continue 'phy_addr;
+                        }
+
+                        // Skip files that already exist in other resource groups.
+                        if let Some(ref resource_group) = prefix.resource_group {
+                            if let Some(neighbour_prefixes) = resource_group_map.get(resource_group) {
+                                // get all prefixes in this resource group except our own
+                                for neighbour_prefix in neighbour_prefixes.iter().filter(|p| **p != prefix_name) {
+                                    if neighbour_prefix.join(&phy_addr).exists() {
+                                        continue 'phy_addr;
+                                    }
+
+                                    if OutputMapFile::path(neighbour_prefix, &phy_addr).exists() {
+                                        continue 'phy_addr;
+                                    }
+                                }
                             }
                         }
+
+                        let prefix_name = prefix_name.clone();
+                        let outbox = outbox.clone();
+                        let connector_shortname = connector_def.shortname.clone();
+                        let connector = connector.clone();
+                        // let autoschematic_config = autoschematic_config.clone();
+                        // let keystore = keystore.clone();
+                        import_joinset.spawn(async move {
+                            import_resource(
+                                &connector_shortname,
+                                connector,
+                                outbox,
+                                &prefix_name,
+                                &phy_addr,
+                                overwrite_existing,
+                            )
+                            .await?;
+                            Ok(())
+                        });
                     }
                 }
-
-                let res = import_resource(
-                    &connector_def.shortname,
-                    &connector,
-                    &prefix_name,
-                    &phy_addr,
-                    overwrite_existing,
-                )
-                .await?;
-                if res {
-                    imported_subcount += 1;
-                    imported_count += 1;
-                }
-                total_count += 1;
             }
+
+            while let Some(res) = import_joinset.join_next().await {}
         }
     }
+
+    while let Some(res) = subpath_joinset.join_next().await {}
 
     Ok((imported_count, total_count))
 }

@@ -7,8 +7,8 @@ use std::{
 use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;
 use anyhow::Context;
-use autoschematic_core::report::{PlanReport, PlanReportSet};
 use autoschematic_core::connector::FilterOutput;
+use autoschematic_core::report::{PlanReport, PlanReportSet};
 use autoschematic_core::{
     connector::{Connector, VirtToPhyOutput},
     glob::addr_matches_filter,
@@ -65,7 +65,7 @@ impl ChangeSet {
                     if global_addr.starts_with(&prefix_name) {
                         if let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name) {
                             // If this address is not under `subpath`, skip it.
-                            return addr_matches_filter(&PathBuf::from(&prefix_name), virt_addr, &subpath);
+                            return addr_matches_filter(virt_addr, &subpath);
                         }
                     }
                     false

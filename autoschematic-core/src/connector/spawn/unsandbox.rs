@@ -1,5 +1,10 @@
 use std::{
-    collections::HashMap, path::{Path, PathBuf}, process::Stdio, sync::Arc, thread::JoinHandle, time::SystemTime
+    collections::HashMap,
+    path::{Path, PathBuf},
+    process::Stdio,
+    sync::Arc,
+    thread::JoinHandle,
+    time::SystemTime,
 };
 
 use crate::{
@@ -69,7 +74,7 @@ fn random_error_dump_path() -> PathBuf {
 
 #[async_trait]
 impl Connector for UnsandboxConnectorHandle {
-    async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Box<dyn Connector>, anyhow::Error> {
+    async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
         <TarpcConnectorClient as Connector>::new(name, prefix, outbox).await
     }
     async fn init(&self) -> Result<(), anyhow::Error> {
@@ -82,6 +87,10 @@ impl Connector for UnsandboxConnectorHandle {
 
     async fn list(&self, subpath: &Path) -> anyhow::Result<Vec<PathBuf>> {
         Connector::list(&self.client, subpath).await
+    }
+
+    async fn subpaths(&self) -> anyhow::Result<Vec<PathBuf>> {
+        Connector::subpaths(&self.client).await
     }
 
     async fn get(&self, addr: &Path) -> Result<Option<GetResourceOutput>, anyhow::Error> {
@@ -241,7 +250,7 @@ pub async fn launch_server_binary(
     if let Some(mut pre_command) = pre_command {
         eprintln!("Running {:?}", pre_command);
         let output = pre_command.stdin(Stdio::inherit()).stdout(Stdio::inherit()).output().await?;
-        
+
         if !output.status.success() {
             bail!("Pre-command failed: {:?}: {}", pre_command, output.status)
         }

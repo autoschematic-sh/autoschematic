@@ -13,7 +13,7 @@ use crate::{
 
 pub async fn apply_connector(
     connector_shortname: &str,
-    connector: &Box<dyn Connector>,
+    connector: Arc<dyn Connector>,
     plan: &PlanReport,
 ) -> anyhow::Result<Option<ApplyReport>> {
     let mut apply_report = ApplyReport::default();
@@ -88,7 +88,6 @@ pub async fn apply(
         return Ok(None);
     };
 
-    // let mut joinset: JoinSet<anyhow::Result<Option<PlanReport>>> = JoinSet::new();
 
     'connector: for connector_def in &prefix_def.connectors {
         if let Some(connector_filter) = &connector_filter {
@@ -129,7 +128,7 @@ pub async fn apply(
             .await?
             == FilterOutput::Resource
         {
-            let apply_report = apply_connector(&connector_def.shortname, &connector, plan_report).await?;
+            let apply_report = apply_connector(&connector_def.shortname, connector, plan_report).await?;
             return Ok(apply_report);
         }
     }

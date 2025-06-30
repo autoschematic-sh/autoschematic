@@ -4,6 +4,7 @@ use std::{
     fs::File,
     io::BufReader,
     path::{Component, Path, PathBuf},
+    sync::Arc,
 };
 
 use anyhow::bail;
@@ -248,6 +249,39 @@ pub struct GetResourceOutput {
     pub outputs: Option<OutputMap>,
 }
 
+impl GetResourceOutput {
+    /// Write the contents of this GetResourceOutput to disk. Assumes that the caller has the current
+    /// directory set to the repo root.
+    /// Returns a Vec of the file paths that were actually written.
+    pub async fn write(self, prefix: &Path, phy_addr: &Path, virt_addr: &Path) -> anyhow::Result<Vec<PathBuf>> {
+        let mut res = Vec::new();
+
+        let body = self.resource_definition;
+        let res_path = prefix.join(&virt_addr);
+
+        if let Some(parent) = res_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+
+        tokio::fs::write(&res_path, body).await?;
+
+        res.push(res_path);
+
+        if let Some(outputs) = self.outputs {
+            if !outputs.is_empty() {
+                let output_map_file = OutputMapFile::OutputMap(outputs);
+                res.push(output_map_file.write(prefix, &virt_addr)?);
+
+                if virt_addr != phy_addr {
+                    res.push(OutputMapFile::write_link(prefix, phy_addr, &virt_addr)?);
+                }
+            }
+        }
+
+        Ok(res)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// DocIdent represents the target of Connector::GetDocstring().
 /// It is used by connector implementations to determine which specific item to return documentation for,
@@ -362,7 +396,7 @@ pub trait Connector: Send + Sync {
     /// Attempt to create a new, uninitialized Connector mounted at `prefix`.
     /// Returns `dyn Connector` to allow implementations to dynamically select Connectors by name.
     /// Should not fail due to invalid config - Connector::init() should handle that.
-    async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Box<dyn Connector>, anyhow::Error>
+    async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error>
     where
         Self: Sized;
 
@@ -384,8 +418,27 @@ pub trait Connector: Send + Sync {
     /// Otherwise, return `FilterOutput::None`.
     async fn filter(&self, addr: &Path) -> Result<FilterOutput, anyhow::Error>;
 
-    /// List all "extant" (E.G., currently existing in AWS) object paths, whether they exist in local config or not
+    /// List all "extant" (E.G., currently existing in AWS, k8s, etc...) object paths, whether they exist in local config or not.
+    /// subpath is used to constrain the space of queried results.
+    /// The subpath "./" applies no constraint. Connectors may choose interpret subpath in order to 
+    /// avoid redundant queries, but there is no requirement that they do so.
+    /// Users of Connector::list() are responsible for doing the actual filtering of results according to subpath.
+    /// See [addr_matches_filter] for the implementation of that filtering.
     async fn list(&self, subpath: &Path) -> anyhow::Result<Vec<PathBuf>>;
+
+    /// Describes how the connector's list() implementation orthogonally subdivides the address space in order to
+    /// more efficiently parallelize imports spanning large address spaces.
+    /// For example, the AWS VPC connector's list() implementation might
+    /// return ["aws/vpc/us-east-1", "aws/vpc/us-east-2", ...]
+    /// in order to represent to the client that it can efficiently run parallel list() operations
+    /// under those subpaths. Then, the list() implementation must guarantee that it can
+    /// correctly parse and limit its querying to each subset of the address space.
+    /// The implementation could even be more fine-grained and return, for instance,
+    /// ["aws/vpc/us-east-1/vpcs", "aws/vpc/us-east-1/internet_gateways", "aws/vpc/us-east-2/vpcs", "aws/vpc/us-east-2/internet_gateways"]
+    /// if it can do even deeper parsing, but this example would likely see diminishing returns.
+    async fn subpaths(&self) -> anyhow::Result<Vec<PathBuf>> {
+        Ok(vec![PathBuf::from("./")])
+    }
 
     /// Get the current "real" state of the object at `addr`
     async fn get(&self, addr: &Path) -> Result<Option<GetResourceOutput>, anyhow::Error>;
@@ -537,8 +590,8 @@ pub trait ConnectorOp: Send + Sync + std::fmt::Debug {
 }
 
 #[async_trait]
-impl Connector for Box<dyn Connector> {
-    async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Box<dyn Connector>, anyhow::Error> {
+impl Connector for Arc<dyn Connector> {
+    async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
         return Self::new(name, prefix, outbox).await;
     }
 
@@ -552,6 +605,10 @@ impl Connector for Box<dyn Connector> {
 
     async fn list(&self, subpath: &Path) -> anyhow::Result<Vec<PathBuf>> {
         Connector::list(self.as_ref(), subpath).await
+    }
+
+    async fn subpaths(&self) -> anyhow::Result<Vec<PathBuf>> {
+        Connector::subpaths(self.as_ref()).await
     }
 
     async fn get(&self, addr: &Path) -> Result<Option<GetResourceOutput>, anyhow::Error> {

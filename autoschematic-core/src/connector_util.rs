@@ -147,15 +147,15 @@ pub fn read_mounted_secret(prefix: &Path, secret_ref: &str) -> anyhow::Result<St
     }
 }
 
-/// Connectors may save time in list() by avoiding fetching
-/// certain resource types if the subpath argument would filter them out
-/// from the results anyway. This is a utility function to check this case.
-/// If the subpath select
-/// For example:
-/// subpath_filter("aws/s3/us-east-1", "./") -> true
-/// subpath_filter("aws/s3/us-east-1", "aws/s3/eu-west-2") -> false
-/// subpath_filter("aws/s3/us-east-1", "aws/s3/us-east-1/buckets") -> true
-/// subpath_filter("aws/ecs/*/", "aws/s3/us-east-1/buckets") -> true
-pub fn subpath_filter(check_path: &Path, subpath: &Path) -> bool {
-    true
-}
+// Connectors may save time in list() by avoiding fetching
+// certain resource types if the subpath argument would filter them out
+// from the results anyway. This is a utility function to check this case.
+// If the subpath select
+// For example:
+// subpath_filter("aws/s3/us-east-1", "./") -> true
+// subpath_filter("aws/s3/us-east-1", "aws/s3/eu-west-2") -> false
+// subpath_filter("aws/s3/us-east-1", "aws/s3/us-east-1/buckets") -> true
+// subpath_filter("aws/ecs/*/", "aws/s3/us-east-1/buckets") -> true
+// pub fn subpath_filter(check_path: &Path, subpath: &Path) -> bool {
+//     true
+// }

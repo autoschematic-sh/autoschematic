@@ -74,7 +74,7 @@ impl ChangeSet {
                     .await
                     .context(format!("{}::get_skeletons()", connector_shortname))?;
                 for skeleton in skeletons {
-                    if !addr_matches_filter(&prefix_name.clone(), &skeleton.addr, &subpath) {
+                    if !addr_matches_filter(&skeleton.addr, &subpath) {
                         continue;
                     }
 

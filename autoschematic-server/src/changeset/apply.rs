@@ -121,7 +121,7 @@ impl ChangeSet {
                 let mut exec_error = None;
                 let report_phy_addr: Option<PathBuf> = None;
 
-                match workflow::apply::apply_connector(&plan_report.connector_shortname, &connector, plan_report).await {
+                match workflow::apply::apply_connector(&plan_report.connector_shortname, connector, plan_report).await {
                     Ok(Some(apply_report)) => apply_report_set.apply_reports.push(apply_report),
                     Ok(None) => continue,
                     Err(e) => exec_error = Some(e),

@@ -21,12 +21,9 @@ impl ReadOutput {
     }
 }
 
-// pub type OutputKey = (PathBuf, String);
-// pub type ReadOutputSet = HashMap<>;
 
-// For a given resource config definition,
-// pull out all of the uses of "out://some_file.ron[key]".
-//
+/// For a given resource config definition,
+/// pull out all of the uses of "out://some_file.ron[key]".
 pub fn get_read_outputs(config: &str) -> Vec<ReadOutput> {
     // This regex captures:
     // - Group 1: everything after "out://" until the first '[' (the filename)
