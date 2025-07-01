@@ -33,6 +33,8 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
             spinner_stop.send(()).unwrap();
             continue;
         };
+        
+        println!("{:#?}", plan_report);
 
         have_nonempty_plan = true;
 

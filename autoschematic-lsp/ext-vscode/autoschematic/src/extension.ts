@@ -217,7 +217,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 				try {
 					const remoteContent = await client.sendRequest(ExecuteCommandRequest.type, {
-						command: "get",
+						command: "get_untemplate",
 						arguments: [fileUri.path]
 					});
 
@@ -301,87 +301,87 @@ export async function activate(context: vscode.ExtensionContext) {
 		return filterResult;
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.plan', async () => {
-		const fileUri = vscode.window.activeTextEditor?.document.uri;
+	// context.subscriptions.push(vscode.commands.registerCommand('autoschematic.plan', async () => {
+	// 	const fileUri = vscode.window.activeTextEditor?.document.uri;
 
-		if (!fileUri) {
-			vscode.window.showErrorMessage('No file selected for plan');
-			return;
-		}
+	// 	if (!fileUri) {
+	// 		vscode.window.showErrorMessage('No file selected for plan');
+	// 		return;
+	// 	}
 
-		try {
-			const plan_report = await client.sendRequest(ExecuteCommandRequest.type, {
-				command: "plan",
-				arguments: [vscode.window.activeTextEditor?.document.fileName]
-			}).then(undefined, (error) => {
-				vscode.window.showErrorMessage(`Error executing plan command: ${error}`);
-			});
+	// 	try {
+	// 		const plan_report = await client.sendRequest(ExecuteCommandRequest.type, {
+	// 			command: "plan",
+	// 			arguments: [vscode.window.activeTextEditor?.document.fileName]
+	// 		}).then(undefined, (error) => {
+	// 			vscode.window.showErrorMessage(`Error executing plan command: ${error}`);
+	// 		});
 
-			const remoteUri = fileUri.with({ scheme: 'autoschematic-plan', path: fileUri.path + '.json' });
+	// 		const remoteUri = fileUri.with({ scheme: 'autoschematic-plan', path: fileUri.path + '.json' });
 
-			const diffTitle = `Autoschematic plan: ${fileUri.path.split('/').pop()}`;
+	// 		const diffTitle = `Autoschematic plan: ${fileUri.path.split('/').pop()}`;
 
-			const provider = await vscode.workspace.registerTextDocumentContentProvider('autoschematic-plan', {
-				provideTextDocumentContent(uri: vscode.Uri): string {
-					// vscode.window.showErrorMessage("plan: " + plan);
-					return JSON.stringify(plan_report, null, 2);
-				}
-			});
+	// 		const provider = await vscode.workspace.registerTextDocumentContentProvider('autoschematic-plan', {
+	// 			provideTextDocumentContent(uri: vscode.Uri): string {
+	// 				// vscode.window.showErrorMessage("plan: " + plan);
+	// 				return JSON.stringify(plan_report, null, 2);
+	// 			}
+	// 		});
 
-			context.subscriptions.push(provider);
+	// 		context.subscriptions.push(provider);
 
-			// Open the diff editor
-			await vscode.window.showTextDocument(
-				remoteUri,
-			);
-		} catch (error) {
-			vscode.window.showErrorMessage(`Error comparing with remote: ${error}`);
-		}
-	}));
+	// 		// Open the diff editor
+	// 		await vscode.window.showTextDocument(
+	// 			remoteUri,
+	// 		);
+	// 	} catch (error) {
+	// 		vscode.window.showErrorMessage(`Error comparing with remote: ${error}`);
+	// 	}
+	// }));
 
-	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.apply', async () => {
-		const fileUri = vscode.window.activeTextEditor?.document.uri;
+	// context.subscriptions.push(vscode.commands.registerCommand('autoschematic.apply', async () => {
+	// 	const fileUri = vscode.window.activeTextEditor?.document.uri;
 
-		if (!fileUri) {
-			vscode.window.showErrorMessage('No file selected for apply');
-			return;
-		}
+	// 	if (!fileUri) {
+	// 		vscode.window.showErrorMessage('No file selected for apply');
+	// 		return;
+	// 	}
 
-		try {
-			const apply_report = await client.sendRequest(ExecuteCommandRequest.type, {
-				command: "apply",
-				arguments: [vscode.window.activeTextEditor?.document.fileName]
-			}).then(undefined, (error) => {
-				vscode.window.showErrorMessage(`Error executing apply command: ${error}`);
-			});
+	// 	try {
+	// 		const apply_report = await client.sendRequest(ExecuteCommandRequest.type, {
+	// 			command: "apply",
+	// 			arguments: [vscode.window.activeTextEditor?.document.fileName]
+	// 		}).then(undefined, (error) => {
+	// 			vscode.window.showErrorMessage(`Error executing apply command: ${error}`);
+	// 		});
 
-			const remoteUri = fileUri.with({ scheme: 'autoschematic-remote', path: fileUri.path });
+	// 		const remoteUri = fileUri.with({ scheme: 'autoschematic-remote', path: fileUri.path });
 
-			const diffTitle = `Autoschematic apply: ${fileUri.path.split('/').pop()}`;
+	// 		const diffTitle = `Autoschematic apply: ${fileUri.path.split('/').pop()}`;
 
-			const provider = vscode.workspace.registerTextDocumentContentProvider('autoschematic-remote', {
-				provideTextDocumentContent(uri: vscode.Uri): string {
-					return JSON.stringify(apply_report, null, 2);
-					// return plan;
-				}
-			});
+	// 		const provider = vscode.workspace.registerTextDocumentContentProvider('autoschematic-remote', {
+	// 			provideTextDocumentContent(uri: vscode.Uri): string {
+	// 				return JSON.stringify(apply_report, null, 2);
+	// 				// return plan;
+	// 			}
+	// 		});
 
-			context.subscriptions.push(provider);
+	// 		context.subscriptions.push(provider);
 
-			vscode.window.showTextDocument(
-				remoteUri,
-			);
-			// // Open the diff editor
-			// vscode.commands.executeCommand('vscode.diff',
-			// 	fileUri, // Original file URI
-			// 	remoteUri, // Modified file URI (virtual)
-			// 	diffTitle, // Title for the diff editor
-			// 	{ preview: true } // Options
-			// );
-		} catch (error) {
-			vscode.window.showErrorMessage(`Error comparing with remote: ${error}`);
-		}
-	}));
+	// 		vscode.window.showTextDocument(
+	// 			remoteUri,
+	// 		);
+	// 		// // Open the diff editor
+	// 		// vscode.commands.executeCommand('vscode.diff',
+	// 		// 	fileUri, // Original file URI
+	// 		// 	remoteUri, // Modified file URI (virtual)
+	// 		// 	diffTitle, // Title for the diff editor
+	// 		// 	{ preview: true } // Options
+	// 		// );
+	// 	} catch (error) {
+	// 		vscode.window.showErrorMessage(`Error comparing with remote: ${error}`);
+	// 	}
+	// }));
 
 	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.pullRemoteState', async (uri) => {
 		// Extract the file path from the URI

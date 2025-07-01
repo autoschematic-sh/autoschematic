@@ -18,7 +18,7 @@ pub mod keystore;
 // pub mod lockfile;
 pub mod macros;
 pub mod manifest;
-pub mod read_outputs;
+pub mod template;
 pub mod report;
 pub mod secret;
 // pub mod grpc_bridge;

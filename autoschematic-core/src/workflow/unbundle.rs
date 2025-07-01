@@ -7,7 +7,7 @@ use crate::{
     connector::{Connector, FilterOutput, VirtToPhyOutput},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
-    read_outputs::template_config,
+    template::template_config,
     report::PlanReport,
     util::split_prefix_addr,
 };

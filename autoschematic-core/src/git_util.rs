@@ -268,6 +268,5 @@ pub fn get_staged_files() -> Result<Vec<PathBuf>, git2::Error> {
             }
         }
     }
-    eprintln!("{:?}", staged);
     Ok(staged)
 }

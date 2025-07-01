@@ -542,6 +542,7 @@ dependencies = [
  "sha2",
  "signature",
  "similar",
+ "strsim",
  "tarpc",
  "tokio",
  "tonic",
@@ -566,6 +567,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_path_to_error",
+ "strsim",
  "tokio",
  "tower-lsp-server",
 ]

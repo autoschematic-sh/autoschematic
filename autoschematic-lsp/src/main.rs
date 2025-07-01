@@ -12,6 +12,7 @@ use autoschematic_core::{
     connector::FilterOutput,
     connector_cache::ConnectorCache,
     manifest::ConnectorManifest,
+    template::{self, template_config},
     util::{RON, split_prefix_addr},
     workflow::{filter::filter, get::get, get_docstring::get_docstring, rename},
 };
@@ -23,7 +24,10 @@ use tokio::{sync::RwLock, task::JoinSet};
 use tower_lsp_server::{Client, LanguageServer, LspService, Server, jsonrpc::Error as LspError, lsp_types};
 use util::{diag_to_lsp, lsp_error, lsp_param_to_path};
 
-use crate::{reindent::reindent, util::lsp_param_to_rename_path};
+use crate::{
+    reindent::reindent,
+    util::{lsp_param_to_rename_path, map_lsp_error},
+};
 
 pub mod parse;
 pub mod path_at;
@@ -214,6 +218,36 @@ impl LanguageServer for Backend {
                         return Err(lsp_error(e.into()));
                     }
                 }
+            }
+            "get_untemplate" => {
+                let Some(path) = lsp_param_to_path(params) else {
+                    return Ok(None);
+                };
+
+                let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+                    return Ok(None);
+                };
+
+                let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &path) else {
+                    return Ok(None);
+                };
+
+                let remote_content = get(autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await;
+                let remote_content = match map_lsp_error(remote_content)? {
+                    Some(res) => map_lsp_error(String::from_utf8(res))?,
+                    None => return Ok(None),
+                };
+
+                let local_content = tokio::fs::read_to_string(prefix.join(addr)).await;
+                let local_content = map_lsp_error(local_content)?;
+
+                let comments = template::extract_comments(&local_content);
+                let reverse_templated = template::reverse_template_config(&prefix, &local_content, &remote_content, 8);
+                let reverse_templated = map_lsp_error(reverse_templated)?;
+
+                let result = template::apply_comments(reverse_templated, comments);
+
+                return Ok(Some(serde_json::to_value(result).unwrap()));
             }
             "filter" => {
                 let Some(path) = lsp_param_to_path(params) else {

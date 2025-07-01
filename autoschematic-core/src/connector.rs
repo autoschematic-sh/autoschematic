@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
 
-use crate::{bundle::BundleOutput, diag::DiagnosticOutput, read_outputs::ReadOutput, util::RON};
+use crate::{bundle::BundleOutput, diag::DiagnosticOutput, template::ReadOutput, util::RON};
 
 /// ConnectorOps output by Connector::plan() may declare a set of output values
 /// that they will set or delete on execution.

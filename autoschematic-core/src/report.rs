@@ -7,7 +7,7 @@ use crate::{
     config::Spec,
     connector::{OpExecOutput, OpPlanOutput},
     error::ErrorMessage,
-    read_outputs::ReadOutput,
+    template::ReadOutput,
 };
 use serde::{Deserialize, Serialize};
 //

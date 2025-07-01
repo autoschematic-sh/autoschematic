@@ -7,7 +7,7 @@ use autoschematic_core::connector::{FilterOutput, OutputMapFile};
 use autoschematic_core::{
     connector::{Connector, VirtToPhyOutput},
     glob::addr_matches_filter,
-    read_outputs::{ReadOutput, template_config},
+    template::{ReadOutput, template_config},
 };
 use git2::Repository;
 use octocrab::params::checks::{CheckRunConclusion, CheckRunStatus};

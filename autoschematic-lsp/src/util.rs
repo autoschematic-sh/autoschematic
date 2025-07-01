@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use autoschematic_core::diag::{DiagnosticOutput, DiagnosticSeverity};
 use lsp_types::ExecuteCommandParams;
-use tower_lsp_server::jsonrpc;
+use tower_lsp_server::jsonrpc::{self, ErrorCode};
 
 pub fn severity_to_lsp(severity: u8) -> Option<lsp_types::DiagnosticSeverity> {
     match severity {
@@ -49,10 +49,25 @@ pub fn lsp_bail(msg: &str) -> tower_lsp_server::jsonrpc::Error {
 }
 
 pub fn lsp_error(e: anyhow::Error) -> tower_lsp_server::jsonrpc::Error {
-    let mut err = jsonrpc::Error::internal_error();
-    let msg = format!("{}", e);
-    err.data = Some(serde_json::Value::String(msg));
-    err
+    // let mut err = jsonrpc::Error::internal_error();
+    // let msg = format!("{}", e);
+    // err.data = Some(serde_json::Value::String(msg));
+    // err
+
+    tower_lsp_server::jsonrpc::Error {
+        code: ErrorCode::InternalError,
+        message: e.to_string().into(),
+        data: None,
+    }
+}
+
+pub fn map_lsp_error<T, E: Into<anyhow::Error>>(
+    r: Result<T, E>,
+) -> Result<T, tower_lsp_server::jsonrpc::Error> {
+    match r {
+        Ok(t) => Ok(t),
+        Err(e) => Err(lsp_error(e.into())),
+    }
 }
 
 pub fn lsp_param_to_path(params: ExecuteCommandParams) -> Option<PathBuf> {

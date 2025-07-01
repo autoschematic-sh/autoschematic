@@ -8,8 +8,8 @@ use crate::{
     connector::{Connector, FilterOutput, VirtToPhyOutput},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
-    read_outputs::template_config,
     report::PlanReport,
+    template::template_config,
     util::split_prefix_addr,
 };
 
@@ -56,6 +56,7 @@ pub async fn plan_connector(
 
     let path = prefix.join(virt_addr);
 
+
     let connector_ops = if path.is_file() {
         // let desired = std::fs::read(&path)?;
         let desired_bytes = tokio::fs::read(&path).await?;
@@ -63,6 +64,8 @@ pub async fn plan_connector(
         match str::from_utf8(&desired_bytes) {
             Ok(desired) => {
                 let template_result = template_config(prefix, desired)?;
+
+                println!("plan: template_result = {:?}", template_result);
 
                 if !template_result.missing.is_empty() {
                     for read_output in template_result.missing {
@@ -164,7 +167,6 @@ pub async fn plan(
                 )
                 .await?;
 
-
             let _reader_handle = tokio::spawn(async move {
                 loop {
                     match inbox.recv().await {
@@ -181,7 +183,6 @@ pub async fn plan(
                 let plan_report = plan_connector(&connector_def.shortname, connector, &prefix, &virt_addr).await?;
                 return Ok(plan_report);
             }
-
             return Ok(None);
             // return connector;
         });
@@ -193,7 +194,7 @@ pub async fn plan(
     }
 
     while let Some(res) = joinset.join_next().await {
-        if let Ok(Ok(Some(plan_report))) = res {
+        if let Some(plan_report) = res?? {
             return Ok(Some(plan_report));
         }
     }
