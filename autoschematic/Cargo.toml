@@ -3,7 +3,7 @@ cargo-features = ["edition2024"]
 name = "autoschematic"
 description = "Command-line tools for Autoschematic"
 license = "MIT"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2024"
 
 [[bin]]
@@ -11,7 +11,7 @@ name = "autoschematic"
 path = "src/main.rs"
 
 [dependencies]
-autoschematic-core = { path = "../autoschematic-core", version = "0.6.0" }
+autoschematic-core = { path = "../autoschematic-core", version = "0.6.1" }
 ecdsa = "0.16.8"
 signature = "2.2.0"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
