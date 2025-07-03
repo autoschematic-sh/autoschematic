@@ -32,7 +32,7 @@ class RunTests(Command):
 
 setup(
     name="autoschematic_connector",
-    version="0.5.0",
+    version="0.6.0",
     description="Core classes and abstract interfaces for creating Autoschematic connectors in Python",
     long_description=long_description,
     url="https://github.com/autoschematic-sh/autoschematic",

@@ -77,7 +77,7 @@ async function handleRenameConfirm(oldPath: string, newPath: string, client: Lan
 				command: "rename",
 				arguments: [oldPath, newPath]
 			});
-			
+
 			console.log(result);
 
 			progress.report({ increment: 100, message: "Rename completed" });
@@ -387,7 +387,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Extract the file path from the URI
 		// The URI will be the autoschematic-remote URI, but we need the original file path
 		let filePath: string;
-		
+
 		if (uri && uri.scheme === 'autoschematic-remote') {
 			// Use the path from the remote URI (which should be the original file path)
 			filePath = uri.path;
@@ -419,13 +419,17 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.relaunch', () => {
-		client = new LanguageClient(
-			'autoschematicLsp',
-			'Autoschematic Language Server',
-			serverOptions,
-			clientOptions
-		);
+	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.relaunch', async () => {
+		client.restart()
+			.then(undefined, (error) => {
+				vscode.window.showErrorMessage(`Error restarting Autoschematic Language Server: ${error}`);
+			});
+		// client = new LanguageClient(
+		// 	'autoschematicLsp',
+		// 	'Autoschematic Language Server',
+		// 	serverOptions,
+		// 	clientOptions
+		// );
 		// client.sendRequest(ExecuteCommandRequest.type, {
 		// 	command: "relaunch",
 		// 	arguments: []
@@ -434,5 +438,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		// });
 	}));
 
-	await client.start();
+	client.start()
+		.then(undefined, (error) => {
+			vscode.window.showErrorMessage(`Error starting Autoschematic Language Server: ${error}`);
+		});
 }

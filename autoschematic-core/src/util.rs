@@ -94,8 +94,8 @@ lazy_static::lazy_static! {
 }
 
 pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &[u8], b: &[u8]) -> Result<bool, anyhow::Error> {
-    let a = str::from_utf8(a)?;
-    let b = str::from_utf8(b)?;
+    let a = std::str::from_utf8(a)?;
+    let b = std::str::from_utf8(b)?;
 
     let Ok(a): SpannedResult<T> = RON.from_str(a) else {
         return Ok(false);
@@ -107,7 +107,7 @@ pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &[u8], b: &[u8]) -> Resu
 }
 
 pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
-    let text = str::from_utf8(text)?;
+    let text = std::str::from_utf8(text)?;
 
     let res = ron::Deserializer::from_str_with_options(text, &RON);
     match res {

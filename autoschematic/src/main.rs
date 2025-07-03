@@ -1,4 +1,3 @@
-#![feature(iterator_try_collect)]
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, command};
@@ -129,6 +128,7 @@ pub enum AutoschematicSubcommand {
         #[arg(long, value_name = "overwrite", default_value_t = false)]
         overwrite: bool,
     },
+    /// Scaffold new resource definitions from templates.
     Create {
         /// Optional path (can be a glob) to filter the changeset.
         #[arg(short, long, value_name = "prefix")]

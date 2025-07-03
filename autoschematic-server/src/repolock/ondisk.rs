@@ -48,8 +48,10 @@ impl RepoLockStore for OnDiskLockStore {
 
 impl RepoLock for OnDiskLock {
     fn unlock(&self) {
-        if let Err(e) = self.lock.unlock() {
-            tracing::error!("Failed to unlock repo: {}", e);
-        }
+        // TODO after moving to stable, file_lock can't be used. We need another way around this!
+        todo!();
+        // if let Err(e) = self.lock.unlock() {
+        //     tracing::error!("Failed to unlock repo: {}", e);
+        // }
     }
 }

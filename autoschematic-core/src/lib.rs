@@ -1,4 +1,3 @@
-#![feature(more_qualified_paths)]
 // #[cfg(feature = "sandbox")]
 // pub mod binary_cache;
 pub mod bundle;

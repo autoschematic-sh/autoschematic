@@ -61,7 +61,7 @@ pub async fn plan_connector(
         // let desired = std::fs::read(&path)?;
         let desired_bytes = tokio::fs::read(&path).await?;
 
-        match str::from_utf8(&desired_bytes) {
+        match std::str::from_utf8(&desired_bytes) {
             Ok(desired) => {
                 let template_result = template_config(prefix, desired)?;
 

@@ -377,8 +377,17 @@ async function activate(context) {
             vscode.window.showErrorMessage(`Error executing import command: ${error}`);
         });
     }));
-    context.subscriptions.push(vscode.commands.registerCommand('autoschematic.relaunch', () => {
-        client = new node_1.LanguageClient('autoschematicLsp', 'Autoschematic Language Server', serverOptions, clientOptions);
+    context.subscriptions.push(vscode.commands.registerCommand('autoschematic.relaunch', async () => {
+        client.restart()
+            .then(undefined, (error) => {
+            vscode.window.showErrorMessage(`Error restarting Autoschematic Language Server: ${error}`);
+        });
+        // client = new LanguageClient(
+        // 	'autoschematicLsp',
+        // 	'Autoschematic Language Server',
+        // 	serverOptions,
+        // 	clientOptions
+        // );
         // client.sendRequest(ExecuteCommandRequest.type, {
         // 	command: "relaunch",
         // 	arguments: []
@@ -386,6 +395,9 @@ async function activate(context) {
         // 	vscode.window.showErrorMessage(`Error executing relaunch command: ${error}`);
         // });
     }));
-    await client.start();
+    client.start()
+        .then(undefined, (error) => {
+        vscode.window.showErrorMessage(`Error starting Autoschematic Language Server: ${error}`);
+    });
 }
 //# sourceMappingURL=extension.js.map

@@ -1,18 +1,3 @@
-//! Autoschematic is a platform for building declarative ops systems.
-//!
-//! # Security
-//! - Uses session-based authentication with encrypted cookies
-//! - Validates GitHub webhook signatures
-//! - Implements OAuth flow for user authentication
-//!
-//! # Configuration
-//! Required environment variables:
-//! - GITHUB_CLIENT_ID: OAuth client ID
-//! - GITHUB_CLIENT_SECRET: OAuth client secret
-//! - SESSION_KEY: 32-byte key for cookie encryption (base64 encoded)
-//! - RUST_LOG: Logging level (e.g. info, debug)
-
-#![feature(file_lock)]
 #![deny(unused_must_use)]
 
 mod changeset;
@@ -37,7 +22,6 @@ use actix_files::NamedFile;
 use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use anyhow::Context;
 use autoschematic_core::{
-    // binary_cache::BinaryCache,
     keystore::{KeyStore, keystore_init},
     task::registry::TaskRegistry,
 };
@@ -45,7 +29,6 @@ use dashboard::api_util::get_self;
 use error::{AutoschematicServerError, AutoschematicServerErrorType};
 use octocrab::models::webhook_events::WebhookEvent;
 use once_cell::{self, sync::OnceCell};
-use repolock::RepoLockStore;
 use ron_pfnsec_fork as ron;
 use serde::Deserialize;
 use std::{collections::HashMap, env, path::PathBuf, sync::Arc};
