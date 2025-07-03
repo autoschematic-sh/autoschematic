@@ -65,8 +65,6 @@ pub async fn plan_connector(
             Ok(desired) => {
                 let template_result = template_config(prefix, desired)?;
 
-                println!("plan: template_result = {template_result:?}");
-
                 if !template_result.missing.is_empty() {
                     for read_output in template_result.missing {
                         plan_report.missing_outputs.push(read_output);
