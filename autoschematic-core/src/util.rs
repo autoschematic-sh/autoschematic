@@ -176,7 +176,7 @@ where
             ChangeTag::Insert => "+",
             ChangeTag::Equal => " ",
         };
-        lines.push(format!("{}{}", sign, change));
+        lines.push(format!("{sign}{change}"));
     }
     lines.push(String::from("```\n"));
 
@@ -184,7 +184,7 @@ where
 }
 
 pub fn short_target() -> String {
-    format!("{}-{}", OS, ARCH)
+    format!("{OS}-{ARCH}")
 }
 
 pub fn split_prefix_addr(config: &AutoschematicConfig, path: &Path) -> Option<(PathBuf, PathBuf)> {

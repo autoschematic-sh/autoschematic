@@ -16,7 +16,6 @@ use crate::{
     error::AutoschematicError,
     glob::addr_matches_filter,
     keystore::KeyStore,
-    workflow::get,
 };
 
 #[derive(Debug)]
@@ -87,7 +86,7 @@ pub async fn import_resource(
         match connector
             .get(phy_addr)
             .await
-            .context(format!("{}::get()", connector_shortname))?
+            .context(format!("{connector_shortname}::get()"))?
         {
             Some(get_resource_output) => {
                 outbox
@@ -163,30 +162,28 @@ pub async fn import_all(
     let subpath = subpath.unwrap_or(PathBuf::from("./"));
 
     // Number of resources found and imported
-    let mut imported_count: usize = 0;
+    let imported_count: usize = 0;
     // Number of resources found
-    let mut total_count: usize = 0;
+    let total_count: usize = 0;
 
     // Represents the joinset for each list() operation.
     let mut subpath_joinset: JoinSet<anyhow::Result<Vec<PathBuf>>> = JoinSet::new();
 
     for (prefix_name, prefix) in &autoschematic_config.prefixes {
-        if let Some(prefix_filter) = &prefix_filter {
-            if prefix_name != prefix_filter {
+        if let Some(prefix_filter) = &prefix_filter
+            && prefix_name != prefix_filter {
                 continue;
             }
-        }
         for connector_def in &prefix.connectors {
             let prefix_name = PathBuf::from(&prefix_name);
 
-            if let Some(connector_filter) = &connector_filter {
-                if connector_def.shortname != *connector_filter {
+            if let Some(connector_filter) = &connector_filter
+                && connector_def.shortname != *connector_filter {
                     continue;
                 }
-            }
             // subcount represents the number of resources imported by this connector,
             // count represents the number of resources imported by all connectors
-            let mut imported_subcount: usize = 0;
+            let imported_subcount: usize = 0;
 
             tracing::info!("connector init: {}", connector_def.shortname);
             let (connector, mut inbox) = connector_cache
@@ -202,7 +199,7 @@ pub async fn import_all(
                 loop {
                     match inbox.recv().await {
                         Ok(Some(stdout)) => {
-                            eprintln!("{}", stdout);
+                            eprintln!("{stdout}");
                         }
                         Err(RecvError::Closed) => break,
                         _ => {}
@@ -250,8 +247,8 @@ pub async fn import_all(
                         }
 
                         // Skip files that already exist in other resource groups.
-                        if let Some(ref resource_group) = prefix.resource_group {
-                            if let Some(neighbour_prefixes) = resource_group_map.get(resource_group) {
+                        if let Some(ref resource_group) = prefix.resource_group
+                            && let Some(neighbour_prefixes) = resource_group_map.get(resource_group) {
                                 // get all prefixes in this resource group except our own
                                 for neighbour_prefix in neighbour_prefixes.iter().filter(|p| **p != prefix_name) {
                                     if neighbour_prefix.join(&phy_addr).exists() {
@@ -263,7 +260,6 @@ pub async fn import_all(
                                     }
                                 }
                             }
-                        }
 
                         let prefix_name = prefix_name.clone();
                         let outbox = outbox.clone();

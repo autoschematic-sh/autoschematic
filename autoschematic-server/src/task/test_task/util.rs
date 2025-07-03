@@ -20,7 +20,7 @@ impl TestTask {
             &self.owner,
             &self.repo,
             issue_number,
-            &format!("autoschematic pull-state {} {}", prefix_filter, connector_filter),
+            &format!("autoschematic pull-state {prefix_filter} {connector_filter}"),
         )
         .await?;
 
@@ -49,7 +49,7 @@ impl TestTask {
             &self.owner,
             &self.repo,
             issue_number,
-            &format!("autoschematic plan {} {}", prefix_filter, connector_filter),
+            &format!("autoschematic plan {prefix_filter} {connector_filter}"),
         )
         .await?;
 
@@ -93,7 +93,7 @@ impl TestTask {
             &self.owner,
             &self.repo,
             issue_number,
-            &format!("autoschematic import {} {}", prefix_filter, connector_filter),
+            &format!("autoschematic import {prefix_filter} {connector_filter}"),
         )
         .await?;
 
@@ -120,7 +120,7 @@ impl TestTask {
             &self.owner,
             &self.repo,
             issue_number,
-            &format!("autoschematic import --overwrite {} {}", prefix_filter, connector_filter),
+            &format!("autoschematic import --overwrite {prefix_filter} {connector_filter}"),
         )
         .await?;
 

@@ -61,14 +61,14 @@ impl URLBuilder {
         let mut routes = String::new();
 
         for route in self.routes {
-            routes.push_str(format!("/{}", route).as_str());
+            routes.push_str(format!("/{route}").as_str());
         }
 
         if !self.params.is_empty() {
             url_params.push('?');
 
             for (param, value) in self.params.iter() {
-                url_params.push_str(format!("{}={}&", param, value).as_str());
+                url_params.push_str(format!("{param}={value}&").as_str());
             }
 
             // Remove the trailing `&`
@@ -76,7 +76,7 @@ impl URLBuilder {
         }
 
         match self.port {
-            0 => format!("{}{}{}", base, routes, url_params),
+            0 => format!("{base}{routes}{url_params}"),
             _ => format!("{}:{}{}{}", base, self.port, routes, url_params),
         }
     }

@@ -36,8 +36,8 @@ impl PlanDisplay {
         ];
         let items = (1..=1000)
             .map(|i| Item {
-                title: format!("Item {}", i),
-                extended: format!("This is the extended text for item {}.\nIt can be multiple lines.", i),
+                title: format!("Item {i}"),
+                extended: format!("This is the extended text for item {i}.\nIt can be multiple lines."),
                 expanded: false,
             })
             .collect();
@@ -99,7 +99,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     terminal.show_cursor()?;
 
     if let Err(err) = res {
-        eprintln!("Error: {}", err);
+        eprintln!("Error: {err}");
     }
     Ok(())
 }

@@ -32,7 +32,7 @@ pub enum AutoschematicSubcommand {
     /// Validate that the Autoschematic config within this repository is well-formed.
     /// Includes autoschematic.lock.ron and autoschematic.rbac.ron if present.
     Validate {},
-    // Install a connector from a Github repository.
+    // Install or upgrade connectors listed in a prefix from Cargo or Git.
     Install {
         // url: String,
         // #[arg(short, long, default_value = None)]

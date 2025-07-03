@@ -3,14 +3,8 @@ import * as child_process from 'child_process';
 import * as util from 'util';
 import { ExecuteCommandRequest, LanguageClient, LanguageClientOptions, LSPErrorCodes, RevealOutputChannelOn, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 
-/**
- * Handles pulling remote state to overwrite local file
- * @param filePath The file path to overwrite
- * @param client The language client for LSP communication
- */
 async function handlePullRemoteState(filePath: string, client: LanguageClient): Promise<void> {
 	try {
-		// Show confirmation dialog
 		const action = await vscode.window.showInformationMessage(
 			`Pull remote state for ${filePath}?`,
 			{ modal: true },
@@ -22,7 +16,6 @@ async function handlePullRemoteState(filePath: string, client: LanguageClient): 
 			return;
 		}
 
-		// Show progress while pulling remote state
 		await vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
 			title: "Pulling remote state...",
@@ -30,9 +23,8 @@ async function handlePullRemoteState(filePath: string, client: LanguageClient): 
 		}, async (progress) => {
 			progress.report({ increment: 0, message: `Fetching remote content for ${filePath}` });
 
-			// Get the remote content
 			const remoteContent = await client.sendRequest(ExecuteCommandRequest.type, {
-				command: "get",
+				command: "get_untemplate",
 				arguments: [filePath]
 			});
 
@@ -48,6 +40,11 @@ async function handlePullRemoteState(filePath: string, client: LanguageClient): 
 			await vscode.workspace.fs.writeFile(fileUri, encoder.encode(remoteContent));
 
 			progress.report({ increment: 100, message: "Pull completed" });
+
+			vscode.commands.executeCommand('vscode.open',
+				fileUri,
+				{ preview: true }
+			);
 		});
 
 		vscode.window.showInformationMessage(`Successfully pulled remote state for "${filePath}"`);
@@ -57,15 +54,9 @@ async function handlePullRemoteState(filePath: string, client: LanguageClient): 
 	}
 }
 
-/**
- * Handles the rename confirmation callback
- * @param oldPath The original file path
- * @param newPath The new file path
- * @param client The language client for LSP communication
- */
+
 async function handleRenameConfirm(oldPath: string, newPath: string, client: LanguageClient): Promise<void> {
 	try {
-		// Show progress while performing rename
 		await vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
 			title: "Renaming file...",
@@ -99,7 +90,6 @@ async function commandExists(command: string): Promise<boolean> {
 	const exec = util.promisify(child_process.exec);
 
 	try {
-		// Different check commands based on platform
 		const checkCommand = process.platform === 'win32'
 			? `where ${command}`
 			: `which ${command}`;
@@ -117,22 +107,20 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	if (!lspExists) {
 		const action = await vscode.window.showInformationMessage(
-			"Autoschematic doesn't appear to be installed yet. Would you like to `cargo install` it?",
+			"The Autoschematic language server doesn't appear to be installed yet. Would you like to `cargo install` it?",
 			"Yes", "No"
 		);
 
 		if (action === "Yes") {
-			// Open a terminal and run cargo install
 			const terminal = vscode.window.createTerminal('Autoschematic Install');
-			terminal.sendText('cargo install --locked autoschematic');
+			terminal.sendText('cargo install --locked autoschematic-lsp');
 			terminal.show();
 			vscode.window.showInformationMessage(
-				"Installing Autoschematic. The extension will be ready after installation completes."
+				"Installing autoschematic-lsp. The extension will be ready after installation completes."
 			);
-			return; // Exit activation until installation completes
+			return;
 		} else {
-			// User declined installation
-			return; // Exit activation
+			return;
 		}
 	}
 
@@ -144,12 +132,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		const currentPath = fileUri.path;
 
-		// Show input box with current path pre-populated
 		const newPath = await vscode.window.showInputBox({
 			title: 'Rename Resource',
 			prompt: 'Enter the new resource path',
 			value: currentPath,
-			valueSelection: [currentPath.lastIndexOf('/') + 1, currentPath.lastIndexOf('.') - 1], // Select filename part
+			valueSelection: [currentPath.lastIndexOf('/') + 1, currentPath.lastIndexOf('.')],
 			validateInput: (value: string) => {
 				if (!value || value.trim() === '') {
 					return 'Path cannot be empty';
@@ -161,9 +148,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 		});
 
-		// Handle user cancellation
 		if (newPath === undefined) {
-			// User cancelled the dialog
+			// User cancelled
 			return;
 		}
 
@@ -232,9 +218,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					const remoteUri = fileUri.with({ scheme: 'autoschematic-remote', path: fileUri.path });
 
 					const diffTitle = `Compare ${fileUri.path.split('/').pop()} with Remote`;
-					console.log("remotecontent", remoteContent);
 
-					// Register a content provider for our custom scheme
 					const provider = vscode.workspace.registerTextDocumentContentProvider('autoschematic-remote', {
 						provideTextDocumentContent(uri: vscode.Uri): string {
 							return remoteContent;
@@ -248,10 +232,10 @@ export async function activate(context: vscode.ExtensionContext) {
 					}
 
 					vscode.commands.executeCommand('vscode.diff',
-						fileUri, // Original file URI
-						remoteUri, // Modified file URI (virtual)
-						diffTitle, // Title for the diff editor
-						{ preview: true } // Options
+						fileUri,
+						remoteUri,
+						diffTitle,
+						{ preview: true }
 					);
 				} catch (e) {
 					vscode.window.showErrorMessage(`Error comparing with remote: ${fileUri.path}: ${e}`);

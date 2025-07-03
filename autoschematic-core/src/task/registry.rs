@@ -44,7 +44,7 @@ impl TaskRegistry {
             Ok(task
                 .outbox
                 .try_send(message)
-                .context(format!("Sending message to task {:?}", registry_key))?)
+                .context(format!("Sending message to task {registry_key:?}"))?)
         } else {
             bail!("Task not found for key {:?}", registry_key)
         }

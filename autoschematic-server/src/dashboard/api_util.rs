@@ -20,7 +20,7 @@ pub async fn get_self(access_token: &str) -> Result<Response, AutoschematicServe
         .get("https://api.github.com/user")
         .header("User-Agent", "autoschematic")
         .header("Accept", "application/json")
-        .header("Authorization", format!("Bearer {}", access_token))
+        .header("Authorization", format!("Bearer {access_token}"))
         .send()
         .await
         .map_err(|e| {
@@ -68,13 +68,13 @@ pub async fn is_repo_collaborator(
 ) -> Result<bool, AutoschematicServerError> {
     let client = reqwest::Client::new();
 
-    let url = format!("https://api.github.com/repos/{}/{}/collaborators/{}", owner, repo, username);
+    let url = format!("https://api.github.com/repos/{owner}/{repo}/collaborators/{username}");
 
     match client
         .get(url)
         .header("User-Agent", "autoschematic")
         .header("Accept", "application/vnd.github+json")
-        .header("Authorization", format!("Bearer {}", access_token))
+        .header("Authorization", format!("Bearer {access_token}"))
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
         .await
@@ -240,7 +240,7 @@ pub async fn get_installations_for_user(user_access_token: &str) -> anyhow::Resu
         .get(url)
         .header("User-Agent", "autoschematic")
         .header("Accept", "application/vnd.github+json")
-        .header("Authorization", format!("Bearer {}", user_access_token))
+        .header("Authorization", format!("Bearer {user_access_token}"))
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
         .await?
@@ -255,10 +255,10 @@ pub async fn get_installations_for_user(user_access_token: &str) -> anyhow::Resu
     for installation in installations {
         if let Some(id) = installation.get("id").and_then(|id| id.as_u64()) {
             let res: serde_json::Value = client
-                .get(format!("https://api.github.com/user/installations/{}/repositories", id))
+                .get(format!("https://api.github.com/user/installations/{id}/repositories"))
                 .header("User-Agent", "autoschematic")
                 .header("Accept", "application/vnd.github+json")
-                .header("Authorization", format!("Bearer {}", user_access_token))
+                .header("Authorization", format!("Bearer {user_access_token}"))
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .send()
                 .await?

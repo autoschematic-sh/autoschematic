@@ -26,7 +26,7 @@ impl ChangeSet {
         let mut apply_report_set = ApplyReportSet::default();
 
         let check_run_url = match DOMAIN.get() {
-            Some(domain) => format!("https://{}", domain),
+            Some(domain) => format!("https://{domain}"),
             None => String::new(),
         };
 
@@ -40,11 +40,10 @@ impl ChangeSet {
 
         let _chwd = self.chwd_to_repo();
         for plan_report in &plan_report_set.plan_reports {
-            if let Some(connector_filter) = &connector_filter {
-                if plan_report.connector_shortname != *connector_filter {
+            if let Some(connector_filter) = &connector_filter
+                && plan_report.connector_shortname != *connector_filter {
                     continue;
                 }
-            }
 
             let virt_addr = plan_report.virt_addr.clone();
             // let phy_addr = plan_report.phy_addr.clone();
@@ -275,7 +274,7 @@ impl ChangeSet {
             //     }
             // }
             if count > 0 {
-                let message = format!("autoschematic apply by @{}: {}", comment_username, comment_url);
+                let message = format!("autoschematic apply by @{comment_username}: {comment_url}");
                 self.git_commit_and_push(repo, &message)?;
             }
         }

@@ -37,7 +37,7 @@ impl TestTask {
         // fuzz_config.states.shuffle(&mut rng);
         let fuzz_config = fuzz_config.clone();
 
-        let connector_filter = fuzz_config.connector_filter.map(|c| format!("-c {}", c)).unwrap_or_default();
+        let connector_filter = fuzz_config.connector_filter.map(|c| format!("-c {c}")).unwrap_or_default();
         let prefix_filter = format!("-p {}", self.prefix.to_string_lossy());
 
         loop {
@@ -53,7 +53,7 @@ impl TestTask {
                 &repo_path,
                 &branch_name,
                 &self.token,
-                &format!("Create branch {}", branch_name),
+                &format!("Create branch {branch_name}"),
             )
             .context("git_commit_and_push")?;
 
@@ -120,7 +120,7 @@ impl TestTask {
 
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 git_add(&repo_path, &PathBuf::from("."))?;
-                git_commit_and_push(&repo_path, &branch_name, &self.token, &format!("Fuzz state {}", state))?;
+                git_commit_and_push(&repo_path, &branch_name, &self.token, &format!("Fuzz state {state}"))?;
 
                 self.plan_apply_pull_state_complete(issue_number, &prefix_filter, &connector_filter, &repo_path, &branch_name)
                     .await?;

@@ -35,11 +35,10 @@ pub async fn get_docstring(
             )
             .await?;
 
-        if connector.filter(addr).await? == FilterOutput::Resource {
-            if let Some(doc) = connector.get_docstring(addr, ident.clone()).await? {
+        if connector.filter(addr).await? == FilterOutput::Resource
+            && let Some(doc) = connector.get_docstring(addr, ident.clone()).await? {
                 return Ok(Some(doc));
             }
-        }
     }
 
     Ok(None)

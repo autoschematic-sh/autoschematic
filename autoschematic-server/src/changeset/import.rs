@@ -61,7 +61,7 @@ impl ChangeSet {
             match connector
                 .get(phy_addr)
                 .await
-                .context(format!("{}::get()", connector_shortname))?
+                .context(format!("{connector_shortname}::get()"))?
             {
                 // Dump the found resource to a string and commit and push!
                 Some(get_resource_output) => {
@@ -79,8 +79,8 @@ impl ChangeSet {
                     index.add_all([res_path], IndexAddOption::default(), None)?;
                     index.write()?;
 
-                    if let Some(outputs) = get_resource_output.outputs {
-                        if !outputs.is_empty() {
+                    if let Some(outputs) = get_resource_output.outputs
+                        && !outputs.is_empty() {
                             let output_map_file = OutputMapFile::OutputMap(outputs);
 
                             let virt_output_path = output_map_file.write(prefix, &virt_addr)?;
@@ -92,7 +92,6 @@ impl ChangeSet {
                                 self.git_add(repo, &phy_output_path)?;
                             }
                         }
-                    }
 
                     return Ok(true);
                 }
@@ -130,20 +129,18 @@ impl ChangeSet {
         let mut total_count: usize = 0;
 
         for (prefix_name, prefix) in autoschematic_config.prefixes {
-            if let Some(prefix_filter) = &prefix_filter {
-                if prefix_name != *prefix_filter {
+            if let Some(prefix_filter) = &prefix_filter
+                && prefix_name != *prefix_filter {
                     continue;
                 }
-            }
             for connector_def in prefix.connectors {
                 let prefix_name = PathBuf::from(&prefix_name);
 
                 let connector_shortname = connector_shortname(&connector_def.shortname)?;
-                if let Some(connector_filter) = &connector_filter {
-                    if connector_shortname != *connector_filter {
+                if let Some(connector_filter) = &connector_filter
+                    && connector_shortname != *connector_filter {
                         continue;
                     }
-                }
                 // subcount represents the number of resources imported by this connector,
                 // count represents the number of resources imported by all connectors
                 let mut imported_subcount: usize = 0;
@@ -187,8 +184,8 @@ impl ChangeSet {
                     }
 
                     // Skip files that already exist in other resource groups.
-                    if let Some(ref resource_group) = prefix.resource_group {
-                        if let Some(neighbour_prefixes) = resource_group_map.get(resource_group) {
+                    if let Some(ref resource_group) = prefix.resource_group
+                        && let Some(neighbour_prefixes) = resource_group_map.get(resource_group) {
                             // get all prefixes in this resource group except our own
                             for neighbour_prefix in neighbour_prefixes.iter().filter(|p| **p != prefix_name) {
                                 if neighbour_prefix.join(&phy_addr).exists() {
@@ -200,7 +197,6 @@ impl ChangeSet {
                                 }
                             }
                         }
-                    }
 
                     let res = self
                         .import_resource(
@@ -228,7 +224,7 @@ impl ChangeSet {
                     let parent_commit = repo.head()?.peel_to_commit()?;
                     let tree = repo.find_tree(oid)?;
                     let sig = git2::Signature::now("autoschematic", "import@autoschematic.sh")?;
-                    let message = format!("autoschematic import by @{}: {}", comment_username, comment_url);
+                    let message = format!("autoschematic import by @{comment_username}: {comment_url}");
                     repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?;
 
                     let mut remote = repo.find_remote("origin")?;

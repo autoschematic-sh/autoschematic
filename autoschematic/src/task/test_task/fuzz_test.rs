@@ -21,7 +21,7 @@ impl TestTask {
     pub async fn run_fuzz_test(&self, path: &Path) -> anyhow::Result<()> {
         let fuzz_config: FuzzConfig = RON.from_str(&std::fs::read_to_string(path.join("fuzz_config.ron"))?)?;
 
-        let connector_filter = fuzz_config.connector_filter.map(|c| format!("-c {}", c)).unwrap_or_default();
+        let connector_filter = fuzz_config.connector_filter.map(|c| format!("-c {c}")).unwrap_or_default();
         let prefix_filter = format!("-p {}", self.prefix.to_string_lossy());
 
         let mut i = 0;
@@ -57,7 +57,7 @@ impl TestTask {
 
                 apply::apply(prefix, connector, subpath, ask_confirm, skip_commit).await?;
 
-                let message = format!("fuzz-test-{}", rand_suffix);
+                let message = format!("fuzz-test-{rand_suffix}");
                 // println!("{}", message);
                 // git_commit(&PathBuf::from("."), "autoschematic-fuzz", "fuzz@autoschematic.sh", &message)?;
             }

@@ -44,8 +44,8 @@ use crate::{
 pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicServerError> {
     tracing::debug!("Dispatching webhook event: {:?}", webhook_event.specific);
 
-    if let Ok(Some(task_message)) = message_from_github_webhook(&webhook_event) {
-        if let Some(registry) = TASK_REGISTRY.get() {
+    if let Ok(Some(task_message)) = message_from_github_webhook(&webhook_event)
+        && let Some(registry) = TASK_REGISTRY.get() {
             let entries = &*registry.entries.read().await;
 
             for (key, entry) in entries.iter() {
@@ -53,7 +53,6 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                 let _ = entry.outbox.send(task_message.clone()).await;
             }
         };
-    }
 
     match webhook_event.specific {
         WebhookEventPayload::IssueComment(ref payload)
@@ -108,7 +107,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                         .await;
 
                     let check_run_url = match DOMAIN.get() {
-                        Some(domain) => format!("https://{}", domain),
+                        Some(domain) => format!("https://{domain}"),
                         None => String::new(),
                     };
 
@@ -162,7 +161,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                         .await?;
 
                                     let import_error_template = ImportErrorTemplate {
-                                        error_message: try_unescape(&format!("{:#}", e)).to_string(),
+                                        error_message: try_unescape(&format!("{e:#}")).to_string(),
                                         failure_emoji: template::random_failure_emoji(),
                                     };
 
@@ -206,7 +205,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
 
                                                 let plan_error_template = PlanErrorTemplate {
                                                     prefix: plan_report.prefix.clone(),
-                                                    error_message: try_unescape(&format!("{:#}", error)).to_string(),
+                                                    error_message: try_unescape(&format!("{error:#}")).to_string(),
                                                     failure_emoji: template::random_failure_emoji(),
                                                     filename: plan_report.virt_addr.to_string_lossy().to_string(),
                                                 };
@@ -266,10 +265,10 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                         format!("autoschematic apply -c {}", &connector)
                                                     }
                                                     (Some(subpath), None) => {
-                                                        format!("autoschematic apply -p {:?}", subpath)
+                                                        format!("autoschematic apply -p {subpath:?}")
                                                     }
                                                     (Some(subpath), Some(connector)) => {
-                                                        format!("autoschematic apply -c {} -p {:?}", connector, subpath)
+                                                        format!("autoschematic apply -c {connector} -p {subpath:?}")
                                                     }
                                                 };
 
@@ -322,7 +321,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                 Err(e) => {
                                     tracing::error!("{}", e);
                                     let plan_error_template = PlanOverallErrorTemplate {
-                                        error_message: try_unescape(&format!("{:#}", e)).to_string(),
+                                        error_message: try_unescape(&format!("{e:#}")).to_string(),
                                         failure_emoji: template::random_failure_emoji(),
                                     };
 
@@ -379,7 +378,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                             let apply_error_template = if let Some(error) = apply_report.error {
                                                 overall_success = false;
                                                 ApplyErrorTemplate {
-                                                    error_message: try_unescape(&format!("{:#}", error)).to_string(),
+                                                    error_message: try_unescape(&format!("{error:#}")).to_string(),
                                                     failure_emoji: template::random_failure_emoji(),
                                                     filename: String::from(apply_report.virt_addr.to_string_lossy()),
                                                 }
@@ -495,7 +494,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                         .await?;
 
                                     let msg = PullStateErrorTemplate {
-                                        error_message: try_unescape(&format!("{:#}", e)).to_string(),
+                                        error_message: try_unescape(&format!("{e:#}")).to_string(),
                                         failure_emoji: template::random_failure_emoji(),
                                     }
                                     .render()?;
@@ -551,7 +550,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                         .await?;
 
                                     let import_error_template = SkeletonImportErrorTemplate {
-                                        error_message: try_unescape(&format!("{:#}", e)).to_string(),
+                                        error_message: try_unescape(&format!("{e:#}")).to_string(),
                                         failure_emoji: template::random_failure_emoji(),
                                     };
 
@@ -572,7 +571,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                     if arg0 == "autoschematic" {
                         let parse_failure = CommandParseFailure {
                             command: comment_body.clone(),
-                            error_message: format!("{:#}", e),
+                            error_message: format!("{e:#}"),
                             failure_emoji: random_failure_emoji(),
                         };
                         create_comment_standalone(&webhook_event, &parse_failure.render()?).await?;

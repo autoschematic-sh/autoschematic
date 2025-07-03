@@ -65,7 +65,7 @@ pub async fn plan_connector(
             Ok(desired) => {
                 let template_result = template_config(prefix, desired)?;
 
-                println!("plan: template_result = {:?}", template_result);
+                println!("plan: template_result = {template_result:?}");
 
                 if !template_result.missing.is_empty() {
                     for read_output in template_result.missing {
@@ -146,11 +146,10 @@ pub async fn plan(
     let mut joinset: JoinSet<anyhow::Result<Option<PlanReport>>> = JoinSet::new();
 
     'connector: for connector_def in prefix_def.connectors {
-        if let Some(connector_filter) = &connector_filter {
-            if connector_def.shortname != *connector_filter {
+        if let Some(connector_filter) = &connector_filter
+            && connector_def.shortname != *connector_filter {
                 continue 'connector;
             }
-        }
 
         let connector_cache = connector_cache.clone();
         let keystore = keystore.clone();
@@ -171,7 +170,7 @@ pub async fn plan(
                 loop {
                     match inbox.recv().await {
                         Ok(Some(stdout)) => {
-                            eprintln!("{}", stdout);
+                            eprintln!("{stdout}");
                         }
                         Ok(None) => {}
                         Err(_) => break,
@@ -183,7 +182,7 @@ pub async fn plan(
                 let plan_report = plan_connector(&connector_def.shortname, connector, &prefix, &virt_addr).await?;
                 return Ok(plan_report);
             }
-            return Ok(None);
+            Ok(None)
             // return connector;
         });
 

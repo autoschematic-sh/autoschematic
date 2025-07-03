@@ -32,7 +32,7 @@ pub async fn login_via_github() -> anyhow::Result<AccessToken> {
         .request_async(&http_client)
         .await?;
     
-    println!("{:?}", details);
+    println!("{details:?}");
 
     let verify_url = details.verification_uri().to_string();
     let full_url = details.verification_uri_complete();
@@ -41,7 +41,7 @@ pub async fn login_via_github() -> anyhow::Result<AccessToken> {
     if let Some(url) = full_url {
         webbrowser::open(url.secret())?;
     } else {
-        println!("Open {} and enter code {}", verify_url, user_code);
+        println!("Open {verify_url} and enter code {user_code}");
         // webbrowser::open(&verify_url)?;
     }
 
@@ -50,7 +50,7 @@ pub async fn login_via_github() -> anyhow::Result<AccessToken> {
         .request_async(&http_client, tokio::time::sleep, None)
         .await?;
     
-    println!("{:?}", token);
+    println!("{token:?}");
 
     Ok(token.access_token().clone())
 }

@@ -21,7 +21,7 @@ pub fn invalid_addr(addr: &impl ResourceAddress) -> anyhow::Error {
 
 pub fn invalid_op(addr: &impl ResourceAddress, op: &impl ConnectorOp) -> anyhow::Error {
     AutoschematicError {
-        kind: AutoschematicErrorType::InvalidOp(addr.to_path_buf(), format!("{:#?}", op)),
+        kind: AutoschematicErrorType::InvalidOp(addr.to_path_buf(), format!("{op:#?}")),
     }
     .into()
 }

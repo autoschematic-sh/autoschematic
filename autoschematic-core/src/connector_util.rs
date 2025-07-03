@@ -140,7 +140,7 @@ pub fn read_mounted_secret(prefix: &Path, secret_ref: &str) -> anyhow::Result<St
         let path = PathBuf::from(&caps["path"]);
         Ok(
             std::fs::read_to_string(PathBuf::from("/tmp/secrets/").join(prefix).join(path))
-                .context(format!("Reading secret at ref {}", secret_ref))?,
+                .context(format!("Reading secret at ref {secret_ref}"))?,
         )
     } else {
         bail!("read_mounted_secret: invalid ref {}", secret_ref)

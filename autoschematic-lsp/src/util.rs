@@ -15,7 +15,7 @@ pub fn severity_to_lsp(severity: u8) -> Option<lsp_types::DiagnosticSeverity> {
 }
 
 pub fn diag_to_lsp(diag_output: DiagnosticOutput) -> Vec<lsp_types::Diagnostic> {
-    eprintln!("diag_to_lsp: {:?}", diag_output);
+    eprintln!("diag_to_lsp: {diag_output:?}");
     let mut res = Vec::new();
     for diag in diag_output.diagnostics {
         res.push(lsp_types::Diagnostic {

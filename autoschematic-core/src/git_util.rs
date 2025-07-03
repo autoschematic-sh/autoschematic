@@ -22,7 +22,7 @@ pub async fn clone_repo(
 
     let repo_path = path.join(owner).join(repo);
 
-    let repo_url = format!("https://github.com/{}/{}.git", owner, repo);
+    let repo_url = format!("https://github.com/{owner}/{repo}.git");
 
     let mut callbacks = RemoteCallbacks::new();
     callbacks.credentials(move |_url, _username_from_url, _allowed_types| {
@@ -95,7 +95,7 @@ pub async fn checkout_new_branch(repo_path: &Path, branch_name: &str) -> Result<
 
         // repository.checkout_tree(&obj, None)?;
         repository.checkout_tree(&branch.get().peel(git2::ObjectType::Tree)?, None)?;
-        repository.set_head(&format!("refs/heads/{}", branch_name))?;
+        repository.set_head(&format!("refs/heads/{branch_name}"))?;
     }
 
     Ok(repository)
@@ -169,7 +169,7 @@ pub fn git_commit_and_push(repo_path: &Path, head_ref: &str, token: &SecretBox<s
 
     let mut remote = repository.find_remote("origin")?;
 
-    let refspec = format!("refs/heads/{}:refs/heads/{}", head_ref, head_ref);
+    let refspec = format!("refs/heads/{head_ref}:refs/heads/{head_ref}");
 
     let mut callbacks = RemoteCallbacks::new();
     callbacks.credentials(move |_url, _username_from_url, _allowed_types| {
@@ -210,7 +210,7 @@ pub fn pull_with_rebase(repo_path: &Path, branch_name: &str, token: &SecretBox<s
 
     let fetch_ref = repository.reference_to_annotated_commit(&fetch_head)?;
 
-    let branch_ref_name = format!("refs/heads/{}", branch_name);
+    let branch_ref_name = format!("refs/heads/{branch_name}");
     let mut branch_ref = repository.find_reference(&branch_ref_name)?;
 
     let msg = format!("Fast-Forward: Setting {} to id: {}", branch_ref_name, fetch_ref.id());
@@ -262,11 +262,10 @@ pub fn get_staged_files() -> Result<Vec<PathBuf>, git2::Error> {
                 | Status::INDEX_RENAMED
                 | Status::INDEX_TYPECHANGE,
         );
-        if is_staged {
-            if let Some(path) = entry.path() {
+        if is_staged
+            && let Some(path) = entry.path() {
                 staged.push(PathBuf::from(path));
             }
-        }
     }
     Ok(staged)
 }

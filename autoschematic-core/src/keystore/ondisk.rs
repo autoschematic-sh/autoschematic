@@ -36,11 +36,10 @@ impl KeyStore for OndiskKeyStore {
         }
         let keystore = OndiskKeyStore { key_dir };
         
-        if let Ok(keys) = keystore.list() {
-            if keys.is_empty() {
+        if let Ok(keys) = keystore.list()
+            && keys.is_empty() {
                 keystore.create_keypair("main")?;
             }
-        }
 
         Ok(keystore)
     }
@@ -49,8 +48,8 @@ impl KeyStore for OndiskKeyStore {
         let mut key_ids: Vec<String> = Vec::new();
         for entry in fs::read_dir(&self.key_dir)? {
             let entry = entry?;
-            if entry.file_type()?.is_file() {
-                if let Some(file_name) = entry.file_name().to_str() {
+            if entry.file_type()?.is_file()
+                && let Some(file_name) = entry.file_name().to_str() {
                     let Ok(pem) = fs::read_to_string(entry.path()) else {
                         tracing::error!("Couldn't read key at {}", file_name);
                         continue
@@ -61,7 +60,6 @@ impl KeyStore for OndiskKeyStore {
                     };
                     key_ids.push(file_name.to_string());
                 }
-            }
         }
         Ok(key_ids)
     }
@@ -122,14 +120,14 @@ impl KeyStore for OndiskKeyStore {
         let secret = SecretKey::<Secp256k1>::random(&mut OsRng);
         // let secret = EphemeralSecret::random(&mut OsRng);
         let pem = secret.to_sec1_pem(pem::LineEnding::LF)?;
-        let out_path = self.key_dir.join(format!("{}.pem", id));
+        let out_path = self.key_dir.join(format!("{id}.pem"));
         fs::write(out_path, pem)?;
 
         Ok(())
     }
     
     fn delete_keypair(&self, id: &str) -> Result<()> {
-        let out_path = self.key_dir.join(format!("{}.pem", id));
+        let out_path = self.key_dir.join(format!("{id}.pem"));
         if out_path.is_file() {
             fs::remove_file(out_path)?;
         }

@@ -12,7 +12,7 @@ use autoschematic_core::{
     connector::FilterOutput,
     connector_cache::ConnectorCache,
     manifest::ConnectorManifest,
-    template::{self, template_config},
+    template::{self},
     util::{RON, split_prefix_addr},
     workflow::{filter::filter, get::get, get_docstring::get_docstring, rename},
 };
@@ -154,13 +154,13 @@ impl LanguageServer for Backend {
         match self.try_load_config().await {
             Ok(_) => {}
             Err(e) => {
-                eprintln!("{}", e);
+                eprintln!("{e}");
                 return Err(lsp_error(e));
             }
         }
 
         let keystore = None;
-        eprintln!("execute_command: {:?}", params);
+        eprintln!("execute_command: {params:?}");
 
         match params.command.as_str() {
             "relaunch" => {
@@ -169,7 +169,7 @@ impl LanguageServer for Backend {
                 match self.try_reload_config().await {
                     Ok(_) => {}
                     Err(e) => {
-                        eprintln!("{}", e);
+                        eprintln!("{e}");
                         return Err(lsp_error(e));
                     }
                 }
@@ -186,7 +186,7 @@ impl LanguageServer for Backend {
                 match rename::rename(autoschematic_config, &self.connector_cache, keystore, &old_path, &new_path).await {
                     Ok(_) => {}
                     Err(e) => {
-                        eprintln!("{}", e);
+                        eprintln!("{e}");
                         return Err(lsp_error(e));
                     }
                 }
@@ -325,17 +325,17 @@ impl Backend {
                 Ok(config_body) => match RON.from_str(&config_body) {
                     Ok(new_config) => Some(new_config),
                     Err(e) => {
-                        eprintln!("Failed to parse autoschematic.ron: {}", e);
+                        eprintln!("Failed to parse autoschematic.ron: {e}");
                         self.client
-                            .log_message(MessageType::ERROR, format!("Failed to parse autoschematic.ron: {}", e))
+                            .log_message(MessageType::ERROR, format!("Failed to parse autoschematic.ron: {e}"))
                             .await;
                         None
                     }
                 },
                 Err(e) => {
-                    eprintln!("Failed to read autoschematic.ron: {}", e);
+                    eprintln!("Failed to read autoschematic.ron: {e}");
                     self.client
-                        .log_message(MessageType::ERROR, format!("Failed to read autoschematic.ron: {}", e))
+                        .log_message(MessageType::ERROR, format!("Failed to read autoschematic.ron: {e}"))
                         .await;
                     None
                 }
@@ -356,7 +356,7 @@ impl Backend {
                 self.client.publish_diagnostics(uri.clone(), diag, None).await;
             }
             Err(e) => {
-                eprintln!("{}", e);
+                eprintln!("{e}");
             }
         };
     }
@@ -447,7 +447,7 @@ impl Backend {
                             match inbox.recv().await {
                                 Ok(Some(stdout)) => {
                                     // dbg!(&stdout);
-                                    eprintln!("stdout: {}", stdout);
+                                    eprintln!("stdout: {stdout}");
                                     // self.client.log_message(MessageType::INFO, format!("{}", stdout)).await;
                                     // let res = append_run_log(&sender_trace_handle, stdout).await;
                                     // match res {

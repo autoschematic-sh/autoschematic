@@ -47,11 +47,10 @@ impl ChangeSet {
         let subpath = subpath.unwrap_or(PathBuf::from("./"));
 
         'prefix: for (prefix_name, prefix) in autoschematic_config.prefixes {
-            if let Some(prefix_filter) = &prefix_filter {
-                if prefix_name != *prefix_filter {
+            if let Some(prefix_filter) = &prefix_filter
+                && prefix_name != *prefix_filter {
                     continue;
                 }
-            }
 
             // let diff_objects = self.get_modified_objects()?;
             let filtered_objects: Vec<&Object> = self
@@ -59,12 +58,11 @@ impl ChangeSet {
                 .iter()
                 .filter(|object| {
                     let global_addr = &object.filename;
-                    if global_addr.starts_with(&prefix_name) {
-                        if let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name) {
+                    if global_addr.starts_with(&prefix_name)
+                        && let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name) {
                             // If this address is not under `subpath`, skip it.
                             return addr_matches_filter(virt_addr, &subpath);
                         }
-                    }
                     false
                 })
                 .collect();
@@ -74,11 +72,10 @@ impl ChangeSet {
             }
 
             'connector: for connector_def in prefix.connectors {
-                if let Some(connector_filter) = &connector_filter {
-                    if connector_def.shortname != *connector_filter {
+                if let Some(connector_filter) = &connector_filter
+                    && connector_def.shortname != *connector_filter {
                         continue 'connector;
                     }
-                }
 
                 let (connector, mut inbox) = self
                     .connector_cache
@@ -193,8 +190,8 @@ impl ChangeSet {
                                 self.git_add(repo, &object.filename)?;
                             }
 
-                            if let Some(outputs) = current.outputs {
-                                if !outputs.is_empty() {
+                            if let Some(outputs) = current.outputs
+                                && !outputs.is_empty() {
                                     tick_import_count = true;
 
                                     let output_map_file = OutputMapFile::OutputMap(outputs);
@@ -208,7 +205,6 @@ impl ChangeSet {
                                         self.git_add(repo, &phy_output_path)?;
                                     }
                                 }
-                            }
                         } else if delete {
                             // Resource didn't exist remotely, and `delete` was indicated, so let's delete it!
                             let prefix = PathBuf::from(&prefix_name);

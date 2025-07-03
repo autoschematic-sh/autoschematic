@@ -50,28 +50,28 @@ impl fmt::Display for AutoschematicServerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
             AutoschematicServerErrorType::InvalidConnectorString(name) => {
-                write!(f, "Invalid Connector String: {}", name)
+                write!(f, "Invalid Connector String: {name}")
             }
             AutoschematicServerErrorType::InvalidKeystoreString(name) => {
-                write!(f, "Invalid Keystore String: {}", name)
+                write!(f, "Invalid Keystore String: {name}")
             }
             AutoschematicServerErrorType::InvalidLockString(name) => {
-                write!(f, "Invalid Lock String: {}", name)
+                write!(f, "Invalid Lock String: {name}")
             }
             AutoschematicServerErrorType::NotInstalled => write!(f, "Not installed on repo"),
             AutoschematicServerErrorType::NotMergeable => write!(f, "Pull request is not mergeable"),
-            AutoschematicServerErrorType::InternalError(e) => write!(f, "Internal Error: {:#}", e),
+            AutoschematicServerErrorType::InternalError(e) => write!(f, "Internal Error: {e:#}"),
             AutoschematicServerErrorType::MissingHeader(header_name) => {
-                write!(f, "Missing Header: {}", header_name)
+                write!(f, "Missing Header: {header_name}")
             }
             AutoschematicServerErrorType::InvalidHeaderValue(header_name) => {
-                write!(f, "Invalid Header Value: {}", header_name)
+                write!(f, "Invalid Header Value: {header_name}")
             }
             AutoschematicServerErrorType::ConfigurationError { name, message } => {
-                write!(f, "Configuration Error - {}: {}", name, message)
+                write!(f, "Configuration Error - {name}: {message}")
             }
             AutoschematicServerErrorType::RepoLocked(name) => {
-                write!(f, "Repository Locked: {}", name)
+                write!(f, "Repository Locked: {name}")
             }
         }
     }
@@ -84,7 +84,7 @@ impl ResponseError for AutoschematicServerError {
         match &self.kind {
             AutoschematicServerErrorType::InvalidConnectorString(message) => {
                 tracing::warn!("Invalid Connector String: {}", message);
-                HttpResponse::NotFound().body(format!("Invalid Connector String: {}", message))
+                HttpResponse::NotFound().body(format!("Invalid Connector String: {message}"))
             }
             AutoschematicServerErrorType::NotInstalled => {
                 tracing::warn!("Not installed on repo");

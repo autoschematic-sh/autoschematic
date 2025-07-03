@@ -26,7 +26,7 @@ pub async fn seal(domain: &str, prefix: Option<&str>, path: &Path, in_path: Opti
         key_id.unwrap().to_string()
     } else {
         let pubkey_list_json: serde_json::Value = reqwest::Client::new()
-            .get(format!("https://{}/api/pubkeys", domain))
+            .get(format!("https://{domain}/api/pubkeys"))
             .send()
             .await?
             .json()
@@ -38,7 +38,7 @@ pub async fn seal(domain: &str, prefix: Option<&str>, path: &Path, in_path: Opti
     };
 
     let pubkey_string_base64 = reqwest::Client::new()
-        .get(format!("https://{}/api/pubkey/{}", domain, key_id))
+        .get(format!("https://{domain}/api/pubkey/{key_id}"))
         .send()
         .await?
         .text()

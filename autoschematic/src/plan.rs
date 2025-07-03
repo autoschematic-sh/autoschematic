@@ -34,7 +34,7 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
             continue;
         };
         
-        println!("{:#?}", plan_report);
+        // println!("{plan_report:#?}");
 
         have_nonempty_plan = true;
 

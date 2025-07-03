@@ -4,7 +4,7 @@ use anyhow::bail;
 use dialoguer::{Confirm, Input, Select};
 use regex::Regex;
 
-use autoschematic_core::{connector::FilterOutput, connector_cache::ConnectorCache, util::repo_root, workflow};
+use autoschematic_core::{connector::FilterOutput, connector_cache::ConnectorCache, workflow};
 
 use crate::{config::load_autoschematic_config, spinner::spinner::show_spinner};
 
@@ -74,7 +74,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
                 let var_name = &caps["template"];
                 let var: String = Input::new().with_prompt(var_name.to_string()).interact_text().unwrap();
 
-                output_addr = output_addr.replace(&format!("[{}]", var_name), &var);
+                output_addr = output_addr.replace(&format!("[{var_name}]"), &var);
             }
         }
     }

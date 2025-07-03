@@ -51,7 +51,7 @@ pub async fn rename(
             loop {
                 match inbox.recv().await {
                     Ok(Some(stdout)) => {
-                        eprintln!("{}", stdout);
+                        eprintln!("{stdout}");
                     }
                     Ok(None) => {}
                     Err(_) => break,

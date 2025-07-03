@@ -4,7 +4,7 @@ use anyhow::Context;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{Connector, FilterOutput, VirtToPhyOutput},
+    connector::{Connector, VirtToPhyOutput},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
     template::template_config,
@@ -138,11 +138,10 @@ pub async fn unbundle(
     let prefix_def = prefix_def.clone();
     let mut handles = Vec::new();
     'connector: for connector_def in prefix_def.connectors {
-        if let Some(connector_filter) = &connector_filter {
-            if connector_def.shortname != *connector_filter {
+        if let Some(connector_filter) = &connector_filter
+            && connector_def.shortname != *connector_filter {
                 continue 'connector;
             }
-        }
 
         let connector_cache = connector_cache.clone();
         let keystore = keystore.clone();
@@ -163,7 +162,7 @@ pub async fn unbundle(
                 loop {
                     match inbox.recv().await {
                         Ok(Some(stdout)) => {
-                            eprintln!("{}", stdout);
+                            eprintln!("{stdout}");
                         }
                         Ok(None) => {}
                         Err(_) => break,
@@ -171,7 +170,7 @@ pub async fn unbundle(
                 }
             });
 
-            return connector;
+            connector
         }));
 
         // if connector_cache.filter(&connector_def.shortname, &prefix, &virt_addr).await? == FilterOutput::Resource {

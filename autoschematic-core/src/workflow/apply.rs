@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::bail;
-use tokio::task::JoinSet;
 
 use crate::{
     config::AutoschematicConfig,
@@ -37,17 +36,16 @@ pub async fn apply_connector(
             VirtToPhyOutput::Null(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await?,
         };
 
-        if let Some(outputs) = &op_exec_output.outputs {
-            if !outputs.is_empty() {
+        if let Some(outputs) = &op_exec_output.outputs
+            && !outputs.is_empty() {
                 // We have changes to apply to the output file, so let's apply them and see if the output file was created/modified or deleted.
                 if let Some(virt_output_path) = OutputMapFile::apply_output_map(&plan.prefix, &plan.virt_addr, outputs)? {
                     // Created/modified, so check for a separate physical output file, link it, and record it.
-                    if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
-                        if phy_addr != plan.virt_addr {
+                    if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await?
+                        && phy_addr != plan.virt_addr {
                             let phy_output_path = OutputMapFile::write_link(&plan.prefix, &phy_addr, &plan.virt_addr)?;
                             apply_report.wrote_files.push(phy_output_path);
                         }
-                    }
                     apply_report.wrote_files.push(virt_output_path);
                 } else if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
                     // Applying this change resulted in an empty output file, so delete it,
@@ -56,14 +54,12 @@ pub async fn apply_connector(
                         apply_report.wrote_files.push(virt_output_path);
                     }
 
-                    if phy_addr != plan.virt_addr {
-                        if let Some(phy_output_path) = OutputMapFile::delete(&plan.prefix, &phy_addr)? {
+                    if phy_addr != plan.virt_addr
+                        && let Some(phy_output_path) = OutputMapFile::delete(&plan.prefix, &phy_addr)? {
                             apply_report.wrote_files.push(phy_output_path);
                         }
-                    }
                 }
             }
-        }
 
         apply_report.outputs.push(op_exec_output);
     }
@@ -90,11 +86,10 @@ pub async fn apply(
 
 
     'connector: for connector_def in &prefix_def.connectors {
-        if let Some(connector_filter) = &connector_filter {
-            if connector_def.shortname != *connector_filter {
+        if let Some(connector_filter) = &connector_filter
+            && connector_def.shortname != *connector_filter {
                 continue 'connector;
             }
-        }
 
         let (connector, mut inbox) = connector_cache
             .get_or_spawn_connector(
@@ -111,7 +106,7 @@ pub async fn apply(
                 match inbox.recv().await {
                     Ok(Some(stdout)) => {
                         // let res = append_run_log(&sender_trace_handle, stdout).await;
-                        eprintln!("{}", stdout);
+                        eprintln!("{stdout}");
                         // match res {
                         //     Ok(_) => {}
                         //     Err(_) => {}

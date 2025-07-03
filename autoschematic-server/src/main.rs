@@ -197,11 +197,10 @@ async fn login() -> Result<HttpResponse, actix_web::Error> {
         }
     })?;
 
-    let redirect_uri = format!("https://{}/api/oauth", domain);
+    let redirect_uri = format!("https://{domain}/api/oauth");
 
     let authorize_url = format!(
-        "https://github.com/login/oauth/authorize?client_id={}&redirect_uri={}&scope=repo",
-        client_id, redirect_uri
+        "https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={redirect_uri}&scope=repo"
     );
     Ok(HttpResponse::Found().append_header(("Location", authorize_url)).finish())
 }
@@ -385,7 +384,7 @@ async fn create_app() -> Result<HttpResponse, AutoschematicServerError> {
     // Retrieve the webhook URL from environment variables
     let domain = DOMAIN.get().context("Missing WEBHOOK_DOMAIN environment variable").unwrap();
 
-    let webhook_url = format!("https://{}", domain);
+    let webhook_url = format!("https://{domain}");
 
     let mut ub = URLBuilder::new();
 
@@ -404,8 +403,8 @@ async fn create_app() -> Result<HttpResponse, AutoschematicServerError> {
         .add_param("merge_queues", "write")
         .add_param("issues", "write")
         .add_param("url", &webhook_url)
-        .add_param("callback_urls[]", &format!("{}/api/oauth", webhook_url))
-        .add_param("webhook_url", &format!("{}/api/webhook", webhook_url))
+        .add_param("callback_urls[]", &format!("{webhook_url}/api/oauth"))
+        .add_param("webhook_url", &format!("{webhook_url}/api/webhook"))
         .add_param("webhook_active", "true")
         .add_param("events[]", "check_run")
         .add_param("events[]", "check_suite")

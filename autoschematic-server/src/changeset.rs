@@ -117,7 +117,7 @@ impl ChangeSet {
             return Err(anyhow!("The current repository has no default branch.").into());
         };
 
-        if Some(format!("{}:{}", owner, default_branch)) != pull_request.base.label {
+        if Some(format!("{owner}:{default_branch}")) != pull_request.base.label {
             tracing::error!(
                 "Default branch: {}, base.label: {:?}",
                 default_branch,

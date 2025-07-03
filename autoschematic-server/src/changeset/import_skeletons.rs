@@ -36,11 +36,10 @@ impl ChangeSet {
             for connector_def in prefix.connectors {
                 let prefix_name = PathBuf::from(&prefix_name);
                 let connector_shortname = connector_shortname(&connector_def.shortname)?;
-                if let Some(connector_filter) = &connector_filter {
-                    if connector_shortname != *connector_filter {
+                if let Some(connector_filter) = &connector_filter
+                    && connector_shortname != *connector_filter {
                         continue;
                     }
-                }
                 // temporarily cd into the repo...
                 // I.E. `cd /tmp/autoschematic-298347928/pfnsec/autoschematic-playground`
                 let _chwd = self.chwd_to_repo();
@@ -72,7 +71,7 @@ impl ChangeSet {
                 let skeletons = connector
                     .get_skeletons()
                     .await
-                    .context(format!("{}::get_skeletons()", connector_shortname))?;
+                    .context(format!("{connector_shortname}::get_skeletons()"))?;
                 for skeleton in skeletons {
                     if !addr_matches_filter(&skeleton.addr, &subpath) {
                         continue;
@@ -101,7 +100,7 @@ impl ChangeSet {
             let parent_commit = repo.head()?.peel_to_commit()?;
             let tree = repo.find_tree(oid)?;
             let sig = git2::Signature::now("autoschematic", "import@autoschematic.sh")?;
-            let message = format!("autoschematic import-skeletons by @{}: {}", comment_username, comment_url);
+            let message = format!("autoschematic import-skeletons by @{comment_username}: {comment_url}");
             repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?;
 
             let mut remote = repo.find_remote("origin")?;

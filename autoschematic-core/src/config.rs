@@ -59,6 +59,8 @@ pub enum Spec {
         #[serde(default)]
         binary: Option<String>,
         #[serde(default)]
+        git: Option<String>,
+        #[serde(default)]
         features: Option<Vec<String>>,
         #[serde(default)]
         protocol: Protocol,

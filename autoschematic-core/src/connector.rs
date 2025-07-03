@@ -257,7 +257,7 @@ impl GetResourceOutput {
         let mut res = Vec::new();
 
         let body = self.resource_definition;
-        let res_path = prefix.join(&virt_addr);
+        let res_path = prefix.join(virt_addr);
 
         if let Some(parent) = res_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
@@ -267,16 +267,15 @@ impl GetResourceOutput {
 
         res.push(res_path);
 
-        if let Some(outputs) = self.outputs {
-            if !outputs.is_empty() {
+        if let Some(outputs) = self.outputs
+            && !outputs.is_empty() {
                 let output_map_file = OutputMapFile::OutputMap(outputs);
-                res.push(output_map_file.write(prefix, &virt_addr)?);
+                res.push(output_map_file.write(prefix, virt_addr)?);
 
                 if virt_addr != phy_addr {
-                    res.push(OutputMapFile::write_link(prefix, phy_addr, &virt_addr)?);
+                    res.push(OutputMapFile::write_link(prefix, phy_addr, virt_addr)?);
                 }
             }
-        }
 
         Ok(res)
     }

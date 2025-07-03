@@ -90,8 +90,8 @@ fn descend_find_docident(
             // first inner child may be an ident
             let mut it = pair.clone().into_inner();
             // eprintln!("it: {}", it);
-            if let Some(id_pair) = it.next() {
-                if id_pair.as_rule() == Rule::ident {
+            if let Some(id_pair) = it.next()
+                && id_pair.as_rule() == Rule::ident {
                     if covers(id_pair.as_span(), cursor) {
                         *ident = Some(DocIdent::Struct {
                             name: id_pair.as_str().into(),
@@ -103,7 +103,6 @@ fn descend_find_docident(
                         })
                     }
                 }
-            }
 
             // if let Some(id_pair) = it.next_if(|p| p.as_rule() == Rule::ident) {
             //     if covers(id_pair.as_span(), cursor) {
@@ -126,15 +125,14 @@ fn descend_find_docident(
             // trail.push(Component::Name(slice(src, name.as_span())));
             // descend(val, cursor, src, trail)?;
             if name.as_rule() == Rule::ident {
-                if covers(name.as_span(), cursor) {
-                    if let Some(DocIdent::Struct { name: struct_name }) = parent {
+                if covers(name.as_span(), cursor)
+                    && let Some(DocIdent::Struct { name: struct_name }) = parent {
                         *ident = Some(DocIdent::Field {
                             parent: struct_name.to_string(),
                             name: name.as_str().into(),
                         })
                     }
                     // trail.push(Component::Name(slice(src, id_pair.as_span())));
-                }
 
                 for child in inner {
                     eprintln!("child: {}", child.as_str());
@@ -233,14 +231,13 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
         Rule::named_struct | Rule::tuple_struct | Rule::unit_struct => {
             // first inner child may be an ident
             let mut it = pair.clone().into_inner();
-            eprintln!("it: {}", it);
-            if let Some(id_pair) = it.next() {
-                if id_pair.as_rule() == Rule::ident {
+            eprintln!("it: {it}");
+            if let Some(id_pair) = it.next()
+                && id_pair.as_rule() == Rule::ident {
                     // if covers(id_pair.as_span(), cursor) {
                     trail.push(Component::Name(slice(src, id_pair.as_span())));
                     // }
                 }
-            }
 
             // if let Some(id_pair) = it.next_if(|p| p.as_rule() == Rule::ident) {
             //     if covers(id_pair.as_span(), cursor) {

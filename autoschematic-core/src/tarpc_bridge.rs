@@ -448,13 +448,13 @@ pub async fn tarpc_connector_main<T: Connector>() -> anyhow::Result<()> {
                 Ok(())
             }
             Err(e) => {
-                std::fs::write(error_dump, format!("{:?}", e)).expect("Failed to write error dump!");
+                std::fs::write(error_dump, format!("{e:?}")).expect("Failed to write error dump!");
                 tracing::error!("init_server threw an error: {:?}", e);
                 Err(e)
             }
         },
         Err(e) => {
-            std::fs::write(error_dump, format!("{:?}", e)).expect("Failed to write error dump!");
+            std::fs::write(error_dump, format!("{e:?}")).expect("Failed to write error dump!");
             tracing::error!("init_server panicked: {:?}", e);
             bail!("init_server panicked: {:?}", e);
         }

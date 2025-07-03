@@ -15,7 +15,7 @@ pub struct ErrorMessage {
 impl From<anyhow::Error> for ErrorMessage {
     fn from(value: anyhow::Error) -> Self {
         ErrorMessage {
-            msg: format!("{:#}", value),
+            msg: format!("{value:#}"),
         }
     }
 }
@@ -68,13 +68,13 @@ impl fmt::Display for AutoschematicError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
             AutoschematicErrorType::InvalidConnectorString(name) => {
-                write!(f, "Invalid Connector String: {}", name)
+                write!(f, "Invalid Connector String: {name}")
             }
             AutoschematicErrorType::InvalidKeystoreString(name) => {
-                write!(f, "Invalid Keystore String: {}", name)
+                write!(f, "Invalid Keystore String: {name}")
             }
             AutoschematicErrorType::InvalidLockString(name) => {
-                write!(f, "Invalid Lock String: {}", name)
+                write!(f, "Invalid Lock String: {name}")
             }
             AutoschematicErrorType::InvalidAddr(addr) => {
                 write!(f, "Invalid Address: {}", addr.display())
@@ -82,7 +82,7 @@ impl fmt::Display for AutoschematicError {
             AutoschematicErrorType::InvalidOp(addr, op) => {
                 write!(f, "Invalid ConnectorOp for addr {} : {}", addr.display(), op)
             }
-            AutoschematicErrorType::InternalError(e) => write!(f, "Internal Error: {:#}", e),
+            AutoschematicErrorType::InternalError(e) => write!(f, "Internal Error: {e:#}"),
         }
     }
 }

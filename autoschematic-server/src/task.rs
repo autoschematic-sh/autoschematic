@@ -142,8 +142,8 @@ pub async fn spawn_task(
 
     let mut registry = registry.entries.write().await;
 
-    if let Some(task) = registry.get(&registry_key) {
-        if task.state == TaskState::Running {
+    if let Some(task) = registry.get(&registry_key)
+        && task.state == TaskState::Running {
             bail!(
                 "Task {} already running for repo: {}/{} at prefix {}",
                 name,
@@ -152,7 +152,6 @@ pub async fn spawn_task(
                 prefix.to_str().unwrap_or_default()
             )
         }
-    }
 
     // registry_outbox
     //     .send_async(AgentRegistryMessage::ShutDown)
@@ -181,7 +180,7 @@ pub async fn spawn_task(
                         tracing::error!("Agent error: {}", e);
                         Ok(task_outbox
                             .send(TaskMessage::StateChange(TaskState::Error {
-                                message: format!("{:#?}", e),
+                                message: format!("{e:#?}"),
                             }))
                             .await?)
                     }

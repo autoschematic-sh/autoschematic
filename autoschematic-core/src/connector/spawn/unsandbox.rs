@@ -177,10 +177,7 @@ pub async fn launch_server_binary(
         }
         Spec::Cargo {
             name,
-            version,
-            binary,
-            features,
-            protocol,
+            ..
         } => {
             let cargo_home = match std::env::var("CARGO_HOME") {
                 Ok(p) => PathBuf::from(p),
@@ -218,11 +215,10 @@ pub async fn launch_server_binary(
             if let Some(binary) = binary {
                 build_command.args(["--bin", binary]);
             }
-            if let Some(features) = features {
-                if !features.is_empty() {
+            if let Some(features) = features
+                && !features.is_empty() {
                     build_command.args(["--features", &features.join(",")]);
                 }
-            }
 
             pre_command = Some(build_command);
 
@@ -232,11 +228,10 @@ pub async fn launch_server_binary(
             if let Some(binary) = binary {
                 command.args(["--bin", binary]);
             }
-            if let Some(features) = features {
-                if !features.is_empty() {
+            if let Some(features) = features
+                && !features.is_empty() {
                     command.args(["--features", &features.join(",")]);
                 }
-            }
             command.args([String::from("--"), shortname.to_string()]);
             command.args([prefix, &socket, &error_dump]);
             command
@@ -248,7 +243,6 @@ pub async fn launch_server_binary(
     }
 
     if let Some(mut pre_command) = pre_command {
-        eprintln!("Running {:?}", pre_command);
         let output = pre_command.stdin(Stdio::inherit()).stdout(Stdio::inherit()).output().await?;
 
         if !output.status.success() {
