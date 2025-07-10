@@ -1,9 +1,13 @@
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 use autoschematic_core::{connector_cache::ConnectorCache, git_util::get_staged_files, report::PlanReport};
 use crossterm::style::Stylize;
 
-use crate::{config::load_autoschematic_config, spinner::spinner::show_spinner, util::colour_op_message};
+use crate::{
+    config::load_autoschematic_config,
+    spinner::spinner::show_spinner,
+    util::{colour_op_message, try_colour_op_message_diff},
+};
 use colored::Colorize;
 
 pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: &Option<String>) -> anyhow::Result<()> {
@@ -33,7 +37,7 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
             spinner_stop.send(()).unwrap();
             continue;
         };
-        
+
         // println!("{plan_report:#?}");
 
         have_nonempty_plan = true;
@@ -69,10 +73,21 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
 }
 
 pub fn print_frame_start() {
-    println!(
-        "{}",
-        "╔════════════════════════════════════════════════════════════════════════════════════════════════════╗".dark_grey()
-    );
+    let term_width = crossterm::terminal::size().unwrap().0;
+
+    let frame_width = 80.min(term_width);
+
+    let mut frame = String::new();
+
+    frame.push_str(&"╔".dark_grey().to_string());
+
+    for _ in 0..frame_width - 2 {
+        frame.push_str(&"═".dark_grey().to_string());
+    }
+
+    frame.push_str(&"╗".dark_grey().to_string());
+
+    println!("{}", frame);
 }
 
 pub fn frame() -> String {
@@ -80,10 +95,21 @@ pub fn frame() -> String {
 }
 
 pub fn print_frame_end() {
-    println!(
-        "{}",
-        "╚════════════════════════════════════════════════════════════════════════════════════════════════════╝".dark_grey()
-    );
+    let term_width = crossterm::terminal::size().unwrap().0;
+
+    let frame_width = 80.min(term_width);
+
+    let mut frame = String::new();
+
+    frame.push_str(&"╚".dark_grey().to_string());
+
+    for _ in 0..frame_width - 2 {
+        frame.push_str(&"═".dark_grey().to_string());
+    }
+
+    frame.push_str(&"╝".dark_grey().to_string());
+
+    println!("{}", frame);
 }
 
 pub fn print_plan_addr(plan_report: &PlanReport) {
@@ -126,7 +152,14 @@ pub fn print_plan(plan_report: &PlanReport) {
             .clone()
             .unwrap_or(connector_op.op_definition.clone());
 
-        println!("{}  ⟣ {}", frame(), colour_op_message(&friendly_message));
+        let coloured_message = try_colour_op_message_diff(&friendly_message).unwrap_or(colour_op_message(&friendly_message));
+
+        for (i, line) in coloured_message.lines().enumerate() {
+            if i == 0 {
+                println!("{}  ⟣ {}", frame(), line)
+            } else {
+                println!("{}  {}", frame(), line)
+            }
+        }
     }
-    // println!("");
 }

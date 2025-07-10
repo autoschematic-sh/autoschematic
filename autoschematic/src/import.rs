@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use autoschematic_core::{connector_cache::ConnectorCache, workflow::import::ImportMessage};
+use autoschematic_core::{config::Connector, connector_cache::ConnectorCache, workflow::import::ImportMessage};
 use crossterm::style::Stylize;
 use dialoguer::MultiSelect;
 use tokio::sync::Semaphore;
@@ -23,6 +23,8 @@ pub async fn import(
 
     let mut prefix_selections: Vec<String> = vec![];
 
+    let mut total_connectors = 0;
+
     // If the user didn't specify a prefix, and there are multiple prefixes, present them with the selection
     if prefix.is_some() {
         prefix_selections.push(prefix.unwrap());
@@ -42,49 +44,73 @@ pub async fn import(
         }
     }
 
-    // TODO handle the CLI connector filter also
     let mut connector_selections: HashMap<String, Vec<String>> = HashMap::new();
-    for prefix_selection in &prefix_selections {
-        connector_selections.insert(prefix_selection.clone(), Vec::new());
+    if let Some(connector_selection) = connector {
+        for prefix_selection in &prefix_selections {
+            connector_selections.insert(prefix_selection.clone(), Vec::new());
 
-        let items: Vec<String> = config
-            .prefixes
-            .get(prefix_selection)
-            .unwrap()
-            .connectors
-            .iter()
-            .map(|c| c.shortname.clone())
-            .collect();
+            let connectors: &Vec<Connector> = &config.prefixes.get(prefix_selection).unwrap().connectors;
+            for prefix_connector in connectors {
+                if prefix_connector.shortname == connector_selection {
+                    connector_selections
+                        .get_mut(prefix_selection)
+                        .unwrap()
+                        .push(connector_selection.to_string());
 
-        if items.is_empty() {
-            continue;
+                    total_connectors += 1;
+                }
+            }
         }
+    } else {
+        for prefix_selection in &prefix_selections {
+            connector_selections.insert(prefix_selection.clone(), Vec::new());
 
-        if items.len() == 1 {
-            connector_selections
-                .get_mut(prefix_selection)
+            let items: Vec<String> = config
+                .prefixes
+                .get(prefix_selection)
                 .unwrap()
-                .push(items.first().unwrap().to_string());
-        } else {
-            let selection = MultiSelect::new()
-                .with_prompt(format!(
-                    " ⊆ In prefix {}, with which connectors should we query and import remote resources?",
-                    prefix_selection.clone().dark_grey(),
-                ))
-                .items(&items)
-                .interact()
-                .unwrap();
+                .connectors
+                .iter()
+                .map(|c| c.shortname.clone())
+                .collect();
 
-            for i in selection {
+            if items.is_empty() {
+                continue;
+            }
+
+            if items.len() == 1 {
                 connector_selections
                     .get_mut(prefix_selection)
                     .unwrap()
-                    .push(items[i].to_string());
+                    .push(items.first().unwrap().to_string());
+                total_connectors += 1;
+            } else {
+                let selection = MultiSelect::new()
+                    .with_prompt(format!(
+                        " ⊆ In prefix {}, with which connectors should we query and import remote resources?",
+                        prefix_selection.clone().dark_grey(),
+                    ))
+                    .items(&items)
+                    .interact()
+                    .unwrap();
+
+                for i in selection {
+                    connector_selections
+                        .get_mut(prefix_selection)
+                        .unwrap()
+                        .push(items[i].to_string());
+                    total_connectors += 1;
+                }
             }
         }
     }
+    
+    if total_connectors == 0 {
+        println!(" ∅ Selection matched no connectors, or your prefix(es) are empty.");
+        return Ok(());
+    }
 
-    eprintln!("Starting import. This may take a while!");
+    println!("{}", " Starting import. This may take a while!");
 
     for (prefix_name, connector_names) in connector_selections {
         for connector_name in connector_names {
@@ -97,7 +123,7 @@ pub async fn import(
                         match receiver.recv().await {
                             Some(msg) => match msg {
                                 ImportMessage::StartImport { subpath } => {
-                                    eprintln!(
+                                    println!(
                                         "{}: Starting import under {}/{}",
                                         &connector_name,
                                         &prefix_name.clone().dark_grey(),
@@ -106,14 +132,20 @@ pub async fn import(
                                 }
                                 ImportMessage::SkipExisting { prefix, addr } => {
                                     eprintln!(
-                                        " ∋ Skipping {}/{} (already exists)",
+                                        " {} Skipping {}/{} (already exists)",
+                                        "∋".dark_grey(),
                                         prefix.to_string_lossy().dark_grey(),
                                         addr.display()
                                     )
                                 }
                                 ImportMessage::StartGet { prefix, addr } => {}
                                 ImportMessage::GetSuccess { prefix, addr } => {
-                                    eprintln!(" ⋉ Imported {}/{}", &prefix_name.clone().dark_grey(), addr.display())
+                                    eprintln!(
+                                        " {} Imported {}/{}",
+                                        "⋉".bold(),
+                                        &prefix_name.clone().dark_grey(),
+                                        addr.display()
+                                    )
                                 }
                                 ImportMessage::WroteFile { path } => {}
                                 ImportMessage::NotFound { prefix, addr } => {}
@@ -142,7 +174,7 @@ pub async fn import(
         }
     }
 
-    eprintln!("\u{1b}[32m Success! \u{1b}[39m");
+    println!("{}", " Success!".dark_green());
 
     Ok(())
 }

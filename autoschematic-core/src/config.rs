@@ -76,6 +76,9 @@ pub enum Spec {
     },
 }
 
+// TODO we'll also define ConnectorSet, a standalone file with a set of Connectors,
+// to allow prefixes to share common sets of connectors.
+
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Connector {
@@ -120,6 +123,9 @@ impl AutoschematicConfig {
                 }
             }
         }
+        
+        tracing::debug!("Resource group map: {:?}", res);
+
         res
     }
 }

@@ -462,7 +462,6 @@ pub trait Connector: Send + Sync {
     /// we allow returning the resultant vpc_id in outputs after get() or op_exec().
     /// This allows connectors to translate this mapping and resolve a "virtual" path, with a
     /// user-provided "fake" ID, into a physical path, with the actual canonical resource ID.
-    /// Connectors `addr_virt_to_phy`
     async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyOutput, anyhow::Error> {
         Ok(VirtToPhyOutput::Null(addr.into()))
     }
@@ -510,6 +509,14 @@ pub trait Connector: Send + Sync {
 
 /// Resource represents a resource body, either the contents of a file on disk, or
 /// a virtual, remote resource as returned by `Connector::get(addr)`.
+/// Connectors implement implement and consume their own Resource types. The actual
+/// types themselves are erased at the interface between Autoschematic and the Connector implementations
+/// it instantiates. 
+/// For example, Connector::plan(addr, current, desired) takes a &Path, Option<&\[u8\]>, Option<&\[u8\]>,
+/// and the connector implementation will parse that as an internal implementation of ResourceAddress, Option<Resource>, Option<Resource>,
+/// in order to produce a Vec of structs that implement ConnectorOp, which it will then pass back in serialized form as Vec<String>.
+/// Then, Connector::op_exec(addr, connector_op) will similarly parse the raw addr and connector_op into its internal implementations of ResourceAddress and ConnectorOp 
+/// in order to interpret them and execute an operation.
 pub trait Resource: Send + Sync {
     fn to_bytes(&self) -> Result<Vec<u8>, anyhow::Error>;
 

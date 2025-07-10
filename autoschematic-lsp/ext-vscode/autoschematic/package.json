@@ -39,7 +39,10 @@
       {
         "command": "autoschematic.pullRemoteState",
         "title": "Pull Remote State",
-        "icon": "$(cloud-download)"
+        "icon": {
+          "dark": "resources/icon/pull-state-dark.svg",
+          "light": "resources/icon/pull-state-light.svg"
+        }
       }
     ],
     "menus": {

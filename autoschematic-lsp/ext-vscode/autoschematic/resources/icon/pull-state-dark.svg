@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="120"
+   height="120"
+   viewBox="0 0 120 120"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="pull-state-dark.svg"
+   inkscape:version="1.4.2 (ebf0e940d0, 2025-05-08)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:document-units="px"
+     inkscape:zoom="4.7140452"
+     inkscape:cx="10.9248"
+     inkscape:cy="77.216061"
+     inkscape:window-width="1920"
+     inkscape:window-height="1143"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1">
+    <rect
+       x="-1.2727922"
+       y="-15.697771"
+       width="146.3711"
+       height="165.46299"
+       id="rect45" />
+    <rect
+       x="0.9"
+       y="0"
+       width="118.5"
+       height="119.4"
+       id="rect13" />
+    <rect
+       x="9.15"
+       y="7.2"
+       width="104.7"
+       height="106.2"
+       id="rect12" />
+    <rect
+       x="12.15"
+       y="11.55"
+       width="100.95"
+       height="94.95"
+       id="rect11" />
+    <rect
+       x="-3.45"
+       y="4.2"
+       width="108.75"
+       height="93.6"
+       id="rect10" />
+    <rect
+       x="11.7"
+       y="18.6"
+       width="80.55"
+       height="59.25"
+       id="rect9" />
+    <rect
+       x="21.6"
+       y="27.3"
+       width="50.7"
+       height="22.35"
+       id="rect8" />
+    <rect
+       x="8.1"
+       y="20.25"
+       width="62.4"
+       height="30"
+       id="rect6" />
+    <rect
+       x="13.05"
+       y="18.6"
+       width="100.5"
+       height="86.25"
+       id="rect5" />
+    <rect
+       x="9"
+       y="18.15"
+       width="106.5"
+       height="82.35"
+       id="rect4" />
+    <rect
+       x="39.45"
+       y="36.45"
+       width="73.2"
+       height="49.8"
+       id="rect2" />
+    <rect
+       x="33.6"
+       y="37.65"
+       width="77.85"
+       height="61.8"
+       id="rect1" />
+    <filter
+       style="color-interpolation-filters:sRGB;"
+       inkscape:label="Drop Shadow"
+       id="filter45"
+       x="-0.042497435"
+       y="-0.048082067"
+       width="1.0967023"
+       height="1.0897065">
+      <feFlood
+         result="flood"
+         in="SourceGraphic"
+         flood-opacity="1"
+         flood-color="rgb(0,0,0)"
+         id="feFlood44" />
+      <feGaussianBlur
+         result="blur"
+         in="SourceGraphic"
+         stdDeviation="1.2154302"
+         id="feGaussianBlur44" />
+      <feOffset
+         result="offset"
+         in="blur"
+         dx="0.803598"
+         dy="-0.452548"
+         id="feOffset44" />
+      <feComposite
+         result="comp1"
+         operator="in"
+         in="flood"
+         in2="offset"
+         id="feComposite44" />
+      <feComposite
+         result="comp2"
+         operator="over"
+         in="SourceGraphic"
+         in2="comp1"
+         id="feComposite45" />
+    </filter>
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <text
+       xml:space="preserve"
+       id="text13"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:96px;font-family:'Noto Sans';-inkscape-font-specification:'Noto Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:start;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect13);display:inline;opacity:1;fill:#fffbeb;fill-opacity:1;stroke:#d6d3d1;stroke-width:0;stroke-linecap:butt;stroke-linejoin:bevel;stroke-miterlimit:3.4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal;filter:url(#filter45)"
+       transform="matrix(-1.5753712,0,0,-1.6381451,123.83115,146.73282)"><tspan
+         x="0.90039062"
+         y="87.348018"
+         id="tspan2">⎆</tspan></text>
+  </g>
+</svg>

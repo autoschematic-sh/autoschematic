@@ -68,7 +68,8 @@ pub async fn apply(
         //     // autoschematic_core::workflow::filter::filter(&config, &connector_cache, keystore, prefix, addr)
 
         let Some(plan_report) =
-            autoschematic_core::workflow::plan::plan(&config, connector_cache.clone(), keystore.clone(), &connector, &path).await?
+            autoschematic_core::workflow::plan::plan(&config, connector_cache.clone(), keystore.clone(), &connector, &path)
+                .await?
         else {
             spinner_stop.send(()).unwrap();
             continue;
@@ -147,8 +148,14 @@ pub async fn apply(
     let mut need_print_frame_end = false;
     for plan_report in plan_report_set.plan_reports {
         let spinner_stop = show_spinner().await;
-        let Some(apply_report) =
-            autoschematic_core::workflow::apply::apply(&config, connector_cache.clone(), keystore.clone(), &connector, &plan_report).await?
+        let Some(apply_report) = autoschematic_core::workflow::apply::apply(
+            &config,
+            connector_cache.clone(),
+            keystore.clone(),
+            &connector,
+            &plan_report,
+        )
+        .await?
         else {
             spinner_stop.send(()).unwrap();
             continue;
@@ -174,10 +181,9 @@ pub async fn apply(
             git_add(&repo_root, path)?;
         }
         wrote_files = true;
-
-        if need_print_frame_end {
-            print_frame_end();
-        }
+    }
+    if need_print_frame_end {
+        print_frame_end();
     }
 
     if wrote_files && !skip_commit {
