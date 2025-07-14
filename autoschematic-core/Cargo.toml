@@ -7,9 +7,9 @@ version = "0.6.1"
 edition = "2024"
 
 [features]
-default = []
+default = ["grpc"]
 sandbox = ["nix"]
-# grpc = ["tonic-build", "tonic", "prost"]
+grpc = ["tonic-build", "tonic", "prost"]
 
 [dependencies]
 anyhow = "1.0.95"
@@ -24,8 +24,8 @@ tokio = { version = "1.43.0", features = ["full", "rt-multi-thread"] }
 futures = "0.3.31"
 tracing = "0.1.41"
 serde_json = "1.0.140"
-tonic = { version = "0.13.0", optional = true }
-prost = { version = "0.13.5", optional = true }
+tonic = { version = "0.13.1", optional = true }
+prost = { version = "0.13.1", optional = true }
 regex = "1.11.1"
 lazy_static = "1.5.0"
 nix = { version = "0.30.1", optional = true, features = [
@@ -61,6 +61,7 @@ secrecy = "0.10.3"
 which = "8.0.0"
 dashmap = "6.1.0"
 strsim = "0.11.1"
+tokio-stream = "0.1.17"
 
-# [build-dependencies]
-# tonic-build = { version = "0.13.0", optional = true }
+[build-dependencies]
+tonic-build = { version = "0.13.1", optional = true }

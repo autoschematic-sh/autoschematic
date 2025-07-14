@@ -23,7 +23,7 @@ use crate::{
     bundle::BundleOutput,
     connector::{
         Connector, ConnectorOutbox, DocIdent, FilterOutput, GetDocOutput, GetResourceOutput, OpExecOutput, OpPlanOutput,
-        SkeletonOutput, VirtToPhyOutput,
+        SkeletonOutput, VirtToPhyOutput, spawn::wait_for_socket,
     },
     diag::DiagnosticOutput,
     error::ErrorMessage,
@@ -343,23 +343,7 @@ impl Connector for TarpcConnectorClient {
     }
 }
 
-async fn wait_for_socket(socket: &Path, timeout: Duration) -> anyhow::Result<()> {
-    let start_time = std::time::Instant::now();
-
-    loop {
-        if std::time::Instant::now() - start_time > timeout {
-            bail!("Timed out waiting for socket after {:?}", timeout)
-        }
-        if socket.exists() {
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(10));
-    }
-
-    Ok(())
-}
-
-pub async fn launch_client(socket: &Path) -> Result<TarpcConnectorClient, anyhow::Error> {
+pub async fn launch_client(socket: &Path) -> Result<Arc<dyn Connector>, anyhow::Error> {
     tracing::info!("waiting for  socket...");
     wait_for_socket(socket, Duration::from_secs(30)).await?;
     tracing::info!("Got socket...");
@@ -371,7 +355,7 @@ pub async fn launch_client(socket: &Path) -> Result<TarpcConnectorClient, anyhow
 
     let connector_client = TarpcConnectorClient::new(Config::default(), transport).spawn();
 
-    Ok(connector_client)
+    Ok(Arc::new(connector_client) as Arc<dyn Connector>)
 }
 
 pub async fn launch_server<C: Connector>(
@@ -425,7 +409,7 @@ pub async fn init_server<C: Connector>(
 pub async fn tarpc_connector_main<T: Connector>() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_thread_ids(false)
-        .with_ansi(false)
+        // .with_ansi(false)
         .with_writer(std::io::stderr)
         .with_env_filter(EnvFilter::from_default_env())
         .compact()

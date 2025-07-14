@@ -41,6 +41,7 @@ pub struct Task {
 pub enum Protocol {
     #[default]
     Tarpc,
+    Grpc
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
@@ -73,6 +74,9 @@ pub enum Spec {
         features: Option<Vec<String>>,
         #[serde(default)]
         protocol: Protocol,
+    },
+    TypescriptLocal {
+        path: PathBuf,
     },
 }
 

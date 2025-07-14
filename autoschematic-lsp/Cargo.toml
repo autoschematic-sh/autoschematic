@@ -8,6 +8,7 @@ edition = "2024"
 
 [dependencies]
 autoschematic-core = { path = "../autoschematic-core", version = "0.6.1", features = [
+    "grpc",
 ] }
 anyhow = "1.0.98"
 lsp-types = "0.97.0"

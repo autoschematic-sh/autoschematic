@@ -15,28 +15,22 @@ use crate::{
         SkeletonOutput, VirtToPhyOutput,
     },
     diag::DiagnosticOutput,
+    grpc_bridge,
     keystore::KeyStore,
     secret::SealedSecret,
-    tarpc_bridge::{TarpcConnectorClient, launch_client},
+    tarpc_bridge::{self},
     util::passthrough_secrets_from_env,
 };
 use anyhow::bail;
 use async_trait::async_trait;
 
-// use nix::{
-//     errno::Errno,
-//     sched::CloneFlags,
-//     sys::signal::Signal::SIGKILL,
-//     sys::signal::kill,
-//     unistd::{Pid, Uid, execve, getegid, geteuid, pipe, setresuid},
-// };
 use rand::{Rng, distr::Alphanumeric};
 use tokio::process::Child;
 use walkdir::WalkDir;
 
 /// This module handles unsandboxed execution of connector instances.
 pub struct UnsandboxConnectorHandle {
-    client: TarpcConnectorClient,
+    client: Arc<dyn Connector>,
     socket: PathBuf,
     error_dump: PathBuf,
     read_thread: Option<JoinHandle<()>>,
@@ -75,7 +69,8 @@ fn random_error_dump_path() -> PathBuf {
 #[async_trait]
 impl Connector for UnsandboxConnectorHandle {
     async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
-        <TarpcConnectorClient as Connector>::new(name, prefix, outbox).await
+        todo!();
+        // <TarpcConnectorClient as Connector>::new(name, prefix, outbox).await
     }
     async fn init(&self) -> Result<(), anyhow::Error> {
         Connector::init(&self.client).await
@@ -175,10 +170,7 @@ pub async fn launch_server_binary(
             command.args(args);
             command
         }
-        Spec::Cargo {
-            name,
-            ..
-        } => {
+        Spec::Cargo { name, .. } => {
             let cargo_home = match std::env::var("CARGO_HOME") {
                 Ok(p) => PathBuf::from(p),
                 Err(_) => {
@@ -216,9 +208,10 @@ pub async fn launch_server_binary(
                 build_command.args(["--bin", binary]);
             }
             if let Some(features) = features
-                && !features.is_empty() {
-                    build_command.args(["--features", &features.join(",")]);
-                }
+                && !features.is_empty()
+            {
+                build_command.args(["--features", &features.join(",")]);
+            }
 
             pre_command = Some(build_command);
 
@@ -229,11 +222,21 @@ pub async fn launch_server_binary(
                 command.args(["--bin", binary]);
             }
             if let Some(features) = features
-                && !features.is_empty() {
-                    command.args(["--features", &features.join(",")]);
-                }
+                && !features.is_empty()
+            {
+                command.args(["--features", &features.join(",")]);
+            }
             command.args([String::from("--"), shortname.to_string()]);
             command.args([prefix, &socket, &error_dump]);
+            command
+        }
+        Spec::TypescriptLocal { path } => {
+            if !path.is_file() {
+                bail!("launch_server_binary: {}: not found", path.display())
+            }
+            let mut command = tokio::process::Command::new("tsx");
+            let args = [path.into(), shortname.into(), prefix.into(), socket.clone(), error_dump.clone()];
+            command.args(args);
             command
         }
     };
@@ -254,11 +257,26 @@ pub async fn launch_server_binary(
 
     tracing::info!("Launching client at {:?}", socket);
 
-    let client = launch_client(&socket).await?;
+    let client = match spec {
+        Spec::Binary { protocol, .. } => match protocol {
+            crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
+            crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?,
+        },
+        Spec::Cargo { protocol, .. } => match protocol {
+            crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
+            crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?,
+        },
+        Spec::CargoLocal { protocol, .. } => match protocol {
+            crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
+            crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?,
+        },
+        Spec::TypescriptLocal { .. } => grpc_bridge::launch_client(&socket).await?,
+    };
+
     tracing::info!("Launched client.");
 
     Ok(UnsandboxConnectorHandle {
-        client,
+        client: Arc::new(client),
         socket,
         error_dump,
         read_thread: None,

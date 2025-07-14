@@ -1,0 +1,29 @@
+{
+  "name": "autoschematic-sdk",
+  "version": "0.6.1",
+  "description": "Build Autoschematic Connectors in Typescript.",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "gen:proto": "bash scripts/gen_proto.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/autoschematic-sh/autoschematic.git"
+  },
+  "author": "Peter Sherman",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/autoschematic-sh/autoschematic/issues"
+  },
+  "homepage": "https://github.com/autoschematic-sh/autoschematic#readme",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.13.4",
+    "@types/node": "^24.0.13",
+    "google-protobuf": "^3.21.4"
+  },
+  "devDependencies": {
+    "ts-proto": "^2.7.5",
+    "typescript": "^5.8.3"
+  }
+}

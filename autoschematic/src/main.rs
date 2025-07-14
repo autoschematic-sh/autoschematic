@@ -32,7 +32,7 @@ pub enum AutoschematicSubcommand {
     /// Validate that the Autoschematic config within this repository is well-formed.
     /// Includes autoschematic.lock.ron and autoschematic.rbac.ron if present.
     Validate {},
-    // Install or upgrade connectors listed in a prefix from Cargo or Git.
+    /// Install or upgrade the connectors listed in autoschematic.ron.
     Install {
         // url: String,
         // #[arg(short, long, default_value = None)]
@@ -53,8 +53,8 @@ pub enum AutoschematicSubcommand {
         #[arg(short, long)]
         domain: String,
 
-        /// Prefix in which to create the sealed secret
         #[arg(long, default_value = None)]
+        /// Prefix in which to create the sealed secret.
         prefix: Option<String>,
 
         #[arg(short, long)]
@@ -78,7 +78,7 @@ pub enum AutoschematicSubcommand {
     // },
     /// Display the series of operations needed to apply the changeset.
     Plan {
-        /// Optional path (can be a glob) to filter the changeset.
+        /// Optional: run for a single prefix by name
         #[arg(short, long, value_name = "prefix")]
         prefix: Option<String>,
 
@@ -92,7 +92,7 @@ pub enum AutoschematicSubcommand {
     },
     /// Execute the series of operations needed to apply the changeset.
     Apply {
-        /// Optional path (can be a glob) to filter the changeset.
+        /// Optional: run for a single prefix by name
         #[arg(short, long, value_name = "prefix")]
         prefix: Option<String>,
 
@@ -104,15 +104,16 @@ pub enum AutoschematicSubcommand {
         #[arg(short, long, value_name = "subpath")]
         subpath: Option<String>,
     },
+    /// Execute a task as defined by a connector.
     RunTask {
         #[arg(short, long, value_name = "name")]
         name: String,
         #[arg(short, long, value_name = "prefix")]
         prefix: String,
     },
-    /// Import remote resources into
+    /// Import remote resources into the repository.
     Import {
-        /// Optional path (can be a glob) to filter the changeset.
+        /// Optional: run for a single prefix by name
         #[arg(short, long, value_name = "prefix")]
         prefix: Option<String>,
 
@@ -124,7 +125,7 @@ pub enum AutoschematicSubcommand {
         #[arg(short, long, value_name = "subpath")]
         subpath: Option<String>,
 
-        /// If set, overwrite local files that exist with their remote state when imported.
+        /// If set, overwrite existing files with their remote state.
         #[arg(long, value_name = "overwrite", default_value_t = false)]
         overwrite: bool,
     },
