@@ -8,7 +8,6 @@ use crate::{
     spinner::spinner::show_spinner,
     util::{colour_op_message, try_colour_op_message_diff},
 };
-use colored::Colorize;
 
 pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: &Option<String>) -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;

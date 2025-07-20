@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    io,
     path::{Path, PathBuf},
     process::Stdio,
     sync::Arc,
@@ -8,13 +9,13 @@ use std::{
 };
 
 use crate::{
-    bundle::BundleOutput,
+    bundle::UnbundleResponseElement,
     config::Spec,
     connector::{
-        Connector, ConnectorOutbox, DocIdent, FilterOutput, GetDocOutput, GetResourceOutput, OpExecOutput, OpPlanOutput,
-        SkeletonOutput, VirtToPhyOutput,
+        Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
+        PlanResponseElement, SkeletonResponse, VirtToPhyResponse,
     },
-    diag::DiagnosticOutput,
+    diag::DiagnosticResponse,
     grpc_bridge,
     keystore::KeyStore,
     secret::SealedSecret,
@@ -69,14 +70,14 @@ fn random_error_dump_path() -> PathBuf {
 #[async_trait]
 impl Connector for UnsandboxConnectorHandle {
     async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
-        todo!();
+        bail!("Connector::new() for UnsandboxConnectorHandle is a stub!")
         // <TarpcConnectorClient as Connector>::new(name, prefix, outbox).await
     }
     async fn init(&self) -> Result<(), anyhow::Error> {
         Connector::init(&self.client).await
     }
 
-    async fn filter(&self, addr: &Path) -> Result<FilterOutput, anyhow::Error> {
+    async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error> {
         Connector::filter(&self.client, addr).await
     }
 
@@ -88,7 +89,7 @@ impl Connector for UnsandboxConnectorHandle {
         Connector::subpaths(&self.client).await
     }
 
-    async fn get(&self, addr: &Path) -> Result<Option<GetResourceOutput>, anyhow::Error> {
+    async fn get(&self, addr: &Path) -> Result<Option<GetResourceResponse>, anyhow::Error> {
         Connector::get(&self.client, addr).await
     }
 
@@ -97,15 +98,15 @@ impl Connector for UnsandboxConnectorHandle {
         addr: &Path,
         current: Option<Vec<u8>>,
         desired: Option<Vec<u8>>,
-    ) -> Result<Vec<OpPlanOutput>, anyhow::Error> {
+    ) -> Result<Vec<PlanResponseElement>, anyhow::Error> {
         Connector::plan(&self.client, addr, current, desired).await
     }
 
-    async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecOutput, anyhow::Error> {
+    async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecResponse, anyhow::Error> {
         Connector::op_exec(&self.client, addr, op).await
     }
 
-    async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyOutput, anyhow::Error> {
+    async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyResponse, anyhow::Error> {
         Connector::addr_virt_to_phy(&self.client, addr).await
     }
 
@@ -113,11 +114,11 @@ impl Connector for UnsandboxConnectorHandle {
         Connector::addr_phy_to_virt(&self.client, addr).await
     }
 
-    async fn get_skeletons(&self) -> Result<Vec<SkeletonOutput>, anyhow::Error> {
+    async fn get_skeletons(&self) -> Result<Vec<SkeletonResponse>, anyhow::Error> {
         Connector::get_skeletons(&self.client).await
     }
 
-    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocOutput>, anyhow::Error> {
+    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocResponse>, anyhow::Error> {
         Connector::get_docstring(&self.client, addr, ident).await
     }
 
@@ -125,11 +126,11 @@ impl Connector for UnsandboxConnectorHandle {
         Connector::eq(&self.client, addr, a, b).await
     }
 
-    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
+    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<Option<DiagnosticResponse>, anyhow::Error> {
         Connector::diag(&self.client, addr, a).await
     }
 
-    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> Result<Vec<BundleOutput>, anyhow::Error> {
+    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> Result<Vec<UnbundleResponseElement>, anyhow::Error> {
         Connector::unbundle(&self.client, addr, resource).await
     }
 }
@@ -168,6 +169,7 @@ pub async fn launch_server_binary(
             let mut command = tokio::process::Command::new(binary_path);
             let args = [shortname.into(), prefix.into(), socket.clone(), error_dump.clone()];
             command.args(args);
+            command.stdout(io::stderr());
             command
         }
         Spec::Cargo { name, .. } => {
@@ -190,6 +192,7 @@ pub async fn launch_server_binary(
             let mut command = tokio::process::Command::new(binary_path);
             let args = [shortname.into(), prefix.into(), socket.clone(), error_dump.clone()];
             command.args(args);
+            command.stdout(io::stderr());
             command
         }
         Spec::CargoLocal {
@@ -228,6 +231,7 @@ pub async fn launch_server_binary(
             }
             command.args([String::from("--"), shortname.to_string()]);
             command.args([prefix, &socket, &error_dump]);
+            command.stdout(io::stderr());
             command
         }
         Spec::TypescriptLocal { path } => {
@@ -235,8 +239,15 @@ pub async fn launch_server_binary(
                 bail!("launch_server_binary: {}: not found", path.display())
             }
             let mut command = tokio::process::Command::new("tsx");
-            let args = [path.into(), shortname.into(), prefix.into(), socket.clone(), error_dump.clone()];
+            let args = [
+                path.into(),
+                shortname.into(),
+                prefix.into(),
+                socket.clone(),
+                error_dump.clone(),
+            ];
             command.args(args);
+            command.stdout(io::stderr());
             command
         }
     };
@@ -246,7 +257,12 @@ pub async fn launch_server_binary(
     }
 
     if let Some(mut pre_command) = pre_command {
-        let output = pre_command.stdin(Stdio::inherit()).stdout(Stdio::inherit()).output().await?;
+        let output = pre_command
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .output()
+            .await?;
 
         if !output.status.success() {
             bail!("Pre-command failed: {:?}: {}", pre_command, output.status)

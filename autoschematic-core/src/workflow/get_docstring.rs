@@ -2,7 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{DocIdent, FilterOutput, GetDocOutput},
+    connector::{DocIdent, FilterResponse, GetDocResponse},
     connector_cache::ConnectorCache,
     error::AutoschematicError,
     keystore::KeyStore,
@@ -15,7 +15,7 @@ pub async fn get_docstring(
     prefix: &Path,
     addr: &Path,
     ident: DocIdent,
-) -> Result<Option<GetDocOutput>, AutoschematicError> {
+) -> Result<Option<GetDocResponse>, AutoschematicError> {
     let Some(prefix_str) = prefix.to_str() else {
         return Ok(None);
     };
@@ -35,7 +35,7 @@ pub async fn get_docstring(
             )
             .await?;
 
-        if connector.filter(addr).await? == FilterOutput::Resource
+        if connector.filter(addr).await? == FilterResponse::Resource
             && let Some(doc) = connector.get_docstring(addr, ident.clone()).await? {
                 return Ok(Some(doc));
             }

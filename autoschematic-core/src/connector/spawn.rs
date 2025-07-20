@@ -30,6 +30,11 @@ pub async fn spawn_connector(
 
     Ok((
         Arc::new(
+            #[cfg(feature = "sandbox")]
+            sandbox::launch_server_binary_sandboxed(spec, shortname, prefix, env, outbox, keystore)
+                .await
+                .context("launch_server_binary()")?,
+            #[cfg(not(feature = "sandbox"))]
             unsandbox::launch_server_binary(spec, shortname, prefix, env, outbox, keystore)
                 .await
                 .context("launch_server_binary()")?,

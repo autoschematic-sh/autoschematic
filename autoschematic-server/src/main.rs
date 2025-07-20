@@ -64,16 +64,12 @@ lazy_static::lazy_static! {
 }
 
 pub fn main() {
-    actix_web::rt::System::with_tokio_rt(|| {
-        // build system with a multi-thread tokio runtime.
-        tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap()
-    })
-    .block_on(async_main())
-    .unwrap();
+    actix_web::rt::System::with_tokio_rt(|| tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap())
+        .block_on(async_main())
+        .unwrap();
 }
 
 async fn async_main() -> anyhow::Result<()> {
-    // Initialize structured logging with timestamps and log levels
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_target(true)
@@ -81,14 +77,12 @@ async fn async_main() -> anyhow::Result<()> {
         .with_line_number(true)
         .with_env_filter(EnvFilter::from_default_env())
         .init();
-    // console_subscriber::;
 
     // Install crypto provider for TLS
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Failed to install rustls crypto provider");
 
-    // Load critical configuration
     let webhook_domain = env::var("WEBHOOK_DOMAIN").context("Missing WEBHOOK_DOMAIN environment variable")?;
 
     DOMAIN.set(webhook_domain.clone()).unwrap();
@@ -96,12 +90,6 @@ async fn async_main() -> anyhow::Result<()> {
     let session_key = env::var("SESSION_KEY")
         .context("Missing SESSION_KEY environment variable")
         .map(|key| base64::decode(key).expect("Invalid SESSION_KEY format"))?;
-
-    // let repolockstore = env::var("KEYSTORE")
-    //     .context("Missing KEYSTORE environment variable")
-    //     .map(|path| repolockstore_init(&path).expect("Failed to init keystore"))?;
-
-    // REPOLOCKSTORE.set(repolockstore).unwrap();
 
     TRACESTORE.set(Box::new(InMemTraceStore::default())).unwrap();
 
@@ -111,13 +99,7 @@ async fn async_main() -> anyhow::Result<()> {
         })
         .unwrap();
 
-    // let bincache_folder = env::var("BINARY_CACHE_DIR").unwrap_or(String::from("/tmp/autoschematic_bincache"));
-
-    // BINARYCACHE
-    //     .set(BinaryCache::new(&PathBuf::from(bincache_folder)).unwrap())
-    //     .unwrap();
-
-    dashboard::TEMPLATES.set(Tera::new("dashboard/**/*.html").unwrap()).unwrap();
+    // dashboard::TEMPLATES.set(Tera::new("dashboard/**/*.html").unwrap()).unwrap();
 
     let _webhook_secret = env::var("WEBHOOK_SECRET")
         .context("Missing WEBHOOK_SECRET environment variable")
@@ -199,9 +181,8 @@ async fn login() -> Result<HttpResponse, actix_web::Error> {
 
     let redirect_uri = format!("https://{domain}/api/oauth");
 
-    let authorize_url = format!(
-        "https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={redirect_uri}&scope=repo"
-    );
+    let authorize_url =
+        format!("https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={redirect_uri}&scope=repo");
     Ok(HttpResponse::Found().append_header(("Location", authorize_url)).finish())
 }
 
@@ -233,8 +214,8 @@ async fn get_pubkey(param: web::Path<String>) -> Result<HttpResponse, Error> {
 
 /// Handles incoming GitHub webhook events
 ///
-/// Validates the webhook signature, parses the event payload, and dispatches
-/// to the appropriate event handler. All events are logged for audit purposes.
+/// Validates the webhook signature, parses the event payload, 
+/// and sends it on to event_handler::dispatch(...).
 ///
 /// # Headers
 /// - X-GitHub-Event: Event type (required)
@@ -243,7 +224,6 @@ const DEFAULT_CONFIG_LIMIT: usize = 262_144; // 2^18 bytes (256KiB)
 async fn github_webhook(req: HttpRequest, payload: web::Payload) -> Result<HttpResponse, AutoschematicServerError> {
     tracing::debug!("Received webhook request");
 
-    // Extract and validate required headers
     let event_header = req.headers().get("X-GitHub-Event").ok_or_else(|| {
         tracing::warn!("Missing X-GitHub-Event header");
         AutoschematicServerError {
@@ -267,13 +247,9 @@ async fn github_webhook(req: HttpRequest, payload: web::Payload) -> Result<HttpR
 
     validate_github_hmac(&body_bytes, payload_signature)?;
 
-    // tracing::info!("Processing {} event", event_header);
-
-    // Parse the webhook event
     let webhook_event =
         WebhookEvent::try_from_header_and_body(event_header, &body_bytes).map_err(AutoschematicServerError::from)?;
 
-    // Dispatch the event to the handler
     match event_handlers::dispatch(webhook_event).await {
         Ok(_) => {
             tracing::info!("Success!");
@@ -293,13 +269,10 @@ struct AuthRequest {
 }
 
 /// Handles OAuth callback from GitHub
-///
 /// Exchanges the temporary code for an access token and stores it in the session.
-/// Implements error handling for various OAuth failure modes.
 async fn oauth(query: web::Query<AuthRequest>, session: Session) -> Result<HttpResponse, Error> {
     tracing::debug!("Processing OAuth callback");
 
-    // Validate required environment variables
     let client_id = env::var("GITHUB_CLIENT_ID").map_err(|_| {
         tracing::error!("GITHUB_CLIENT_ID not configured");
         AutoschematicServerError {
@@ -381,7 +354,6 @@ async fn oauth(query: web::Query<AuthRequest>, session: Session) -> Result<HttpR
 }
 
 async fn create_app() -> Result<HttpResponse, AutoschematicServerError> {
-    // Retrieve the webhook URL from environment variables
     let domain = DOMAIN.get().context("Missing WEBHOOK_DOMAIN environment variable").unwrap();
 
     let webhook_url = format!("https://{domain}");

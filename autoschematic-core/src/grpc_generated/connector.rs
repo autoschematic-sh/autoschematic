@@ -10,7 +10,7 @@ pub struct FilterRequest {
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct FilterResponse {
-    #[prost(enumeration = "FilterOutputType", tag = "1")]
+    #[prost(enumeration = "FilterResponseType", tag = "1")]
     pub filter: i32,
 }
 /// / --- Listing ---
@@ -56,7 +56,7 @@ pub struct PlanRequest {
     pub desired: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct OpPlanOutput {
+pub struct PlanResponseElement {
     #[prost(string, tag = "1")]
     pub op_definition: ::prost::alloc::string::String,
     #[prost(string, repeated, tag = "2")]
@@ -67,9 +67,8 @@ pub struct OpPlanOutput {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PlanResponse {
     #[prost(message, repeated, tag = "1")]
-    pub ops: ::prost::alloc::vec::Vec<OpPlanOutput>,
+    pub ops: ::prost::alloc::vec::Vec<PlanResponseElement>,
 }
-/// / --- Execute an op ---
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OpExecRequest {
     #[prost(string, tag = "1")]
@@ -79,7 +78,6 @@ pub struct OpExecRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OpExecResponse {
-    /// missing or empty ⇒ none
     #[prost(map = "string, string", tag = "1")]
     pub outputs: ::std::collections::HashMap<
         ::prost::alloc::string::String,
@@ -88,9 +86,8 @@ pub struct OpExecResponse {
     #[prost(string, tag = "2")]
     pub friendly_message: ::prost::alloc::string::String,
 }
-/// / --- Address translation ---
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AddrRequest {
+pub struct AddrPhyToVirtRequest {
     #[prost(string, tag = "1")]
     pub addr: ::prost::alloc::string::String,
 }
@@ -101,6 +98,48 @@ pub struct AddrPhyToVirtResponse {
     #[prost(string, tag = "2")]
     pub virt_addr: ::prost::alloc::string::String,
 }
+/// / --- Virt‐to‐phy mapping ---
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddrVirtToPhyRequest {
+    #[prost(string, tag = "1")]
+    pub addr: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadOutput {
+    #[prost(string, tag = "1")]
+    pub addr: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub key: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Deferred {
+    #[prost(message, repeated, tag = "1")]
+    pub reads: ::prost::alloc::vec::Vec<ReadOutput>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Path {
+    #[prost(string, tag = "1")]
+    pub path: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddrVirtToPhyResponse {
+    #[prost(oneof = "addr_virt_to_phy_response::Result", tags = "1, 2, 3, 4")]
+    pub result: ::core::option::Option<addr_virt_to_phy_response::Result>,
+}
+/// Nested message and enum types in `AddrVirtToPhyResponse`.
+pub mod addr_virt_to_phy_response {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Result {
+        #[prost(message, tag = "1")]
+        NotPresent(super::Empty),
+        #[prost(message, tag = "2")]
+        Deferred(super::Deferred),
+        #[prost(message, tag = "3")]
+        Present(super::Path),
+        #[prost(message, tag = "4")]
+        Null(super::Path),
+    }
+}
 /// / --- Subpaths (parallelism hints) ---
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubpathsResponse {
@@ -109,7 +148,7 @@ pub struct SubpathsResponse {
 }
 /// / --- Skeletons (templates) ---
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SkeletonOutput {
+pub struct Skeleton {
     #[prost(string, tag = "1")]
     pub addr: ::prost::alloc::string::String,
     #[prost(bytes = "vec", tag = "2")]
@@ -118,7 +157,7 @@ pub struct SkeletonOutput {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetSkeletonsResponse {
     #[prost(message, repeated, tag = "1")]
-    pub skeletons: ::prost::alloc::vec::Vec<SkeletonOutput>,
+    pub skeletons: ::prost::alloc::vec::Vec<Skeleton>,
 }
 /// / --- Docstrings ---
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -202,11 +241,6 @@ pub struct Diagnostic {
     pub message: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct DiagnosticOutput {
-    #[prost(message, repeated, tag = "1")]
-    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DiagRequest {
     #[prost(string, tag = "1")]
     pub addr: ::prost::alloc::string::String,
@@ -215,45 +249,8 @@ pub struct DiagRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DiagResponse {
-    #[prost(message, optional, tag = "1")]
-    pub diagnostics: ::core::option::Option<DiagnosticOutput>,
-}
-/// / --- Virt‐to‐phy mapping ---
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ReadOutput {
-    #[prost(string, tag = "1")]
-    pub addr: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub key: ::prost::alloc::string::String,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Deferred {
     #[prost(message, repeated, tag = "1")]
-    pub reads: ::prost::alloc::vec::Vec<ReadOutput>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Path {
-    #[prost(string, tag = "1")]
-    pub path: ::prost::alloc::string::String,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct VirtToPhyOutput {
-    #[prost(oneof = "virt_to_phy_output::Result", tags = "1, 2, 3, 4")]
-    pub result: ::core::option::Option<virt_to_phy_output::Result>,
-}
-/// Nested message and enum types in `VirtToPhyOutput`.
-pub mod virt_to_phy_output {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum Result {
-        #[prost(message, tag = "1")]
-        NotPresent(super::Empty),
-        #[prost(message, tag = "2")]
-        Deferred(super::Deferred),
-        #[prost(message, tag = "3")]
-        Present(super::Path),
-        #[prost(message, tag = "4")]
-        Null(super::Path),
-    }
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
 }
 /// / --- Unbundle bundles into resources ---
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -264,7 +261,7 @@ pub struct UnbundleRequest {
     pub bundle: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct BundleOutput {
+pub struct UnbundleResponseElement {
     #[prost(string, tag = "1")]
     pub filename: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -273,17 +270,18 @@ pub struct BundleOutput {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UnbundleResponse {
     #[prost(message, repeated, tag = "1")]
-    pub bundles: ::prost::alloc::vec::Vec<BundleOutput>,
+    pub bundles: ::prost::alloc::vec::Vec<UnbundleResponseElement>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
-pub enum FilterOutputType {
+pub enum FilterResponseType {
     Config = 0,
     Resource = 1,
     Bundle = 2,
-    None = 3,
+    Task = 3,
+    None = 4,
 }
-impl FilterOutputType {
+impl FilterResponseType {
     /// String value of the enum field names used in the ProtoBuf definition.
     ///
     /// The values are not transformed in any way and thus are considered stable
@@ -293,6 +291,7 @@ impl FilterOutputType {
             Self::Config => "CONFIG",
             Self::Resource => "RESOURCE",
             Self::Bundle => "BUNDLE",
+            Self::Task => "TASK",
             Self::None => "NONE",
         }
     }
@@ -302,6 +301,7 @@ impl FilterOutputType {
             "CONFIG" => Some(Self::Config),
             "RESOURCE" => Some(Self::Resource),
             "BUNDLE" => Some(Self::Bundle),
+            "TASK" => Some(Self::Task),
             "NONE" => Some(Self::None),
             _ => None,
         }
@@ -539,9 +539,9 @@ pub mod connector_client {
         }
         pub async fn addr_virt_to_phy(
             &mut self,
-            request: impl tonic::IntoRequest<super::AddrRequest>,
+            request: impl tonic::IntoRequest<super::AddrVirtToPhyRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::VirtToPhyOutput>,
+            tonic::Response<super::AddrVirtToPhyResponse>,
             tonic::Status,
         > {
             self.inner
@@ -563,7 +563,7 @@ pub mod connector_client {
         }
         pub async fn addr_phy_to_virt(
             &mut self,
-            request: impl tonic::IntoRequest<super::AddrRequest>,
+            request: impl tonic::IntoRequest<super::AddrPhyToVirtRequest>,
         ) -> std::result::Result<
             tonic::Response<super::AddrPhyToVirtResponse>,
             tonic::Status,
@@ -738,11 +738,14 @@ pub mod connector_server {
         ) -> std::result::Result<tonic::Response<super::OpExecResponse>, tonic::Status>;
         async fn addr_virt_to_phy(
             &self,
-            request: tonic::Request<super::AddrRequest>,
-        ) -> std::result::Result<tonic::Response<super::VirtToPhyOutput>, tonic::Status>;
+            request: tonic::Request<super::AddrVirtToPhyRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::AddrVirtToPhyResponse>,
+            tonic::Status,
+        >;
         async fn addr_phy_to_virt(
             &self,
-            request: tonic::Request<super::AddrRequest>,
+            request: tonic::Request<super::AddrPhyToVirtRequest>,
         ) -> std::result::Result<
             tonic::Response<super::AddrPhyToVirtResponse>,
             tonic::Status,
@@ -1155,16 +1158,18 @@ pub mod connector_server {
                 "/connector.Connector/AddrVirtToPhy" => {
                     #[allow(non_camel_case_types)]
                     struct AddrVirtToPhySvc<T: Connector>(pub Arc<T>);
-                    impl<T: Connector> tonic::server::UnaryService<super::AddrRequest>
+                    impl<
+                        T: Connector,
+                    > tonic::server::UnaryService<super::AddrVirtToPhyRequest>
                     for AddrVirtToPhySvc<T> {
-                        type Response = super::VirtToPhyOutput;
+                        type Response = super::AddrVirtToPhyResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::AddrRequest>,
+                            request: tonic::Request<super::AddrVirtToPhyRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
@@ -1198,7 +1203,9 @@ pub mod connector_server {
                 "/connector.Connector/AddrPhyToVirt" => {
                     #[allow(non_camel_case_types)]
                     struct AddrPhyToVirtSvc<T: Connector>(pub Arc<T>);
-                    impl<T: Connector> tonic::server::UnaryService<super::AddrRequest>
+                    impl<
+                        T: Connector,
+                    > tonic::server::UnaryService<super::AddrPhyToVirtRequest>
                     for AddrPhyToVirtSvc<T> {
                         type Response = super::AddrPhyToVirtResponse;
                         type Future = BoxFuture<
@@ -1207,7 +1214,7 @@ pub mod connector_server {
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::AddrRequest>,
+                            request: tonic::Request<super::AddrPhyToVirtRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {

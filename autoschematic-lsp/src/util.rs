@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use autoschematic_core::diag::{DiagnosticOutput, DiagnosticSeverity};
+use autoschematic_core::diag::{DiagnosticResponse, DiagnosticSeverity};
 use lsp_types::ExecuteCommandParams;
 use tower_lsp_server::jsonrpc::{self, ErrorCode};
 
@@ -14,7 +14,7 @@ pub fn severity_to_lsp(severity: u8) -> Option<lsp_types::DiagnosticSeverity> {
     }
 }
 
-pub fn diag_to_lsp(diag_output: DiagnosticOutput) -> Vec<lsp_types::Diagnostic> {
+pub fn diag_to_lsp(diag_output: DiagnosticResponse) -> Vec<lsp_types::Diagnostic> {
     eprintln!("diag_to_lsp: {diag_output:?}");
     let mut res = Vec::new();
     for diag in diag_output.diagnostics {
@@ -61,9 +61,7 @@ pub fn lsp_error(e: anyhow::Error) -> tower_lsp_server::jsonrpc::Error {
     }
 }
 
-pub fn map_lsp_error<T, E: Into<anyhow::Error>>(
-    r: Result<T, E>,
-) -> Result<T, tower_lsp_server::jsonrpc::Error> {
+pub fn map_lsp_error<T, E: Into<anyhow::Error>>(r: Result<T, E>) -> Result<T, tower_lsp_server::jsonrpc::Error> {
     match r {
         Ok(t) => Ok(t),
         Err(e) => Err(lsp_error(e.into())),

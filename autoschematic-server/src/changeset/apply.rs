@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use super::trace::{append_run_log, finish_run, start_run};
 use anyhow::bail;
-use autoschematic_core::connector::Connector;
 use autoschematic_core::report::ApplyReport;
 use autoschematic_core::report::ApplyReportSet;
 use autoschematic_core::workflow;

@@ -21,46 +21,52 @@ import {
 
 export const protobufPackage = "connector";
 
-export enum FilterOutputType {
+export enum FilterResponseType {
   CONFIG = 0,
   RESOURCE = 1,
   BUNDLE = 2,
-  NONE = 3,
+  TASK = 3,
+  NONE = 4,
   UNRECOGNIZED = -1,
 }
 
-export function filterOutputTypeFromJSON(object: any): FilterOutputType {
+export function filterResponseTypeFromJSON(object: any): FilterResponseType {
   switch (object) {
     case 0:
     case "CONFIG":
-      return FilterOutputType.CONFIG;
+      return FilterResponseType.CONFIG;
     case 1:
     case "RESOURCE":
-      return FilterOutputType.RESOURCE;
+      return FilterResponseType.RESOURCE;
     case 2:
     case "BUNDLE":
-      return FilterOutputType.BUNDLE;
+      return FilterResponseType.BUNDLE;
     case 3:
+    case "TASK":
+      return FilterResponseType.TASK;
+    case 4:
     case "NONE":
-      return FilterOutputType.NONE;
+      return FilterResponseType.NONE;
     case -1:
     case "UNRECOGNIZED":
     default:
-      return FilterOutputType.UNRECOGNIZED;
+      return FilterResponseType.UNRECOGNIZED;
   }
 }
 
-export function filterOutputTypeToJSON(object: FilterOutputType): string {
+export function filterResponseTypeToJSON(object: FilterResponseType): string {
   switch (object) {
-    case FilterOutputType.CONFIG:
+    case FilterResponseType.CONFIG:
       return "CONFIG";
-    case FilterOutputType.RESOURCE:
+    case FilterResponseType.RESOURCE:
       return "RESOURCE";
-    case FilterOutputType.BUNDLE:
+    case FilterResponseType.BUNDLE:
       return "BUNDLE";
-    case FilterOutputType.NONE:
+    case FilterResponseType.TASK:
+      return "TASK";
+    case FilterResponseType.NONE:
       return "NONE";
-    case FilterOutputType.UNRECOGNIZED:
+    case FilterResponseType.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";
   }
@@ -76,7 +82,7 @@ export interface FilterRequest {
 }
 
 export interface FilterResponse {
-  filter: FilterOutputType;
+  filter: FilterResponseType;
 }
 
 /** / --- Listing --- */
@@ -114,24 +120,22 @@ export interface PlanRequest {
   desired: Uint8Array;
 }
 
-export interface OpPlanOutput {
+export interface PlanResponseElement {
   opDefinition: string;
   writesOutputs: string[];
   friendlyMessage: string;
 }
 
 export interface PlanResponse {
-  ops: OpPlanOutput[];
+  ops: PlanResponseElement[];
 }
 
-/** / --- Execute an op --- */
 export interface OpExecRequest {
   addr: string;
   op: string;
 }
 
 export interface OpExecResponse {
-  /** missing or empty ⇒ none */
   outputs: { [key: string]: string };
   friendlyMessage: string;
 }
@@ -141,8 +145,7 @@ export interface OpExecResponse_OutputsEntry {
   value: string;
 }
 
-/** / --- Address translation --- */
-export interface AddrRequest {
+export interface AddrPhyToVirtRequest {
   addr: string;
 }
 
@@ -151,19 +154,44 @@ export interface AddrPhyToVirtResponse {
   virtAddr: string;
 }
 
+/** / --- Virt‐to‐phy mapping --- */
+export interface AddrVirtToPhyRequest {
+  addr: string;
+}
+
+export interface ReadOutput {
+  addr: string;
+  key: string;
+}
+
+export interface Deferred {
+  reads: ReadOutput[];
+}
+
+export interface Path {
+  path: string;
+}
+
+export interface AddrVirtToPhyResponse {
+  notPresent?: Empty | undefined;
+  deferred?: Deferred | undefined;
+  present?: Path | undefined;
+  null?: Path | undefined;
+}
+
 /** / --- Subpaths (parallelism hints) --- */
 export interface SubpathsResponse {
   subpaths: string[];
 }
 
 /** / --- Skeletons (templates) --- */
-export interface SkeletonOutput {
+export interface Skeleton {
   addr: string;
   body: Uint8Array;
 }
 
 export interface GetSkeletonsResponse {
-  skeletons: SkeletonOutput[];
+  skeletons: Skeleton[];
 }
 
 /** / --- Docstrings --- */
@@ -219,38 +247,13 @@ export interface Diagnostic {
   message: string;
 }
 
-export interface DiagnosticOutput {
-  diagnostics: Diagnostic[];
-}
-
 export interface DiagRequest {
   addr: string;
   a: Uint8Array;
 }
 
 export interface DiagResponse {
-  diagnostics: DiagnosticOutput | undefined;
-}
-
-/** / --- Virt‐to‐phy mapping --- */
-export interface ReadOutput {
-  addr: string;
-  key: string;
-}
-
-export interface Deferred {
-  reads: ReadOutput[];
-}
-
-export interface Path {
-  path: string;
-}
-
-export interface VirtToPhyOutput {
-  notPresent?: Empty | undefined;
-  deferred?: Deferred | undefined;
-  present?: Path | undefined;
-  null?: Path | undefined;
+  diagnostics: Diagnostic[];
 }
 
 /** / --- Unbundle bundles into resources --- */
@@ -259,13 +262,13 @@ export interface UnbundleRequest {
   bundle: Uint8Array;
 }
 
-export interface BundleOutput {
+export interface UnbundleResponseElement {
   filename: string;
   fileContents: string;
 }
 
 export interface UnbundleResponse {
-  bundles: BundleOutput[];
+  bundles: UnbundleResponseElement[];
 }
 
 function createBaseEmpty(): Empty {
@@ -406,13 +409,13 @@ export const FilterResponse: MessageFns<FilterResponse> = {
   },
 
   fromJSON(object: any): FilterResponse {
-    return { filter: isSet(object.filter) ? filterOutputTypeFromJSON(object.filter) : 0 };
+    return { filter: isSet(object.filter) ? filterResponseTypeFromJSON(object.filter) : 0 };
   },
 
   toJSON(message: FilterResponse): unknown {
     const obj: any = {};
     if (message.filter !== 0) {
-      obj.filter = filterOutputTypeToJSON(message.filter);
+      obj.filter = filterResponseTypeToJSON(message.filter);
     }
     return obj;
   },
@@ -882,12 +885,12 @@ export const PlanRequest: MessageFns<PlanRequest> = {
   },
 };
 
-function createBaseOpPlanOutput(): OpPlanOutput {
+function createBasePlanResponseElement(): PlanResponseElement {
   return { opDefinition: "", writesOutputs: [], friendlyMessage: "" };
 }
 
-export const OpPlanOutput: MessageFns<OpPlanOutput> = {
-  encode(message: OpPlanOutput, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const PlanResponseElement: MessageFns<PlanResponseElement> = {
+  encode(message: PlanResponseElement, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.opDefinition !== "") {
       writer.uint32(10).string(message.opDefinition);
     }
@@ -900,10 +903,10 @@ export const OpPlanOutput: MessageFns<OpPlanOutput> = {
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): OpPlanOutput {
+  decode(input: BinaryReader | Uint8Array, length?: number): PlanResponseElement {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseOpPlanOutput();
+    const message = createBasePlanResponseElement();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -940,7 +943,7 @@ export const OpPlanOutput: MessageFns<OpPlanOutput> = {
     return message;
   },
 
-  fromJSON(object: any): OpPlanOutput {
+  fromJSON(object: any): PlanResponseElement {
     return {
       opDefinition: isSet(object.opDefinition) ? globalThis.String(object.opDefinition) : "",
       writesOutputs: globalThis.Array.isArray(object?.writesOutputs)
@@ -950,7 +953,7 @@ export const OpPlanOutput: MessageFns<OpPlanOutput> = {
     };
   },
 
-  toJSON(message: OpPlanOutput): unknown {
+  toJSON(message: PlanResponseElement): unknown {
     const obj: any = {};
     if (message.opDefinition !== "") {
       obj.opDefinition = message.opDefinition;
@@ -964,11 +967,11 @@ export const OpPlanOutput: MessageFns<OpPlanOutput> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<OpPlanOutput>, I>>(base?: I): OpPlanOutput {
-    return OpPlanOutput.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<PlanResponseElement>, I>>(base?: I): PlanResponseElement {
+    return PlanResponseElement.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<OpPlanOutput>, I>>(object: I): OpPlanOutput {
-    const message = createBaseOpPlanOutput();
+  fromPartial<I extends Exact<DeepPartial<PlanResponseElement>, I>>(object: I): PlanResponseElement {
+    const message = createBasePlanResponseElement();
     message.opDefinition = object.opDefinition ?? "";
     message.writesOutputs = object.writesOutputs?.map((e) => e) || [];
     message.friendlyMessage = object.friendlyMessage ?? "";
@@ -983,7 +986,7 @@ function createBasePlanResponse(): PlanResponse {
 export const PlanResponse: MessageFns<PlanResponse> = {
   encode(message: PlanResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.ops) {
-      OpPlanOutput.encode(v!, writer.uint32(10).fork()).join();
+      PlanResponseElement.encode(v!, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -1000,7 +1003,7 @@ export const PlanResponse: MessageFns<PlanResponse> = {
             break;
           }
 
-          message.ops.push(OpPlanOutput.decode(reader, reader.uint32()));
+          message.ops.push(PlanResponseElement.decode(reader, reader.uint32()));
           continue;
         }
       }
@@ -1013,13 +1016,15 @@ export const PlanResponse: MessageFns<PlanResponse> = {
   },
 
   fromJSON(object: any): PlanResponse {
-    return { ops: globalThis.Array.isArray(object?.ops) ? object.ops.map((e: any) => OpPlanOutput.fromJSON(e)) : [] };
+    return {
+      ops: globalThis.Array.isArray(object?.ops) ? object.ops.map((e: any) => PlanResponseElement.fromJSON(e)) : [],
+    };
   },
 
   toJSON(message: PlanResponse): unknown {
     const obj: any = {};
     if (message.ops?.length) {
-      obj.ops = message.ops.map((e) => OpPlanOutput.toJSON(e));
+      obj.ops = message.ops.map((e) => PlanResponseElement.toJSON(e));
     }
     return obj;
   },
@@ -1029,7 +1034,7 @@ export const PlanResponse: MessageFns<PlanResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<PlanResponse>, I>>(object: I): PlanResponse {
     const message = createBasePlanResponse();
-    message.ops = object.ops?.map((e) => OpPlanOutput.fromPartial(e)) || [];
+    message.ops = object.ops?.map((e) => PlanResponseElement.fromPartial(e)) || [];
     return message;
   },
 };
@@ -1281,22 +1286,22 @@ export const OpExecResponse_OutputsEntry: MessageFns<OpExecResponse_OutputsEntry
   },
 };
 
-function createBaseAddrRequest(): AddrRequest {
+function createBaseAddrPhyToVirtRequest(): AddrPhyToVirtRequest {
   return { addr: "" };
 }
 
-export const AddrRequest: MessageFns<AddrRequest> = {
-  encode(message: AddrRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const AddrPhyToVirtRequest: MessageFns<AddrPhyToVirtRequest> = {
+  encode(message: AddrPhyToVirtRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.addr !== "") {
       writer.uint32(10).string(message.addr);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): AddrRequest {
+  decode(input: BinaryReader | Uint8Array, length?: number): AddrPhyToVirtRequest {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseAddrRequest();
+    const message = createBaseAddrPhyToVirtRequest();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -1317,11 +1322,11 @@ export const AddrRequest: MessageFns<AddrRequest> = {
     return message;
   },
 
-  fromJSON(object: any): AddrRequest {
+  fromJSON(object: any): AddrPhyToVirtRequest {
     return { addr: isSet(object.addr) ? globalThis.String(object.addr) : "" };
   },
 
-  toJSON(message: AddrRequest): unknown {
+  toJSON(message: AddrPhyToVirtRequest): unknown {
     const obj: any = {};
     if (message.addr !== "") {
       obj.addr = message.addr;
@@ -1329,11 +1334,11 @@ export const AddrRequest: MessageFns<AddrRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<AddrRequest>, I>>(base?: I): AddrRequest {
-    return AddrRequest.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<AddrPhyToVirtRequest>, I>>(base?: I): AddrPhyToVirtRequest {
+    return AddrPhyToVirtRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<AddrRequest>, I>>(object: I): AddrRequest {
-    const message = createBaseAddrRequest();
+  fromPartial<I extends Exact<DeepPartial<AddrPhyToVirtRequest>, I>>(object: I): AddrPhyToVirtRequest {
+    const message = createBaseAddrPhyToVirtRequest();
     message.addr = object.addr ?? "";
     return message;
   },
@@ -1415,6 +1420,372 @@ export const AddrPhyToVirtResponse: MessageFns<AddrPhyToVirtResponse> = {
   },
 };
 
+function createBaseAddrVirtToPhyRequest(): AddrVirtToPhyRequest {
+  return { addr: "" };
+}
+
+export const AddrVirtToPhyRequest: MessageFns<AddrVirtToPhyRequest> = {
+  encode(message: AddrVirtToPhyRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.addr !== "") {
+      writer.uint32(10).string(message.addr);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AddrVirtToPhyRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAddrVirtToPhyRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.addr = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AddrVirtToPhyRequest {
+    return { addr: isSet(object.addr) ? globalThis.String(object.addr) : "" };
+  },
+
+  toJSON(message: AddrVirtToPhyRequest): unknown {
+    const obj: any = {};
+    if (message.addr !== "") {
+      obj.addr = message.addr;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AddrVirtToPhyRequest>, I>>(base?: I): AddrVirtToPhyRequest {
+    return AddrVirtToPhyRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AddrVirtToPhyRequest>, I>>(object: I): AddrVirtToPhyRequest {
+    const message = createBaseAddrVirtToPhyRequest();
+    message.addr = object.addr ?? "";
+    return message;
+  },
+};
+
+function createBaseReadOutput(): ReadOutput {
+  return { addr: "", key: "" };
+}
+
+export const ReadOutput: MessageFns<ReadOutput> = {
+  encode(message: ReadOutput, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.addr !== "") {
+      writer.uint32(10).string(message.addr);
+    }
+    if (message.key !== "") {
+      writer.uint32(18).string(message.key);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReadOutput {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseReadOutput();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.addr = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ReadOutput {
+    return {
+      addr: isSet(object.addr) ? globalThis.String(object.addr) : "",
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+    };
+  },
+
+  toJSON(message: ReadOutput): unknown {
+    const obj: any = {};
+    if (message.addr !== "") {
+      obj.addr = message.addr;
+    }
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReadOutput>, I>>(base?: I): ReadOutput {
+    return ReadOutput.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReadOutput>, I>>(object: I): ReadOutput {
+    const message = createBaseReadOutput();
+    message.addr = object.addr ?? "";
+    message.key = object.key ?? "";
+    return message;
+  },
+};
+
+function createBaseDeferred(): Deferred {
+  return { reads: [] };
+}
+
+export const Deferred: MessageFns<Deferred> = {
+  encode(message: Deferred, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.reads) {
+      ReadOutput.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Deferred {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseDeferred();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.reads.push(ReadOutput.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Deferred {
+    return {
+      reads: globalThis.Array.isArray(object?.reads) ? object.reads.map((e: any) => ReadOutput.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: Deferred): unknown {
+    const obj: any = {};
+    if (message.reads?.length) {
+      obj.reads = message.reads.map((e) => ReadOutput.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Deferred>, I>>(base?: I): Deferred {
+    return Deferred.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Deferred>, I>>(object: I): Deferred {
+    const message = createBaseDeferred();
+    message.reads = object.reads?.map((e) => ReadOutput.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBasePath(): Path {
+  return { path: "" };
+}
+
+export const Path: MessageFns<Path> = {
+  encode(message: Path, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.path !== "") {
+      writer.uint32(10).string(message.path);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Path {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBasePath();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.path = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Path {
+    return { path: isSet(object.path) ? globalThis.String(object.path) : "" };
+  },
+
+  toJSON(message: Path): unknown {
+    const obj: any = {};
+    if (message.path !== "") {
+      obj.path = message.path;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Path>, I>>(base?: I): Path {
+    return Path.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Path>, I>>(object: I): Path {
+    const message = createBasePath();
+    message.path = object.path ?? "";
+    return message;
+  },
+};
+
+function createBaseAddrVirtToPhyResponse(): AddrVirtToPhyResponse {
+  return { notPresent: undefined, deferred: undefined, present: undefined, null: undefined };
+}
+
+export const AddrVirtToPhyResponse: MessageFns<AddrVirtToPhyResponse> = {
+  encode(message: AddrVirtToPhyResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.notPresent !== undefined) {
+      Empty.encode(message.notPresent, writer.uint32(10).fork()).join();
+    }
+    if (message.deferred !== undefined) {
+      Deferred.encode(message.deferred, writer.uint32(18).fork()).join();
+    }
+    if (message.present !== undefined) {
+      Path.encode(message.present, writer.uint32(26).fork()).join();
+    }
+    if (message.null !== undefined) {
+      Path.encode(message.null, writer.uint32(34).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AddrVirtToPhyResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAddrVirtToPhyResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.notPresent = Empty.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.deferred = Deferred.decode(reader, reader.uint32());
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.present = Path.decode(reader, reader.uint32());
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.null = Path.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AddrVirtToPhyResponse {
+    return {
+      notPresent: isSet(object.notPresent) ? Empty.fromJSON(object.notPresent) : undefined,
+      deferred: isSet(object.deferred) ? Deferred.fromJSON(object.deferred) : undefined,
+      present: isSet(object.present) ? Path.fromJSON(object.present) : undefined,
+      null: isSet(object.null) ? Path.fromJSON(object.null) : undefined,
+    };
+  },
+
+  toJSON(message: AddrVirtToPhyResponse): unknown {
+    const obj: any = {};
+    if (message.notPresent !== undefined) {
+      obj.notPresent = Empty.toJSON(message.notPresent);
+    }
+    if (message.deferred !== undefined) {
+      obj.deferred = Deferred.toJSON(message.deferred);
+    }
+    if (message.present !== undefined) {
+      obj.present = Path.toJSON(message.present);
+    }
+    if (message.null !== undefined) {
+      obj.null = Path.toJSON(message.null);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AddrVirtToPhyResponse>, I>>(base?: I): AddrVirtToPhyResponse {
+    return AddrVirtToPhyResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AddrVirtToPhyResponse>, I>>(object: I): AddrVirtToPhyResponse {
+    const message = createBaseAddrVirtToPhyResponse();
+    message.notPresent = (object.notPresent !== undefined && object.notPresent !== null)
+      ? Empty.fromPartial(object.notPresent)
+      : undefined;
+    message.deferred = (object.deferred !== undefined && object.deferred !== null)
+      ? Deferred.fromPartial(object.deferred)
+      : undefined;
+    message.present = (object.present !== undefined && object.present !== null)
+      ? Path.fromPartial(object.present)
+      : undefined;
+    message.null = (object.null !== undefined && object.null !== null) ? Path.fromPartial(object.null) : undefined;
+    return message;
+  },
+};
+
 function createBaseSubpathsResponse(): SubpathsResponse {
   return { subpaths: [] };
 }
@@ -1475,12 +1846,12 @@ export const SubpathsResponse: MessageFns<SubpathsResponse> = {
   },
 };
 
-function createBaseSkeletonOutput(): SkeletonOutput {
+function createBaseSkeleton(): Skeleton {
   return { addr: "", body: new Uint8Array(0) };
 }
 
-export const SkeletonOutput: MessageFns<SkeletonOutput> = {
-  encode(message: SkeletonOutput, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const Skeleton: MessageFns<Skeleton> = {
+  encode(message: Skeleton, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.addr !== "") {
       writer.uint32(10).string(message.addr);
     }
@@ -1490,10 +1861,10 @@ export const SkeletonOutput: MessageFns<SkeletonOutput> = {
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): SkeletonOutput {
+  decode(input: BinaryReader | Uint8Array, length?: number): Skeleton {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSkeletonOutput();
+    const message = createBaseSkeleton();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -1522,14 +1893,14 @@ export const SkeletonOutput: MessageFns<SkeletonOutput> = {
     return message;
   },
 
-  fromJSON(object: any): SkeletonOutput {
+  fromJSON(object: any): Skeleton {
     return {
       addr: isSet(object.addr) ? globalThis.String(object.addr) : "",
       body: isSet(object.body) ? bytesFromBase64(object.body) : new Uint8Array(0),
     };
   },
 
-  toJSON(message: SkeletonOutput): unknown {
+  toJSON(message: Skeleton): unknown {
     const obj: any = {};
     if (message.addr !== "") {
       obj.addr = message.addr;
@@ -1540,11 +1911,11 @@ export const SkeletonOutput: MessageFns<SkeletonOutput> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<SkeletonOutput>, I>>(base?: I): SkeletonOutput {
-    return SkeletonOutput.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<Skeleton>, I>>(base?: I): Skeleton {
+    return Skeleton.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<SkeletonOutput>, I>>(object: I): SkeletonOutput {
-    const message = createBaseSkeletonOutput();
+  fromPartial<I extends Exact<DeepPartial<Skeleton>, I>>(object: I): Skeleton {
+    const message = createBaseSkeleton();
     message.addr = object.addr ?? "";
     message.body = object.body ?? new Uint8Array(0);
     return message;
@@ -1558,7 +1929,7 @@ function createBaseGetSkeletonsResponse(): GetSkeletonsResponse {
 export const GetSkeletonsResponse: MessageFns<GetSkeletonsResponse> = {
   encode(message: GetSkeletonsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.skeletons) {
-      SkeletonOutput.encode(v!, writer.uint32(10).fork()).join();
+      Skeleton.encode(v!, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -1575,7 +1946,7 @@ export const GetSkeletonsResponse: MessageFns<GetSkeletonsResponse> = {
             break;
           }
 
-          message.skeletons.push(SkeletonOutput.decode(reader, reader.uint32()));
+          message.skeletons.push(Skeleton.decode(reader, reader.uint32()));
           continue;
         }
       }
@@ -1590,7 +1961,7 @@ export const GetSkeletonsResponse: MessageFns<GetSkeletonsResponse> = {
   fromJSON(object: any): GetSkeletonsResponse {
     return {
       skeletons: globalThis.Array.isArray(object?.skeletons)
-        ? object.skeletons.map((e: any) => SkeletonOutput.fromJSON(e))
+        ? object.skeletons.map((e: any) => Skeleton.fromJSON(e))
         : [],
     };
   },
@@ -1598,7 +1969,7 @@ export const GetSkeletonsResponse: MessageFns<GetSkeletonsResponse> = {
   toJSON(message: GetSkeletonsResponse): unknown {
     const obj: any = {};
     if (message.skeletons?.length) {
-      obj.skeletons = message.skeletons.map((e) => SkeletonOutput.toJSON(e));
+      obj.skeletons = message.skeletons.map((e) => Skeleton.toJSON(e));
     }
     return obj;
   },
@@ -1608,7 +1979,7 @@ export const GetSkeletonsResponse: MessageFns<GetSkeletonsResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<GetSkeletonsResponse>, I>>(object: I): GetSkeletonsResponse {
     const message = createBaseGetSkeletonsResponse();
-    message.skeletons = object.skeletons?.map((e) => SkeletonOutput.fromPartial(e)) || [];
+    message.skeletons = object.skeletons?.map((e) => Skeleton.fromPartial(e)) || [];
     return message;
   },
 };
@@ -2381,68 +2752,6 @@ export const Diagnostic: MessageFns<Diagnostic> = {
   },
 };
 
-function createBaseDiagnosticOutput(): DiagnosticOutput {
-  return { diagnostics: [] };
-}
-
-export const DiagnosticOutput: MessageFns<DiagnosticOutput> = {
-  encode(message: DiagnosticOutput, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    for (const v of message.diagnostics) {
-      Diagnostic.encode(v!, writer.uint32(10).fork()).join();
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): DiagnosticOutput {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseDiagnosticOutput();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.diagnostics.push(Diagnostic.decode(reader, reader.uint32()));
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): DiagnosticOutput {
-    return {
-      diagnostics: globalThis.Array.isArray(object?.diagnostics)
-        ? object.diagnostics.map((e: any) => Diagnostic.fromJSON(e))
-        : [],
-    };
-  },
-
-  toJSON(message: DiagnosticOutput): unknown {
-    const obj: any = {};
-    if (message.diagnostics?.length) {
-      obj.diagnostics = message.diagnostics.map((e) => Diagnostic.toJSON(e));
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<DiagnosticOutput>, I>>(base?: I): DiagnosticOutput {
-    return DiagnosticOutput.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<DiagnosticOutput>, I>>(object: I): DiagnosticOutput {
-    const message = createBaseDiagnosticOutput();
-    message.diagnostics = object.diagnostics?.map((e) => Diagnostic.fromPartial(e)) || [];
-    return message;
-  },
-};
-
 function createBaseDiagRequest(): DiagRequest {
   return { addr: "", a: new Uint8Array(0) };
 }
@@ -2520,13 +2829,13 @@ export const DiagRequest: MessageFns<DiagRequest> = {
 };
 
 function createBaseDiagResponse(): DiagResponse {
-  return { diagnostics: undefined };
+  return { diagnostics: [] };
 }
 
 export const DiagResponse: MessageFns<DiagResponse> = {
   encode(message: DiagResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.diagnostics !== undefined) {
-      DiagnosticOutput.encode(message.diagnostics, writer.uint32(10).fork()).join();
+    for (const v of message.diagnostics) {
+      Diagnostic.encode(v!, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -2543,7 +2852,7 @@ export const DiagResponse: MessageFns<DiagResponse> = {
             break;
           }
 
-          message.diagnostics = DiagnosticOutput.decode(reader, reader.uint32());
+          message.diagnostics.push(Diagnostic.decode(reader, reader.uint32()));
           continue;
         }
       }
@@ -2556,13 +2865,17 @@ export const DiagResponse: MessageFns<DiagResponse> = {
   },
 
   fromJSON(object: any): DiagResponse {
-    return { diagnostics: isSet(object.diagnostics) ? DiagnosticOutput.fromJSON(object.diagnostics) : undefined };
+    return {
+      diagnostics: globalThis.Array.isArray(object?.diagnostics)
+        ? object.diagnostics.map((e: any) => Diagnostic.fromJSON(e))
+        : [],
+    };
   },
 
   toJSON(message: DiagResponse): unknown {
     const obj: any = {};
-    if (message.diagnostics !== undefined) {
-      obj.diagnostics = DiagnosticOutput.toJSON(message.diagnostics);
+    if (message.diagnostics?.length) {
+      obj.diagnostics = message.diagnostics.map((e) => Diagnostic.toJSON(e));
     }
     return obj;
   },
@@ -2572,317 +2885,7 @@ export const DiagResponse: MessageFns<DiagResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<DiagResponse>, I>>(object: I): DiagResponse {
     const message = createBaseDiagResponse();
-    message.diagnostics = (object.diagnostics !== undefined && object.diagnostics !== null)
-      ? DiagnosticOutput.fromPartial(object.diagnostics)
-      : undefined;
-    return message;
-  },
-};
-
-function createBaseReadOutput(): ReadOutput {
-  return { addr: "", key: "" };
-}
-
-export const ReadOutput: MessageFns<ReadOutput> = {
-  encode(message: ReadOutput, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.addr !== "") {
-      writer.uint32(10).string(message.addr);
-    }
-    if (message.key !== "") {
-      writer.uint32(18).string(message.key);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): ReadOutput {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseReadOutput();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.addr = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.key = reader.string();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): ReadOutput {
-    return {
-      addr: isSet(object.addr) ? globalThis.String(object.addr) : "",
-      key: isSet(object.key) ? globalThis.String(object.key) : "",
-    };
-  },
-
-  toJSON(message: ReadOutput): unknown {
-    const obj: any = {};
-    if (message.addr !== "") {
-      obj.addr = message.addr;
-    }
-    if (message.key !== "") {
-      obj.key = message.key;
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<ReadOutput>, I>>(base?: I): ReadOutput {
-    return ReadOutput.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<ReadOutput>, I>>(object: I): ReadOutput {
-    const message = createBaseReadOutput();
-    message.addr = object.addr ?? "";
-    message.key = object.key ?? "";
-    return message;
-  },
-};
-
-function createBaseDeferred(): Deferred {
-  return { reads: [] };
-}
-
-export const Deferred: MessageFns<Deferred> = {
-  encode(message: Deferred, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    for (const v of message.reads) {
-      ReadOutput.encode(v!, writer.uint32(10).fork()).join();
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): Deferred {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseDeferred();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.reads.push(ReadOutput.decode(reader, reader.uint32()));
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): Deferred {
-    return {
-      reads: globalThis.Array.isArray(object?.reads) ? object.reads.map((e: any) => ReadOutput.fromJSON(e)) : [],
-    };
-  },
-
-  toJSON(message: Deferred): unknown {
-    const obj: any = {};
-    if (message.reads?.length) {
-      obj.reads = message.reads.map((e) => ReadOutput.toJSON(e));
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<Deferred>, I>>(base?: I): Deferred {
-    return Deferred.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<Deferred>, I>>(object: I): Deferred {
-    const message = createBaseDeferred();
-    message.reads = object.reads?.map((e) => ReadOutput.fromPartial(e)) || [];
-    return message;
-  },
-};
-
-function createBasePath(): Path {
-  return { path: "" };
-}
-
-export const Path: MessageFns<Path> = {
-  encode(message: Path, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.path !== "") {
-      writer.uint32(10).string(message.path);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): Path {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBasePath();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.path = reader.string();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): Path {
-    return { path: isSet(object.path) ? globalThis.String(object.path) : "" };
-  },
-
-  toJSON(message: Path): unknown {
-    const obj: any = {};
-    if (message.path !== "") {
-      obj.path = message.path;
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<Path>, I>>(base?: I): Path {
-    return Path.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<Path>, I>>(object: I): Path {
-    const message = createBasePath();
-    message.path = object.path ?? "";
-    return message;
-  },
-};
-
-function createBaseVirtToPhyOutput(): VirtToPhyOutput {
-  return { notPresent: undefined, deferred: undefined, present: undefined, null: undefined };
-}
-
-export const VirtToPhyOutput: MessageFns<VirtToPhyOutput> = {
-  encode(message: VirtToPhyOutput, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.notPresent !== undefined) {
-      Empty.encode(message.notPresent, writer.uint32(10).fork()).join();
-    }
-    if (message.deferred !== undefined) {
-      Deferred.encode(message.deferred, writer.uint32(18).fork()).join();
-    }
-    if (message.present !== undefined) {
-      Path.encode(message.present, writer.uint32(26).fork()).join();
-    }
-    if (message.null !== undefined) {
-      Path.encode(message.null, writer.uint32(34).fork()).join();
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): VirtToPhyOutput {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseVirtToPhyOutput();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.notPresent = Empty.decode(reader, reader.uint32());
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.deferred = Deferred.decode(reader, reader.uint32());
-          continue;
-        }
-        case 3: {
-          if (tag !== 26) {
-            break;
-          }
-
-          message.present = Path.decode(reader, reader.uint32());
-          continue;
-        }
-        case 4: {
-          if (tag !== 34) {
-            break;
-          }
-
-          message.null = Path.decode(reader, reader.uint32());
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): VirtToPhyOutput {
-    return {
-      notPresent: isSet(object.notPresent) ? Empty.fromJSON(object.notPresent) : undefined,
-      deferred: isSet(object.deferred) ? Deferred.fromJSON(object.deferred) : undefined,
-      present: isSet(object.present) ? Path.fromJSON(object.present) : undefined,
-      null: isSet(object.null) ? Path.fromJSON(object.null) : undefined,
-    };
-  },
-
-  toJSON(message: VirtToPhyOutput): unknown {
-    const obj: any = {};
-    if (message.notPresent !== undefined) {
-      obj.notPresent = Empty.toJSON(message.notPresent);
-    }
-    if (message.deferred !== undefined) {
-      obj.deferred = Deferred.toJSON(message.deferred);
-    }
-    if (message.present !== undefined) {
-      obj.present = Path.toJSON(message.present);
-    }
-    if (message.null !== undefined) {
-      obj.null = Path.toJSON(message.null);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<VirtToPhyOutput>, I>>(base?: I): VirtToPhyOutput {
-    return VirtToPhyOutput.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<VirtToPhyOutput>, I>>(object: I): VirtToPhyOutput {
-    const message = createBaseVirtToPhyOutput();
-    message.notPresent = (object.notPresent !== undefined && object.notPresent !== null)
-      ? Empty.fromPartial(object.notPresent)
-      : undefined;
-    message.deferred = (object.deferred !== undefined && object.deferred !== null)
-      ? Deferred.fromPartial(object.deferred)
-      : undefined;
-    message.present = (object.present !== undefined && object.present !== null)
-      ? Path.fromPartial(object.present)
-      : undefined;
-    message.null = (object.null !== undefined && object.null !== null) ? Path.fromPartial(object.null) : undefined;
+    message.diagnostics = object.diagnostics?.map((e) => Diagnostic.fromPartial(e)) || [];
     return message;
   },
 };
@@ -2963,12 +2966,12 @@ export const UnbundleRequest: MessageFns<UnbundleRequest> = {
   },
 };
 
-function createBaseBundleOutput(): BundleOutput {
+function createBaseUnbundleResponseElement(): UnbundleResponseElement {
   return { filename: "", fileContents: "" };
 }
 
-export const BundleOutput: MessageFns<BundleOutput> = {
-  encode(message: BundleOutput, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const UnbundleResponseElement: MessageFns<UnbundleResponseElement> = {
+  encode(message: UnbundleResponseElement, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.filename !== "") {
       writer.uint32(10).string(message.filename);
     }
@@ -2978,10 +2981,10 @@ export const BundleOutput: MessageFns<BundleOutput> = {
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): BundleOutput {
+  decode(input: BinaryReader | Uint8Array, length?: number): UnbundleResponseElement {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseBundleOutput();
+    const message = createBaseUnbundleResponseElement();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -3010,14 +3013,14 @@ export const BundleOutput: MessageFns<BundleOutput> = {
     return message;
   },
 
-  fromJSON(object: any): BundleOutput {
+  fromJSON(object: any): UnbundleResponseElement {
     return {
       filename: isSet(object.filename) ? globalThis.String(object.filename) : "",
       fileContents: isSet(object.fileContents) ? globalThis.String(object.fileContents) : "",
     };
   },
 
-  toJSON(message: BundleOutput): unknown {
+  toJSON(message: UnbundleResponseElement): unknown {
     const obj: any = {};
     if (message.filename !== "") {
       obj.filename = message.filename;
@@ -3028,11 +3031,11 @@ export const BundleOutput: MessageFns<BundleOutput> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<BundleOutput>, I>>(base?: I): BundleOutput {
-    return BundleOutput.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<UnbundleResponseElement>, I>>(base?: I): UnbundleResponseElement {
+    return UnbundleResponseElement.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<BundleOutput>, I>>(object: I): BundleOutput {
-    const message = createBaseBundleOutput();
+  fromPartial<I extends Exact<DeepPartial<UnbundleResponseElement>, I>>(object: I): UnbundleResponseElement {
+    const message = createBaseUnbundleResponseElement();
     message.filename = object.filename ?? "";
     message.fileContents = object.fileContents ?? "";
     return message;
@@ -3046,7 +3049,7 @@ function createBaseUnbundleResponse(): UnbundleResponse {
 export const UnbundleResponse: MessageFns<UnbundleResponse> = {
   encode(message: UnbundleResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.bundles) {
-      BundleOutput.encode(v!, writer.uint32(10).fork()).join();
+      UnbundleResponseElement.encode(v!, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -3063,7 +3066,7 @@ export const UnbundleResponse: MessageFns<UnbundleResponse> = {
             break;
           }
 
-          message.bundles.push(BundleOutput.decode(reader, reader.uint32()));
+          message.bundles.push(UnbundleResponseElement.decode(reader, reader.uint32()));
           continue;
         }
       }
@@ -3078,7 +3081,7 @@ export const UnbundleResponse: MessageFns<UnbundleResponse> = {
   fromJSON(object: any): UnbundleResponse {
     return {
       bundles: globalThis.Array.isArray(object?.bundles)
-        ? object.bundles.map((e: any) => BundleOutput.fromJSON(e))
+        ? object.bundles.map((e: any) => UnbundleResponseElement.fromJSON(e))
         : [],
     };
   },
@@ -3086,7 +3089,7 @@ export const UnbundleResponse: MessageFns<UnbundleResponse> = {
   toJSON(message: UnbundleResponse): unknown {
     const obj: any = {};
     if (message.bundles?.length) {
-      obj.bundles = message.bundles.map((e) => BundleOutput.toJSON(e));
+      obj.bundles = message.bundles.map((e) => UnbundleResponseElement.toJSON(e));
     }
     return obj;
   },
@@ -3096,7 +3099,7 @@ export const UnbundleResponse: MessageFns<UnbundleResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<UnbundleResponse>, I>>(object: I): UnbundleResponse {
     const message = createBaseUnbundleResponse();
-    message.bundles = object.bundles?.map((e) => BundleOutput.fromPartial(e)) || [];
+    message.bundles = object.bundles?.map((e) => UnbundleResponseElement.fromPartial(e)) || [];
     return message;
   },
 };
@@ -3171,17 +3174,18 @@ export const ConnectorService = {
     path: "/connector.Connector/AddrVirtToPhy",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: AddrRequest): Buffer => Buffer.from(AddrRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): AddrRequest => AddrRequest.decode(value),
-    responseSerialize: (value: VirtToPhyOutput): Buffer => Buffer.from(VirtToPhyOutput.encode(value).finish()),
-    responseDeserialize: (value: Buffer): VirtToPhyOutput => VirtToPhyOutput.decode(value),
+    requestSerialize: (value: AddrVirtToPhyRequest): Buffer => Buffer.from(AddrVirtToPhyRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AddrVirtToPhyRequest => AddrVirtToPhyRequest.decode(value),
+    responseSerialize: (value: AddrVirtToPhyResponse): Buffer =>
+      Buffer.from(AddrVirtToPhyResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AddrVirtToPhyResponse => AddrVirtToPhyResponse.decode(value),
   },
   addrPhyToVirt: {
     path: "/connector.Connector/AddrPhyToVirt",
     requestStream: false,
     responseStream: false,
-    requestSerialize: (value: AddrRequest): Buffer => Buffer.from(AddrRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): AddrRequest => AddrRequest.decode(value),
+    requestSerialize: (value: AddrPhyToVirtRequest): Buffer => Buffer.from(AddrPhyToVirtRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AddrPhyToVirtRequest => AddrPhyToVirtRequest.decode(value),
     responseSerialize: (value: AddrPhyToVirtResponse): Buffer =>
       Buffer.from(AddrPhyToVirtResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): AddrPhyToVirtResponse => AddrPhyToVirtResponse.decode(value),
@@ -3242,8 +3246,8 @@ export interface ConnectorServer extends UntypedServiceImplementation {
   get: handleUnaryCall<GetRequest, GetResponse>;
   plan: handleUnaryCall<PlanRequest, PlanResponse>;
   opExec: handleUnaryCall<OpExecRequest, OpExecResponse>;
-  addrVirtToPhy: handleUnaryCall<AddrRequest, VirtToPhyOutput>;
-  addrPhyToVirt: handleUnaryCall<AddrRequest, AddrPhyToVirtResponse>;
+  addrVirtToPhy: handleUnaryCall<AddrVirtToPhyRequest, AddrVirtToPhyResponse>;
+  addrPhyToVirt: handleUnaryCall<AddrPhyToVirtRequest, AddrPhyToVirtResponse>;
   getSkeletons: handleUnaryCall<Empty, GetSkeletonsResponse>;
   getDocstring: handleUnaryCall<GetDocRequest, GetDocResponse>;
   eq: handleUnaryCall<EqRequest, EqResponse>;
@@ -3343,31 +3347,31 @@ export interface ConnectorClient extends Client {
     callback: (error: ServiceError | null, response: OpExecResponse) => void,
   ): ClientUnaryCall;
   addrVirtToPhy(
-    request: AddrRequest,
-    callback: (error: ServiceError | null, response: VirtToPhyOutput) => void,
+    request: AddrVirtToPhyRequest,
+    callback: (error: ServiceError | null, response: AddrVirtToPhyResponse) => void,
   ): ClientUnaryCall;
   addrVirtToPhy(
-    request: AddrRequest,
+    request: AddrVirtToPhyRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: VirtToPhyOutput) => void,
+    callback: (error: ServiceError | null, response: AddrVirtToPhyResponse) => void,
   ): ClientUnaryCall;
   addrVirtToPhy(
-    request: AddrRequest,
+    request: AddrVirtToPhyRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: VirtToPhyOutput) => void,
+    callback: (error: ServiceError | null, response: AddrVirtToPhyResponse) => void,
   ): ClientUnaryCall;
   addrPhyToVirt(
-    request: AddrRequest,
+    request: AddrPhyToVirtRequest,
     callback: (error: ServiceError | null, response: AddrPhyToVirtResponse) => void,
   ): ClientUnaryCall;
   addrPhyToVirt(
-    request: AddrRequest,
+    request: AddrPhyToVirtRequest,
     metadata: Metadata,
     callback: (error: ServiceError | null, response: AddrPhyToVirtResponse) => void,
   ): ClientUnaryCall;
   addrPhyToVirt(
-    request: AddrRequest,
+    request: AddrPhyToVirtRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: AddrPhyToVirtResponse) => void,

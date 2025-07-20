@@ -4,7 +4,7 @@ use anyhow::Context;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{Connector, VirtToPhyOutput},
+    connector::{Connector, VirtToPhyResponse},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
     template::template_config,
@@ -23,15 +23,15 @@ pub async fn plan_connector(
     plan_report.virt_addr = virt_addr.into();
 
     let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
-        VirtToPhyOutput::NotPresent => None,
-        VirtToPhyOutput::Deferred(read_outputs) => {
+        VirtToPhyResponse::NotPresent => None,
+        VirtToPhyResponse::Deferred(read_outputs) => {
             for output in read_outputs {
                 plan_report.missing_outputs.push(output);
             }
             return Ok(Some(plan_report));
         }
-        VirtToPhyOutput::Present(phy_addr) => Some(phy_addr),
-        VirtToPhyOutput::Null(phy_addr) => Some(phy_addr),
+        VirtToPhyResponse::Present(phy_addr) => Some(phy_addr),
+        VirtToPhyResponse::Null(phy_addr) => Some(phy_addr),
     };
 
     let current = match phy_addr {

@@ -1,39 +1,30 @@
 import { Server, ServerCredentials } from '@grpc/grpc-js';
 import {
-    FilterRequest,
     FilterResponse,
-    ListRequest,
     ListResponse,
-    GetRequest,
     GetResponse,
-    PlanRequest,
     PlanResponse,
-    OpExecRequest,
     OpExecResponse,
-    AddrRequest,
     AddrPhyToVirtResponse,
     SubpathsResponse,
     GetSkeletonsResponse,
-    GetDocRequest,
     GetDocResponse,
-    EqRequest,
     EqResponse,
-    DiagRequest,
     DiagResponse,
-    UnbundleRequest,
     UnbundleResponse,
-    OpPlanOutput as GrpcOpPlan,
-    SkeletonOutput as GrpcSkeleton,
     ReadOutput as GrpcRead,
     Deferred as GrpcDeferred,
     Path as GrpcPath,
-    VirtToPhyOutput as GrpcVirtRes,
-    BundleOutput as GrpcBundle,
     Empty,
     ConnectorServer,
     ConnectorService,
+    AddrVirtToPhyResponse,
+    Skeleton,
+    UnbundleResponseElement,
 } from './generated/connector';
-import { Connector, FilterOutput } from './types';
+
+import { Connector } from './types';
+import { Status } from '@grpc/grpc-js/build/src/constants';
 
 export function createConnectorServer(
     impl: Connector,
@@ -45,7 +36,7 @@ export function createConnectorServer(
                 await impl.init();
                 callback(null, Empty.create());
             } catch (e: any) {
-                callback({ code: 13, message: e.message }, null);
+                callback({ code: Status.INTERNAL, message: e.message }, null);
             }
         },
         filter: async (call, callback) => {
@@ -54,7 +45,7 @@ export function createConnectorServer(
                 const idx = ['CONFIG', 'RESOURCE', 'BUNDLE', 'NONE'].indexOf(out);
                 callback(null, FilterResponse.create({ filter: idx }));
             } catch (e: any) {
-                callback({ code: 13, message: e.message }, null);
+                callback({ code: Status.INTERNAL, message: e.message }, null);
             }
         },
         list: async (call, callback) => {
@@ -62,22 +53,21 @@ export function createConnectorServer(
                 const arr = await impl.list(call.request.subpath);
                 callback(null, ListResponse.create({ addrs: arr }));
             } catch (e: any) {
-                callback({ code: 13, message: e.message }, null);
+                callback({ code: Status.INTERNAL, message: e.message }, null);
             }
         },
-        subpaths: async (_c, cb) => {
+        subpaths: async (_c, callback) => {
             try {
                 const arr = await impl.subpaths();
-                cb(null, SubpathsResponse.create({ subpaths: arr }));
+                callback(null, SubpathsResponse.create({ subpaths: arr }));
             } catch (e: any) {
-                cb({ code: 13, message: e.message }, null);
+                callback({ code: Status.INTERNAL, message: e.message }, null);
             }
         },
         get: async (call, callback) => {
             try {
                 const { exists, resourceDefinition, outputs } =
-                    await impl.get(call.request.addr)
-                        .then(o => o || { exists: false });
+                    await impl.get(call.request.addr);
                 if (!exists) {
                     return callback(null, GetResponse.create({ exists: false }));
                 }
@@ -87,43 +77,39 @@ export function createConnectorServer(
                     outputs: outputs || {},
                 }));
             } catch (e: any) {
-                callback({ code: 13, message: e.message }, null);
+                callback({ code: Status.INTERNAL, message: e.message }, null);
             }
         },
         plan: async (call, callback) => {
             try {
-                const r = call.request as PlanRequest;
+                const r = call.request;
+
                 const ops = await impl.plan(
                     r.addr,
                     r.current?.length ? r.current : undefined,
                     r.desired?.length ? r.desired : undefined
                 );
-                const grpcOps: GrpcOpPlan[] = ops.map(o =>
-                    GrpcOpPlan.create({
-                        opDefinition: o.opDefinition,
-                        writesOutputs: o.writesOutputs,
-                        friendlyMessage: o.friendlyMessage ?? '',
-                    }));
-                callback(null, PlanResponse.create({ ops: grpcOps }));
+
+                callback(null, PlanResponse.create({ ops: ops }));
+
             } catch (e: any) {
-                callback({ code: 13, message: e.message }, null);
+                callback({ code: Status.INTERNAL, message: e.message }, null);
             }
         },
         opExec: async (call, callback) => {
             try {
                 const { outputs, friendlyMessage } =
                     await impl.opExec(call.request.addr, call.request.op);
-                const map: Record<string, string> = {};
-                if (outputs) for (let k in outputs) map[k] = outputs[k]!;
-                callback(null, OpExecResponse.create({ outputs: map, friendlyMessage: friendlyMessage ?? '' }));
+
+                callback(null, OpExecResponse.create({ outputs: outputs, friendlyMessage: friendlyMessage ?? '' }));
             } catch (e: any) {
-                callback({ code: 13, message: e.message }, null);
+                callback({ code: Status.INTERNAL, message: e.message }, null);
             }
         },
         addrVirtToPhy: async (call, cb) => {
             try {
                 const res = await impl.addrVirtToPhy(call.request.addr);
-                const msg = GrpcVirtRes.create();
+                const msg = AddrVirtToPhyResponse.create();
                 switch (res.kind) {
                     case 'NotPresent':
                         msg.notPresent = Empty.create();
@@ -160,7 +146,7 @@ export function createConnectorServer(
             try {
                 const sk = await impl.getSkeletons();
                 const out = sk.map(s =>
-                    GrpcSkeleton.create({ addr: s.addr, body: s.body }));
+                    Skeleton.create({ addr: s.addr, body: s.body }));
                 cb(null, GetSkeletonsResponse.create({ skeletons: out }));
             } catch (e: any) {
                 cb({ code: 13, message: e.message }, null);
@@ -198,16 +184,14 @@ export function createConnectorServer(
             try {
                 const ds = await impl.diag(call.request.addr, call.request.a);
                 callback(null, DiagResponse.create({
-                    diagnostics: {
-                        diagnostics: ds.map(d => ({
-                            severity: d.severity,
-                            span: {
-                                start: d.span.start,
-                                end: d.span.end,
-                            },
-                            message: d.message,
-                        }))
-                    }
+                    diagnostics: ds.map(d => ({
+                        severity: d.severity,
+                        span: {
+                            start: d.span.start,
+                            end: d.span.end,
+                        },
+                        message: d.message,
+                    }))
                 }));
             } catch (e: any) {
                 callback({ code: 13, message: e.message }, null);
@@ -216,7 +200,7 @@ export function createConnectorServer(
         unbundle: async (call, callback) => {
             try {
                 const bs = await impl.unbundle(call.request.addr, call.request.bundle);
-                const out = bs.map(b => GrpcBundle.create({
+                const out = bs.map(b => UnbundleResponseElement.create({
                     filename: b.filename,
                     fileContents: b.fileContents
                 }));
@@ -234,8 +218,6 @@ export function createConnectorServer(
         ServerCredentials.createInsecure(),
         (err, port) => {
             if (err) throw err;
-            server.start();
-            console.log(`Connector gRPC server listening on UDS ${socketPath}`);
         }
     );
     return server;

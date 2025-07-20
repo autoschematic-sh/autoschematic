@@ -15,7 +15,7 @@ class WidgetDecorationProvider implements vscode.FileDecorationProvider {
         uri: vscode.Uri
     ): vscode.ProviderResult<vscode.FileDecoration> {
 
-        let filterOutput = vscode.commands.executeCommand('autoschematic.filter');
+        let filterResponse = vscode.commands.executeCommand('autoschematic.filter');
         if (uri.path.endsWith('.ron')) {
             return {
                 badge: 'ℝ',

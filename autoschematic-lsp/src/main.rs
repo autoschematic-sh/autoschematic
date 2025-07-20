@@ -9,7 +9,7 @@ use anyhow::{Result, bail};
 use autoschematic_core::{
     config::AutoschematicConfig,
     config_rbac::AutoschematicRbacConfig,
-    connector::FilterOutput,
+    connector::FilterResponse,
     connector_cache::ConnectorCache,
     manifest::ConnectorManifest,
     template::{self},
@@ -264,16 +264,19 @@ impl LanguageServer for Backend {
 
                 if let Ok(res) = filter(autoschematic_config, &self.connector_cache, keystore, None, &prefix, &addr).await {
                     match res {
-                        FilterOutput::Config => {
+                        FilterResponse::Config => {
                             return Ok(Some(serde_json::to_value("Config").unwrap()));
                         }
-                        FilterOutput::Resource => {
+                        FilterResponse::Resource => {
                             return Ok(Some(serde_json::to_value("Resource").unwrap()));
                         }
-                        FilterOutput::Bundle => {
+                        FilterResponse::Bundle => {
                             return Ok(Some(serde_json::to_value("Bundle").unwrap()));
                         }
-                        FilterOutput::None => {
+                        FilterResponse::Task => {
+                            return Ok(Some(serde_json::to_value("Task").unwrap()));
+                        }
+                        FilterResponse::None => {
                             return Ok(Some(serde_json::to_value("None").unwrap()));
                         }
                     }
@@ -381,31 +384,19 @@ impl Backend {
                 match self.connector_cache.filter(&connector_def.shortname, &prefix, addr).await? {
                     // TODO If the user edits a connector's config file,
                     // we need to re-init the connector, and clear the filter cache for that connector!
-                    autoschematic_core::connector::FilterOutput::Config => {
+                    // autoschematic_core::connector::FilterResponse::Config => {
+                    autoschematic_core::connector::FilterResponse::Task => {}
+                    autoschematic_core::connector::FilterResponse::None => {}
+                    _ => {
                         if let Some((connector, _inbox)) =
                             self.connector_cache.get_connector(&connector_def.shortname, &prefix).await
                         {
                             // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
-                            res.append(&mut diag_to_lsp(connector.diag(addr, body.as_bytes()).await?));
+                            if let Some(diag) = connector.diag(addr, body.as_bytes()).await? {
+                                res.append(&mut diag_to_lsp(diag));
+                            }
                         }
                     }
-                    autoschematic_core::connector::FilterOutput::Bundle => {
-                        if let Some((connector, _inbox)) =
-                            self.connector_cache.get_connector(&connector_def.shortname, &prefix).await
-                        {
-                            // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
-                            res.append(&mut diag_to_lsp(connector.diag(addr, body.as_bytes()).await?));
-                        }
-                    }
-                    autoschematic_core::connector::FilterOutput::Resource => {
-                        if let Some((connector, _inbox)) =
-                            self.connector_cache.get_connector(&connector_def.shortname, &prefix).await
-                        {
-                            // eprintln!("{} filter: {:?} = true", connector_def.name, addr);
-                            res.append(&mut diag_to_lsp(connector.diag(addr, body.as_bytes()).await?));
-                        }
-                    }
-                    autoschematic_core::connector::FilterOutput::None => {}
                 }
             }
         }

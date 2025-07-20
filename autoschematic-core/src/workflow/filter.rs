@@ -1,25 +1,20 @@
 use std::{path::Path, sync::Arc};
 
-use crate::{
-    config::AutoschematicConfig,
-    connector::FilterOutput,
-    connector_cache::ConnectorCache,
-    keystore::KeyStore,
-};
+use crate::{config::AutoschematicConfig, connector::FilterResponse, connector_cache::ConnectorCache, keystore::KeyStore};
 
 pub async fn filter(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: &ConnectorCache,
     keystore: Option<Arc<dyn KeyStore>>,
-    connector_filter: Option<&str>, 
+    connector_filter: Option<&str>,
     prefix: &Path,
     addr: &Path,
-) -> anyhow::Result<FilterOutput> {
+) -> anyhow::Result<FilterResponse> {
     let Some(prefix_str) = prefix.to_str() else {
-        return Ok(FilterOutput::None);
+        return Ok(FilterResponse::None);
     };
     let Some(prefix_def) = autoschematic_config.prefixes.get(prefix_str) else {
-        return Ok(FilterOutput::None);
+        return Ok(FilterResponse::None);
     };
 
     for connector_def in &prefix_def.connectors {
@@ -37,12 +32,13 @@ pub async fn filter(
             .await?;
 
         match connector.filter(addr).await? {
-            FilterOutput::Config => return Ok(FilterOutput::Config),
-            FilterOutput::Resource => return Ok(FilterOutput::Resource),
-            FilterOutput::Bundle => return Ok(FilterOutput::Bundle),
-            FilterOutput::None => continue,
+            FilterResponse::Config => return Ok(FilterResponse::Config),
+            FilterResponse::Resource => return Ok(FilterResponse::Resource),
+            FilterResponse::Bundle => return Ok(FilterResponse::Bundle),
+            FilterResponse::Task => return Ok(FilterResponse::Task),
+            FilterResponse::None => continue,
         }
     }
 
-    Ok(FilterOutput::None)
+    Ok(FilterResponse::None)
 }

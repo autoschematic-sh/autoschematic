@@ -136,9 +136,9 @@ impl ChangeSet {
             for connector_def in prefix.connectors {
                 let prefix_name = PathBuf::from(&prefix_name);
 
-                let connector_shortname = connector_shortname(&connector_def.shortname)?;
+                let connector_shortname = &connector_def.shortname;
                 if let Some(connector_filter) = &connector_filter
-                    && connector_shortname != *connector_filter {
+                    && connector_shortname != connector_filter {
                         continue;
                     }
                 // subcount represents the number of resources imported by this connector,

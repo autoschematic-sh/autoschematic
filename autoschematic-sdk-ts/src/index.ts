@@ -1,5 +1,6 @@
 import { createConnectorServer } from "./grpcServer";
 import { Connector, ConnectorConstructor } from "./types";
+import { matchAddr } from "./addr";
 
 export default async function connectorMain(constructor: ConnectorConstructor) {
     let name = process.argv[2];
@@ -11,8 +12,4 @@ export default async function connectorMain(constructor: ConnectorConstructor) {
     
     
     let server = await createConnectorServer(connector, socket);
-    
-    
-    console.log("server started");
-
 }

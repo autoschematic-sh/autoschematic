@@ -35,11 +35,12 @@ impl ChangeSet {
         for (prefix_name, prefix) in autoschematic_config.prefixes {
             for connector_def in prefix.connectors {
                 let prefix_name = PathBuf::from(&prefix_name);
-                let connector_shortname = connector_shortname(&connector_def.shortname)?;
+                let connector_shortname = &connector_def.shortname;
                 if let Some(connector_filter) = &connector_filter
-                    && connector_shortname != *connector_filter {
-                        continue;
-                    }
+                    && connector_shortname != connector_filter
+                {
+                    continue;
+                }
                 // temporarily cd into the repo...
                 // I.E. `cd /tmp/autoschematic-298347928/pfnsec/autoschematic-playground`
                 let _chwd = self.chwd_to_repo();

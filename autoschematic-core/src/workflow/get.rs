@@ -2,7 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use crate::{
     config::AutoschematicConfig,
-    connector::FilterOutput,
+    connector::FilterResponse,
     connector_cache::ConnectorCache,
     error::AutoschematicError,
     keystore::KeyStore,
@@ -34,20 +34,20 @@ pub async fn get(
             )
             .await?;
 
-        if connector.filter(virt_addr).await? == FilterOutput::Resource {
+        if connector.filter(virt_addr).await? == FilterResponse::Resource {
             match connector.addr_virt_to_phy(virt_addr).await? {
-                crate::connector::VirtToPhyOutput::NotPresent => {
+                crate::connector::VirtToPhyResponse::NotPresent => {
                     return Ok(None);
                 }
-                crate::connector::VirtToPhyOutput::Deferred(read_outputs) => {
+                crate::connector::VirtToPhyResponse::Deferred(read_outputs) => {
                     return Ok(None);
                 }
-                crate::connector::VirtToPhyOutput::Present(phy_addr) => {
+                crate::connector::VirtToPhyResponse::Present(phy_addr) => {
                     if let Some(body) = connector.get(&phy_addr).await? {
                         return Ok(Some(body.resource_definition));
                     }
                 }
-                crate::connector::VirtToPhyOutput::Null(virt_addr) => {
+                crate::connector::VirtToPhyResponse::Null(virt_addr) => {
                     if let Some(body) = connector.get(&virt_addr).await? {
                         return Ok(Some(body.resource_definition));
                     }

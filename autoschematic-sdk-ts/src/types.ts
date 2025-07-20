@@ -1,14 +1,12 @@
-// src/types.ts
-export type FilterOutput = 'CONFIG' | 'RESOURCE' | 'BUNDLE' | 'NONE';
+export type FilterResponse = 'CONFIG' | 'RESOURCE' | 'BUNDLE' | 'TASK' | 'NONE';
 
 export interface ConnectorConstructor {
-    // ndew(name: string, prefix: string): unknown;
     __new(name: string, prefix: string): Promise<Connector>;
 }
 
 export interface Connector {
     init(): Promise<void>;
-    filter(addr: string): Promise<FilterOutput>;
+    filter(addr: string): Promise<FilterResponse>;
     list(subpath: string): Promise<string[]>;
     subpaths(): Promise<string[]>;
     get(addr: string): Promise<{
@@ -25,10 +23,12 @@ export interface Connector {
         writesOutputs: string[];
         friendlyMessage?: string;
     }>>;
+
     opExec(
         addr: string,
         op: string
     ): Promise<{ outputs?: Record<string, string>; friendlyMessage?: string }>;
+
     addrVirtToPhy(addr: string):
         Promise<
             | { kind: 'NotPresent' }
@@ -36,13 +36,18 @@ export interface Connector {
             | { kind: 'Present'; path: string }
             | { kind: 'Null'; path: string }
         >;
+
     addrPhyToVirt(addr: string): Promise<string | null>;
+
     getSkeletons(): Promise<Array<{ addr: string; body: Uint8Array }>>;
+
     getDocstring(
         addr: string,
         ident: { struct?: string; field?: { parent: string; name: string } }
     ): Promise<string | null>;
+
     eq(addr: string, a: Uint8Array, b: Uint8Array): Promise<boolean>;
+
     diag(addr: string, a: Uint8Array): Promise<Array<{
         severity: number;
         span: {
@@ -51,6 +56,7 @@ export interface Connector {
         };
         message: string;
     }>>;
+
     unbundle(
         addr: string,
         bundle: Uint8Array

@@ -20,6 +20,7 @@ debug = 1
 
 [dependencies]
 autoschematic-core = { path = "../autoschematic-core", version = "0.6.0", features = [
+    "sandbox",
 ] }
 anyhow = { version = "1.0.97", features = ["backtrace"] }
 askama = "0.14.0"

@@ -1,6 +1,6 @@
 use crate::{
     config::AutoschematicConfig,
-    connector::{FilterOutput, OutputMapFile, VirtToPhyOutput},
+    connector::{FilterResponse, OutputMapFile, VirtToPhyResponse},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
     util::{repo_root, split_prefix_addr},
@@ -62,13 +62,13 @@ pub async fn rename(
         if connector_cache
             .filter(&connector_def.shortname, &prefix, &old_virt_addr)
             .await?
-            == FilterOutput::Resource
+            == FilterResponse::Resource
         {
             match connector.addr_virt_to_phy(&old_virt_addr).await? {
-                VirtToPhyOutput::NotPresent => bail!("Phy address not present to rename"),
-                VirtToPhyOutput::Deferred(_) => bail!("Phy address not present to rename"),
-                VirtToPhyOutput::Null(_) => bail!("Rename: not a phy address"),
-                VirtToPhyOutput::Present(phy_addr) => {
+                VirtToPhyResponse::NotPresent => bail!("Phy address not present to rename"),
+                VirtToPhyResponse::Deferred(_) => bail!("Phy address not present to rename"),
+                VirtToPhyResponse::Null(_) => bail!("Rename: not a phy address"),
+                VirtToPhyResponse::Present(phy_addr) => {
                     // let old_virt_output_path = build_out_path(&prefix, &old_virt_addr);
                     // let new_virt_output_path = build_out_path(&prefix, &new_virt_addr);
 

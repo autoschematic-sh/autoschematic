@@ -178,13 +178,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 
 		try {
-			const filterOutput = await client.sendRequest(ExecuteCommandRequest.type, {
+			const filterResponse = await client.sendRequest(ExecuteCommandRequest.type, {
 				command: "filter",
 				arguments: [fileUri.path]
 			});
 
-			console.log("filterOutput", filterOutput);
-			if (filterOutput != "Resource") {
+			console.log("filterResponse", filterResponse);
+			if (filterResponse != "Resource") {
 				vscode.window.showErrorMessage(`Not a resource file for any active connector: ${fileUri.path}`);
 				return;
 			}

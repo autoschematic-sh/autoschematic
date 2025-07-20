@@ -3,25 +3,21 @@ use std::{
     ffi::{CString, OsStr, OsString},
     fs::create_dir_all,
     path::{Path, PathBuf},
+    sync::Arc,
     thread::JoinHandle,
     time::SystemTime,
 };
 
 use crate::{
-    connector::{
-        Connector, ConnectorOutbox, DocIdent, FilterOutput, GetDocOutput, GetResourceOutput, OpExecOutput, OpPlanOutput,
-        SkeletonOutput, VirtToPhyOutput,
-    },
-    diag::DiagnosticOutput,
-    error::ErrorMessage,
-    keystore::KeyStore,
-    secret::SealedSecret,
-    tarpc_bridge::{TarpcConnectorClient, launch_client},
-    util::passthrough_secrets_from_env,
+    bundle::UnbundleResponseElement, config::Spec, connector::{
+        Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
+        PlanResponseElement, SkeletonResponse, VirtToPhyResponse,
+    }, diag::DiagnosticResponse, error::ErrorMessage, grpc_bridge, keystore::KeyStore, secret::SealedSecret, tarpc_bridge::{self, TarpcConnector}, util::passthrough_secrets_from_env
 };
 use anyhow::{Context, bail};
 use async_trait::async_trait;
 
+use libc::CS;
 use nix::{
     errno::Errno,
     sched::CloneFlags,
@@ -36,7 +32,7 @@ use walkdir::WalkDir;
 /// This module handles sandboxing of connector instances using Linux-kernel specific
 /// methods, such as cgroups and namespaces.
 pub struct SandboxConnectorHandle {
-    client: TarpcConnectorClient,
+    client: Arc<dyn Connector>,
     socket: PathBuf,
     error_dump: PathBuf,
     read_thread: Option<JoinHandle<()>>,
@@ -93,8 +89,8 @@ fn random_error_dump_path() -> PathBuf {
 
 #[async_trait]
 impl Connector for SandboxConnectorHandle {
-    async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Box<dyn Connector>, anyhow::Error> {
-        <TarpcConnectorClient as Connector>::new(name, prefix, outbox).await
+    async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
+        bail!("Connector::new() for SandboxConnectorHandle is a stub!")
     }
     async fn init(&self) -> Result<(), anyhow::Error> {
         self.still_alive().context(format!("Before init()"))?;
@@ -103,7 +99,7 @@ impl Connector for SandboxConnectorHandle {
         res
     }
 
-    async fn filter(&self, addr: &Path) -> Result<FilterOutput, anyhow::Error> {
+    async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error> {
         self.still_alive().context(format!("Before filter({:?})", addr))?;
         let res = Connector::filter(&self.client, addr).await;
         self.still_alive().context(format!("After filter({:?})", addr))?;
@@ -117,7 +113,7 @@ impl Connector for SandboxConnectorHandle {
         res
     }
 
-    async fn get(&self, addr: &Path) -> Result<Option<GetResourceOutput>, anyhow::Error> {
+    async fn get(&self, addr: &Path) -> Result<Option<GetResourceResponse>, anyhow::Error> {
         self.still_alive().context(format!("Before get({:?})", addr))?;
         let res = Connector::get(&self.client, addr).await;
         self.still_alive().context(format!("After get({:?})", addr))?;
@@ -129,21 +125,21 @@ impl Connector for SandboxConnectorHandle {
         addr: &Path,
         current: Option<Vec<u8>>,
         desired: Option<Vec<u8>>,
-    ) -> Result<Vec<OpPlanOutput>, anyhow::Error> {
+    ) -> Result<Vec<PlanResponseElement>, anyhow::Error> {
         self.still_alive().context(format!("Before plan({:?})", addr))?;
         let res = Connector::plan(&self.client, addr, current, desired).await;
         self.still_alive().context(format!("After plan({:?})", addr))?;
         res
     }
 
-    async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecOutput, anyhow::Error> {
+    async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecResponse, anyhow::Error> {
         self.still_alive().context(format!("Before op_exec({:?})", addr))?;
         let res = Connector::op_exec(&self.client, addr, op).await;
         self.still_alive().context(format!("After op_exec({:?})", addr))?;
         res
     }
 
-    async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyOutput, anyhow::Error> {
+    async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyResponse, anyhow::Error> {
         self.still_alive().context(format!("Before addr_virt_to_phy({:?})", addr))?;
         let res = Connector::addr_virt_to_phy(&self.client, addr).await;
         self.still_alive().context(format!("After addr_virt_to_phy({:?})", addr))?;
@@ -157,14 +153,14 @@ impl Connector for SandboxConnectorHandle {
         res
     }
 
-    async fn get_skeletons(&self) -> Result<Vec<SkeletonOutput>, anyhow::Error> {
+    async fn get_skeletons(&self) -> Result<Vec<SkeletonResponse>, anyhow::Error> {
         self.still_alive().context(format!("Before get_skeletons()"))?;
         let res = Connector::get_skeletons(&self.client).await;
         self.still_alive().context(format!("After get_skeletons()"))?;
         res
     }
 
-    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocOutput>, anyhow::Error> {
+    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocResponse>, anyhow::Error> {
         self.still_alive().context(format!("Before get_docstring()"))?;
         let res = Connector::get_docstring(&self.client, addr, ident).await;
         self.still_alive().context(format!("After get_docstring()"))?;
@@ -180,7 +176,7 @@ impl Connector for SandboxConnectorHandle {
         res
     }
 
-    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
+    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<Option<DiagnosticResponse>, anyhow::Error> {
         self.still_alive()
             .context(format!("Before diag({}, _, _)", addr.to_string_lossy()))?;
         let res = Connector::diag(&self.client, addr, a).await;
@@ -189,7 +185,7 @@ impl Connector for SandboxConnectorHandle {
         res
     }
 
-    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
+    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> Result<Vec<UnbundleResponseElement>, anyhow::Error> {
         self.still_alive()
             .context(format!("Before unbundle({}, _, _)", addr.to_string_lossy()))?;
         let res = Connector::unbundle(&self.client, addr, resource).await;
@@ -200,25 +196,26 @@ impl Connector for SandboxConnectorHandle {
 }
 
 pub async fn launch_server_binary_sandboxed(
-    binary: &Path,
-    name: &str,
+    spec: &Spec,
+    shortname: &str,
     prefix: &Path,
     env: &HashMap<String, String>,
     outbox: ConnectorOutbox,
-    keystore: Option<&Box<dyn KeyStore>>,
+    keystore: Option<Arc<dyn KeyStore>>,
 ) -> anyhow::Result<SandboxConnectorHandle> {
     let mut env = env.clone();
-    let mut binary = PathBuf::from(binary);
+
+    let spec_command = spec.command()?;
+    let mut binary = spec_command.binary;
 
     if !binary.is_file() {
         binary = which::which(binary)?;
-        bail!("launch_server_binary_sandboxed: {}: not found", binary.display())
     }
 
     let socket = random_socket_path();
     let error_dump = random_error_dump_path();
 
-    if let Some(keystore) = keystore {
+    if let Some(ref keystore) = keystore {
         env = keystore.unseal_env_map(&env)?;
     } else {
         env = passthrough_secrets_from_env(&env)?;
@@ -272,12 +269,20 @@ pub async fn launch_server_binary_sandboxed(
         };
 
         let binary_c = CString::new(String::from(binary))?;
-        let name_c = CString::new(String::from(name))?;
-        let prefix_c = CString::new(String::from(prefix))?;
-        let socket_c = CString::new(String::from(socket))?;
-        let error_dump_c = CString::new(String::from(error_dump))?;
 
-        let args = [binary_c.clone(), name_c, prefix_c, socket_c, error_dump_c.clone()];
+        let mut c_args: Vec<CString> = Vec::new();
+
+        c_args.push(binary_c.clone());
+
+        for arg in spec_command.args {
+            c_args.push(CString::new(arg)?);
+        }
+
+        c_args.push(CString::new(String::from(shortname))?);
+        c_args.push(CString::new(String::from(prefix))?);
+        c_args.push(CString::new(String::from(socket))?);
+        c_args.push(CString::new(String::from(error_dump))?);
+
         let mut c_env: Vec<CString> = Vec::new();
 
         for (key, value) in &env {
@@ -287,6 +292,7 @@ pub async fn launch_server_binary_sandboxed(
         let uid = geteuid();
         let gid = getegid();
 
+        let keystore = keystore.clone();
         let res = nix::sched::clone(
             Box::new(|| {
                 std::fs::write("/proc/self/uid_map", format!("0 {} 1", uid)).expect("Couldn't write to /proc/self/uid_map!");
@@ -311,11 +317,8 @@ pub async fn launch_server_binary_sandboxed(
                 )
                 .expect("couldn't create mount");
 
-                // std::fs::write(secret_mount_path.join("test"), "ASS!")
-                //     .expect("couldn't write secret");
-                //
-                if let Some(keystore) = &keystore {
-                    unseal_secrets_to_folder(&keystore, &PathBuf::from(prefix), name, &secret_mount_path)
+                if let Some(ref keystore) = keystore {
+                    unseal_secrets_to_folder(keystore.clone(), &PathBuf::from(prefix), shortname, &secret_mount_path)
                         .expect("Failed to unseal secrets to connector mount");
                 }
 
@@ -333,8 +336,9 @@ pub async fn launch_server_binary_sandboxed(
                 // close(stderr_w).ok();
                 // let ls = std::fs::read_dir(&secret_mount_path);
                 // tracing::error!("ls = {:?}", ls.iter().map(|s| format!("{:?}", s)).collect::<Vec<String>>());
+                tracing::info!("execve({:?}, {:?}, {:?})", &binary_c, &c_args, &c_env);
 
-                execve(&binary_c, &args, &c_env).unwrap();
+                execve(&binary_c, &c_args, &c_env).unwrap();
                 0
             }),
             &mut stack,
@@ -403,7 +407,11 @@ pub async fn launch_server_binary_sandboxed(
 
     tracing::info!("Launching client at {:?}", socket);
 
-    let client = launch_client(&socket).await?;
+    let client = match spec.protocol() {
+        crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
+        crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?
+    };
+    // launch_client(&socket).await?;
     tracing::info!("Launched client.");
 
     return Ok(SandboxConnectorHandle {
@@ -437,7 +445,7 @@ impl Drop for SandboxConnectorHandle {
 }
 
 pub fn unseal_secrets_to_folder(
-    keystore: &Box<dyn KeyStore>,
+    keystore: Arc<dyn KeyStore>,
     prefix: &Path,
     connector_shortname: &str,
     secret_mount: &Path,

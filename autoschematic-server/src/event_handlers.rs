@@ -31,16 +31,8 @@ use crate::{
     },
 };
 
-/// Dispatches incoming GitHub webhook events to appropriate handlers
-///
-/// This is the main entry point for webhook event processing. It determines the
-/// event type and routes to specific handlers based on the payload content.
-///
-/// # Arguments
-/// * `webhook_event` - The parsed webhook event from GitHub
-///
-/// # Returns
-/// * `Result<(), AutoschematicError>` - Success or error from event processing
+
+/// 
 pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicServerError> {
     tracing::debug!("Dispatching webhook event: {:?}", webhook_event.specific);
 

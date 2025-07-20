@@ -4,7 +4,7 @@ use anyhow::bail;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{Connector, FilterOutput, OutputMapFile, VirtToPhyOutput},
+    connector::{Connector, FilterResponse, OutputMapFile, VirtToPhyResponse},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
     report::{ApplyReport, PlanReport},
@@ -28,12 +28,12 @@ pub async fn apply_connector(
         // TODO again, this is the diabolical incongruity between virt_addr and phy_addr depending on
         // the presence of one or the other. Are we really sure this isn't ananas?
         let op_exec_output = match connector.addr_virt_to_phy(&plan.virt_addr).await? {
-            VirtToPhyOutput::NotPresent => connector.op_exec(&plan.virt_addr, &op.op_definition).await?,
-            VirtToPhyOutput::Deferred(_read_outputs) => {
+            VirtToPhyResponse::NotPresent => connector.op_exec(&plan.virt_addr, &op.op_definition).await?,
+            VirtToPhyResponse::Deferred(_read_outputs) => {
                 bail!("Apply run on plan with deferred outputs.")
             }
-            VirtToPhyOutput::Present(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await?,
-            VirtToPhyOutput::Null(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await?,
+            VirtToPhyResponse::Present(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await?,
+            VirtToPhyResponse::Null(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await?,
         };
 
         if let Some(outputs) = &op_exec_output.outputs
@@ -41,13 +41,13 @@ pub async fn apply_connector(
                 // We have changes to apply to the output file, so let's apply them and see if the output file was created/modified or deleted.
                 if let Some(virt_output_path) = OutputMapFile::apply_output_map(&plan.prefix, &plan.virt_addr, outputs)? {
                     // Created/modified, so check for a separate physical output file, link it, and record it.
-                    if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await?
+                    if let VirtToPhyResponse::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await?
                         && phy_addr != plan.virt_addr {
                             let phy_output_path = OutputMapFile::write_link(&plan.prefix, &phy_addr, &plan.virt_addr)?;
                             apply_report.wrote_files.push(phy_output_path);
                         }
                     apply_report.wrote_files.push(virt_output_path);
-                } else if let VirtToPhyOutput::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
+                } else if let VirtToPhyResponse::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
                     // Applying this change resulted in an empty output file, so delete it,
                     // check for a separate physical output file, and delete that too.
                     if let Some(virt_output_path) = OutputMapFile::delete(&plan.prefix, &plan.virt_addr)? {
@@ -121,7 +121,7 @@ pub async fn apply(
         if connector_cache
             .filter(&connector_def.shortname, &plan_report.prefix, &plan_report.virt_addr)
             .await?
-            == FilterOutput::Resource
+            == FilterResponse::Resource
         {
             let apply_report = apply_connector(&connector_def.shortname, connector, plan_report).await?;
             return Ok(apply_report);
