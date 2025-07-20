@@ -20,6 +20,7 @@ use crate::{
     config::load_autoschematic_config,
     plan::{frame, print_frame_end, print_frame_start, print_plan, print_plan_addr},
     spinner::spinner::show_spinner,
+    util::{colour_op_message, try_colour_op_message_diff},
 };
 
 pub async fn apply(
@@ -64,7 +65,7 @@ pub async fn apply(
     for path in staged_files {
         let spinner_stop = show_spinner().await;
 
-        //     // TODO track if no staged files matched FilterOutput::Resource...
+        //     // TODO track if no staged files matched FilterResponse::Resource...
         //     // autoschematic_core::workflow::filter::filter(&config, &connector_cache, keystore, prefix, addr)
 
         let Some(plan_report) =
@@ -173,7 +174,17 @@ pub async fn apply(
 
         for output in apply_report.outputs {
             if let Some(friendly_message) = output.friendly_message {
-                println!("{}  ⟖ {}", frame(), friendly_message);
+                let coloured_message =
+                    try_colour_op_message_diff(&friendly_message).unwrap_or(colour_op_message(&friendly_message));
+
+                for (i, line) in coloured_message.lines().enumerate() {
+                    if i == 0 {
+                        // println!("{}  ⟣ {}", frame(), line)
+                        println!("{}  ⟖ {}", frame(), line);
+                    } else {
+                        println!("{}  {}", frame(), line)
+                    }
+                }
             }
         }
 

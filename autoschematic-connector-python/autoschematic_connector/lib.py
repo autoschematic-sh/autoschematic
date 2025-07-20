@@ -4,19 +4,19 @@ from abc import ABC, abstractmethod
 
 
 @dataclass
-class GetResourceOutput:
+class GetResourceResponse:
     resource_definition: str
     outputs: Optional[Dict[str, str]] = None
 
 
 @dataclass
-class OpPlanOutput:
+class PlanResponseElement:
     op_definition: str
     friendly_message: Optional[str] = None
 
 
 @dataclass
-class OpExecOutput:
+class OpExecResponse:
     outputs: Optional[Dict[str, str]] = None
     friendly_message: Optional[str] = None
 
@@ -64,7 +64,7 @@ class Connector(ABC):
     #  instantiated, get the representation of the object that corresponds to 
     #  that addr, or None if no such object exists.
     @abstractmethod
-    def get(self, addr: str) -> GetResourceOutput | None:
+    def get(self, addr: str) -> GetResourceResponse | None:
         return None
 
 
@@ -74,7 +74,7 @@ class Connector(ABC):
     # Connector implementations can decide on any representation for their 
     #  ConnectorOps, which will be passed to op_exec(...) to execute them.
     @abstractmethod
-    def plan(self, addr: str, current: str | None, desired: str | None) -> List[OpPlanOutput]:
+    def plan(self, addr: str, current: str | None, desired: str | None) -> List[PlanResponseElement]:
         return None
         
 
@@ -93,5 +93,5 @@ class Connector(ABC):
     #   For example, "Created Hosted Zone example.com"
     #    or "Destroyed EC2 Instance with ID ..."
     @abstractmethod
-    def op_exec(self, addr_s: str, op_s: str) -> OpExecOutput | None:
+    def op_exec(self, addr_s: str, op_s: str) -> OpExecResponse | None:
         return None

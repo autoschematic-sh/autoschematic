@@ -1,13 +1,13 @@
 #[macro_export]
-macro_rules! get_resource_output {
+macro_rules! get_resource_response {
     ($resource:expr) => {{
-        Ok(Some(GetResourceOutput {
+        Ok(Some(GetResourceResponse {
             resource_definition: Resource::to_bytes(&$resource).context("Resource::to_bytes")?,
             outputs: None,
         }))
     }};
     ($resource:expr, $outputs:expr) => {{
-        Ok(Some(GetResourceOutput {
+        Ok(Some(GetResourceResponse {
             resource_definition: Resource::to_bytes(&$resource).context("Resource::to_bytes")?,
             outputs: Some(HashMap::from_iter($outputs.into_iter().map(|(k, v)| (k.to_string(), v)))),
         }))
@@ -17,14 +17,14 @@ macro_rules! get_resource_output {
 #[macro_export]
 macro_rules! connector_op {
     ($op:expr, $message:expr) => {{
-        OpPlanOutput {
+        OpPlanResponseElement {
             op_definition: ConnectorOp::to_string(&$op)?,
             writes_outputs: Vec::new(),
             friendly_message: Some($message),
         }
     }};
     ($op:expr, $outputs:expr, $message:expr) => {{
-        OpPlanOutput {
+        OpPlanResponseElement {
             op_definition: ConnectorOp::to_string(&$op)?,
             writes_outputs: $outputs,
             friendly_message: Some($message),

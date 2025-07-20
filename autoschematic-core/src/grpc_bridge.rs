@@ -1,6 +1,7 @@
 use std::{
     path::{Path, PathBuf},
-    sync::Arc, time::Duration,
+    sync::Arc,
+    time::Duration,
 };
 
 use anyhow::{Context, Result, bail};
@@ -15,10 +16,13 @@ use tonic::{
 use tracing_subscriber::EnvFilter;
 
 use crate::{
-    bundle::BundleOutput,
-    connector::{self, spawn::wait_for_socket, Connector, ConnectorOutbox, DocIdent, FilterOutput, GetDocOutput, GetResourceOutput, OpExecOutput, OpPlanOutput, SkeletonOutput},
-    diag::DiagnosticOutput,
+    bundle::UnbundleResponseElement,
+    connector::{ConnectorOutbox, spawn::wait_for_socket},
+    diag::DiagnosticResponse,
 };
+
+use crate::connector;
+use crate::connector::Connector;
 
 pub mod proto {
     include!("./grpc_generated/connector.rs");
@@ -28,7 +32,6 @@ use proto::{
     connector_server::{Connector as GrpcConnector, ConnectorServer},
     *,
 };
-
 
 #[derive(Clone)]
 pub struct GrpcConnectorServer {
@@ -44,18 +47,19 @@ impl GrpcConnector for GrpcConnectorServer {
         Ok(Response::new(Empty {}))
     }
 
-    async fn filter(&self, req: Request<FilterRequest>) -> Result<Response<FilterResponse>, Status> {
+    async fn filter(&self, req: Request<FilterRequest>) -> Result<Response<proto::FilterResponse>, Status> {
         let addr = PathBuf::from(req.into_inner().addr);
         let out = Connector::filter(&*self.inner.lock().await, &addr)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
         let filt = match out {
-            FilterOutput::Config => proto::FilterOutputType::Config,
-            FilterOutput::Resource => proto::FilterOutputType::Resource,
-            FilterOutput::Bundle => proto::FilterOutputType::Bundle,
-            FilterOutput::None => proto::FilterOutputType::None,
+            connector::FilterResponse::Config => proto::FilterResponseType::Config,
+            connector::FilterResponse::Resource => proto::FilterResponseType::Resource,
+            connector::FilterResponse::Bundle => proto::FilterResponseType::Bundle,
+            connector::FilterResponse::Task => proto::FilterResponseType::Task,
+            connector::FilterResponse::None => proto::FilterResponseType::None,
         };
-        Ok(Response::new(FilterResponse { filter: filt as i32 }))
+        Ok(Response::new(proto::FilterResponse { filter: filt as i32 }))
     }
 
     async fn list(&self, req: Request<ListRequest>) -> Result<Response<ListResponse>, Status> {
@@ -79,23 +83,15 @@ impl GrpcConnector for GrpcConnectorServer {
 
     async fn get(&self, req: Request<GetRequest>) -> Result<Response<GetResponse>, Status> {
         let addr = PathBuf::from(req.into_inner().addr);
-        let opt = Connector::get(&*self.inner.lock().await, &addr)
+        if let Some(resp) = Connector::get(&*self.inner.lock().await, &addr)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
-        if let Some(GetResourceOutput {
-            resource_definition,
-            outputs,
-        }) = opt
+            .map_err(|e| Status::internal(e.to_string()))?
         {
-            let mut resp = GetResponse {
+            Ok(Response::new(GetResponse {
                 exists: true,
-                resource_definition,
-                outputs: std::collections::HashMap::new(),
-            };
-            if let Some(map) = outputs {
-                resp.outputs = map;
-            }
-            Ok(Response::new(resp))
+                resource_definition: resp.resource_definition,
+                outputs: resp.outputs.unwrap_or_default(),
+            }))
         } else {
             Ok(Response::new(GetResponse {
                 exists: false,
@@ -115,7 +111,7 @@ impl GrpcConnector for GrpcConnectorServer {
             .map_err(|e| Status::internal(e.to_string()))?;
         let ops_proto = ops
             .into_iter()
-            .map(|op| proto::OpPlanOutput {
+            .map(|op| proto::PlanResponseElement {
                 op_definition: op.op_definition,
                 writes_outputs: op.writes_outputs,
                 friendly_message: op.friendly_message.unwrap_or_default(),
@@ -140,16 +136,16 @@ impl GrpcConnector for GrpcConnectorServer {
         }))
     }
 
-    async fn addr_virt_to_phy(&self, req: Request<AddrRequest>) -> Result<Response<VirtToPhyOutput>, Status> {
+    async fn addr_virt_to_phy(&self, req: Request<AddrVirtToPhyRequest>) -> Result<Response<AddrVirtToPhyResponse>, Status> {
         let addr = PathBuf::from(req.into_inner().addr);
         let out = Connector::addr_virt_to_phy(&*self.inner.lock().await, &addr)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
-        let mut msg = VirtToPhyOutput::default();
-        use virt_to_phy_output::Result as R;
+        let mut msg = AddrVirtToPhyResponse::default();
+        use addr_virt_to_phy_response::Result as R;
         match out {
-            connector::VirtToPhyOutput::NotPresent => msg.result = Some(R::NotPresent(Empty {})),
-            connector::VirtToPhyOutput::Deferred(reads) => {
+            connector::VirtToPhyResponse::NotPresent => msg.result = Some(R::NotPresent(Empty {})),
+            connector::VirtToPhyResponse::Deferred(reads) => {
                 let reads_proto = reads
                     .into_iter()
                     .map(|r| ReadOutput {
@@ -159,12 +155,12 @@ impl GrpcConnector for GrpcConnectorServer {
                     .collect();
                 msg.result = Some(R::Deferred(Deferred { reads: reads_proto }));
             }
-            connector::VirtToPhyOutput::Present(p) => {
+            connector::VirtToPhyResponse::Present(p) => {
                 msg.result = Some(R::Present(proto::Path {
                     path: p.to_string_lossy().into(),
                 }));
             }
-            connector::VirtToPhyOutput::Null(p) => {
+            connector::VirtToPhyResponse::Null(p) => {
                 msg.result = Some(R::Null(proto::Path {
                     path: p.to_string_lossy().into(),
                 }));
@@ -173,7 +169,7 @@ impl GrpcConnector for GrpcConnectorServer {
         Ok(Response::new(msg))
     }
 
-    async fn addr_phy_to_virt(&self, req: Request<AddrRequest>) -> Result<Response<AddrPhyToVirtResponse>, Status> {
+    async fn addr_phy_to_virt(&self, req: Request<AddrPhyToVirtRequest>) -> Result<Response<AddrPhyToVirtResponse>, Status> {
         let addr = PathBuf::from(req.into_inner().addr);
         let opt = Connector::addr_phy_to_virt(&*self.inner.lock().await, &addr)
             .await
@@ -197,7 +193,7 @@ impl GrpcConnector for GrpcConnectorServer {
             .map_err(|e| Status::internal(e.to_string()))?;
         let skels = list
             .into_iter()
-            .map(|s| proto::SkeletonOutput {
+            .map(|s| proto::Skeleton {
                 addr: s.addr.to_string_lossy().into(),
                 body: s.body,
             })
@@ -208,22 +204,26 @@ impl GrpcConnector for GrpcConnectorServer {
     async fn get_docstring(&self, req: Request<GetDocRequest>) -> Result<Response<GetDocResponse>, Status> {
         let r = req.into_inner();
         let addr = PathBuf::from(r.addr);
-        let ident = if let Some(di) = r.ident {
-            match di.ident.ok_or_else(|| Status::invalid_argument("missing ident"))? {
-                doc_ident::Ident::Struct(s) => DocIdent::Struct { name: s.name },
-                doc_ident::Ident::Field(f) => DocIdent::Field {
-                    parent: f.parent,
-                    name: f.name,
-                },
-            }
-        } else {
+        let Some(proto_ident) = r.ident.and_then(|id| id.ident) else {
             return Err(Status::invalid_argument("no ident"));
         };
-        let opt = Connector::get_docstring(&*self.inner.lock().await, &addr, ident)
+
+        let ident = match proto_ident {
+            doc_ident::Ident::Struct(s) => connector::DocIdent::Struct { name: s.name },
+            doc_ident::Ident::Field(f) => connector::DocIdent::Field {
+                parent: f.parent,
+                name: f.name,
+            },
+        };
+
+        if let Some(resp) = Connector::get_docstring(&*self.inner.lock().await, &addr, ident)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
-        if let Some(GetDocOutput { markdown }) = opt {
-            Ok(Response::new(GetDocResponse { has_doc: true, markdown }))
+            .map_err(|e| Status::internal(e.to_string()))?
+        {
+            Ok(Response::new(GetDocResponse {
+                has_doc: true,
+                markdown: resp.markdown,
+            }))
         } else {
             Ok(Response::new(GetDocResponse {
                 has_doc: false,
@@ -244,12 +244,13 @@ impl GrpcConnector for GrpcConnectorServer {
     async fn diag(&self, req: Request<DiagRequest>) -> Result<Response<DiagResponse>, Status> {
         let r = req.into_inner();
         let addr = PathBuf::from(r.addr);
-        let out = Connector::diag(&*self.inner.lock().await, &addr, &r.a)
+
+        if let Some(resp) = Connector::diag(&*self.inner.lock().await, &addr, &r.a)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
-        Ok(Response::new(DiagResponse {
-            diagnostics: Some(proto::DiagnosticOutput {
-                diagnostics: out
+            .map_err(|e| Status::internal(e.to_string()))?
+        {
+            Ok(Response::new(DiagResponse {
+                diagnostics: resp
                     .diagnostics
                     .into_iter()
                     .map(|d| proto::Diagnostic {
@@ -267,8 +268,10 @@ impl GrpcConnector for GrpcConnectorServer {
                         message: d.message,
                     })
                     .collect(),
-            }),
-        }))
+            }))
+        } else {
+            Ok(Response::new(DiagResponse { diagnostics: Vec::new() }))
+        }
     }
 
     async fn unbundle(&self, req: Request<UnbundleRequest>) -> Result<Response<UnbundleResponse>, Status> {
@@ -279,7 +282,7 @@ impl GrpcConnector for GrpcConnectorServer {
             .map_err(|e| Status::internal(e.to_string()))?;
         let out = bundles
             .into_iter()
-            .map(|b| proto::BundleOutput {
+            .map(|b| proto::UnbundleResponseElement {
                 filename: b.filename.to_string_lossy().into(),
                 file_contents: b.file_contents,
             })
@@ -290,13 +293,11 @@ impl GrpcConnector for GrpcConnectorServer {
 
 /// Launch the gRPC server over a Unix-domain socket
 pub async fn launch_server<C: Connector>(name: &str, prefix: &Path, socket: &Path, outbox: ConnectorOutbox) -> Result<()> {
-    // Initialize your connector
     let conn_impl = C::new(name, prefix, outbox).await.context("Failed to initialize connector")?;
     let svc = ConnectorServer::new(GrpcConnectorServer {
         inner: Arc::new(Mutex::new(conn_impl)),
     });
 
-    // Bind UDS and serve
     let uds = UnixListener::bind(socket).context("bind failed")?;
     let incoming = UnixListenerStream::new(uds);
     Server::builder()
@@ -325,7 +326,7 @@ impl GrpcConnectorClient {
 #[async_trait]
 impl Connector for GrpcConnectorClient {
     async fn new(_name: &str, _prefix: &Path, _outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>> {
-        bail!("GrpcConnectorClient::new() should not be called on client");
+        bail!("GrpcConnectorClient::new() is a stub!");
     }
 
     async fn init(&self) -> Result<()> {
@@ -333,16 +334,17 @@ impl Connector for GrpcConnectorClient {
         Ok(())
     }
 
-    async fn filter(&self, addr: &Path) -> Result<FilterOutput> {
+    async fn filter(&self, addr: &Path) -> Result<connector::FilterResponse> {
         let req = FilterRequest {
             addr: addr.to_string_lossy().into(),
         };
         let resp = self.inner.lock().await.filter(Request::new(req)).await?.into_inner();
         Ok(match resp.filter {
-            x if x == proto::FilterOutputType::Config as i32 => FilterOutput::Config,
-            x if x == proto::FilterOutputType::Resource as i32 => FilterOutput::Resource,
-            x if x == proto::FilterOutputType::Bundle as i32 => FilterOutput::Bundle,
-            _ => FilterOutput::None,
+            x if x == proto::FilterResponseType::Config as i32 => connector::FilterResponse::Config,
+            x if x == proto::FilterResponseType::Resource as i32 => connector::FilterResponse::Resource,
+            x if x == proto::FilterResponseType::Bundle as i32 => connector::FilterResponse::Bundle,
+            x if x == proto::FilterResponseType::Task as i32 => connector::FilterResponse::Task,
+            _ => connector::FilterResponse::None,
         })
     }
 
@@ -359,7 +361,7 @@ impl Connector for GrpcConnectorClient {
         Ok(resp.subpaths.into_iter().map(PathBuf::from).collect())
     }
 
-    async fn get(&self, addr: &Path) -> Result<Option<GetResourceOutput>> {
+    async fn get(&self, addr: &Path) -> Result<Option<connector::GetResourceResponse>> {
         let req = GetRequest {
             addr: addr.to_string_lossy().into(),
         };
@@ -368,13 +370,18 @@ impl Connector for GrpcConnectorClient {
             return Ok(None);
         }
         let outputs = if resp.outputs.is_empty() { None } else { Some(resp.outputs) };
-        Ok(Some(GetResourceOutput {
+        Ok(Some(connector::GetResourceResponse {
             resource_definition: resp.resource_definition,
             outputs,
         }))
     }
 
-    async fn plan(&self, addr: &Path, current: Option<Vec<u8>>, desired: Option<Vec<u8>>) -> Result<Vec<OpPlanOutput>> {
+    async fn plan(
+        &self,
+        addr: &Path,
+        current: Option<Vec<u8>>,
+        desired: Option<Vec<u8>>,
+    ) -> Result<Vec<connector::PlanResponseElement>> {
         let req = PlanRequest {
             addr: addr.to_string_lossy().into(),
             current: current.unwrap_or_default(),
@@ -384,7 +391,7 @@ impl Connector for GrpcConnectorClient {
         Ok(resp
             .ops
             .into_iter()
-            .map(|o| OpPlanOutput {
+            .map(|o| connector::PlanResponseElement {
                 op_definition: o.op_definition,
                 writes_outputs: o.writes_outputs,
                 friendly_message: if o.friendly_message.is_empty() {
@@ -396,7 +403,7 @@ impl Connector for GrpcConnectorClient {
             .collect())
     }
 
-    async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecOutput> {
+    async fn op_exec(&self, addr: &Path, op: &str) -> Result<connector::OpExecResponse> {
         let req = OpExecRequest {
             addr: addr.to_string_lossy().into(),
             op: op.into(),
@@ -412,14 +419,14 @@ impl Connector for GrpcConnectorClient {
         } else {
             Some(resp.friendly_message)
         };
-        Ok(OpExecOutput {
+        Ok(connector::OpExecResponse {
             outputs,
             friendly_message: friendly,
         })
     }
 
-    async fn addr_virt_to_phy(&self, addr: &Path) -> Result<connector::VirtToPhyOutput> {
-        let req = AddrRequest {
+    async fn addr_virt_to_phy(&self, addr: &Path) -> Result<connector::VirtToPhyResponse> {
+        let req = AddrVirtToPhyRequest {
             addr: addr.to_string_lossy().into(),
         };
         let msg = self
@@ -429,10 +436,10 @@ impl Connector for GrpcConnectorClient {
             .addr_virt_to_phy(Request::new(req))
             .await?
             .into_inner();
-        use proto::virt_to_phy_output::Result as R;
+        use proto::addr_virt_to_phy_response::Result as R;
         match msg.result.ok_or_else(|| anyhow::anyhow!("no result"))? {
-            R::NotPresent(_) => Ok(connector::VirtToPhyOutput::NotPresent),
-            R::Deferred(d) => Ok(connector::VirtToPhyOutput::Deferred(
+            R::NotPresent(_) => Ok(connector::VirtToPhyResponse::NotPresent),
+            R::Deferred(d) => Ok(connector::VirtToPhyResponse::Deferred(
                 d.reads
                     .into_iter()
                     .map(|r| crate::template::ReadOutput {
@@ -441,13 +448,13 @@ impl Connector for GrpcConnectorClient {
                     })
                     .collect(),
             )),
-            R::Present(p) => Ok(connector::VirtToPhyOutput::Present(PathBuf::from(p.path))),
-            R::Null(p) => Ok(connector::VirtToPhyOutput::Null(PathBuf::from(p.path))),
+            R::Present(p) => Ok(connector::VirtToPhyResponse::Present(PathBuf::from(p.path))),
+            R::Null(p) => Ok(connector::VirtToPhyResponse::Null(PathBuf::from(p.path))),
         }
     }
 
     async fn addr_phy_to_virt(&self, addr: &Path) -> Result<Option<PathBuf>> {
-        let req = AddrRequest {
+        let req = AddrPhyToVirtRequest {
             addr: addr.to_string_lossy().into(),
         };
         let resp = self
@@ -464,7 +471,7 @@ impl Connector for GrpcConnectorClient {
         }
     }
 
-    async fn get_skeletons(&self) -> Result<Vec<SkeletonOutput>> {
+    async fn get_skeletons(&self) -> Result<Vec<connector::SkeletonResponse>> {
         let resp = self
             .inner
             .lock()
@@ -475,29 +482,32 @@ impl Connector for GrpcConnectorClient {
         Ok(resp
             .skeletons
             .into_iter()
-            .map(|s| SkeletonOutput {
+            .map(|s| connector::SkeletonResponse {
                 addr: PathBuf::from(s.addr),
                 body: s.body,
             })
             .collect())
     }
 
-    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocOutput>> {
+    async fn get_docstring(&self, addr: &Path, ident: connector::DocIdent) -> Result<Option<connector::GetDocResponse>> {
         let ident = match ident {
-            DocIdent::Struct { name } => proto::DocIdent {
+            connector::DocIdent::Struct { name } => proto::DocIdent {
                 ident: Some(doc_ident::Ident::Struct(StructIdent { name })),
             },
-            DocIdent::Field { parent, name } => proto::DocIdent {
+            connector::DocIdent::Field { parent, name } => proto::DocIdent {
                 ident: Some(doc_ident::Ident::Field(FieldIdent { parent, name })),
             },
         };
+
         let req = GetDocRequest {
             addr: addr.to_string_lossy().into(),
             ident: Some(ident),
         };
+
         let resp = self.inner.lock().await.get_docstring(Request::new(req)).await?.into_inner();
+
         if resp.has_doc {
-            Ok(Some(GetDocOutput { markdown: resp.markdown }))
+            Ok(Some(connector::GetDocResponse { markdown: resp.markdown }))
         } else {
             Ok(None)
         }
@@ -513,36 +523,63 @@ impl Connector for GrpcConnectorClient {
         Ok(resp.equal)
     }
 
-    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput> {
+    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<Option<connector::DiagnosticResponse>> {
         let req = DiagRequest {
             addr: addr.to_string_lossy().into(),
             a: a.to_vec(),
         };
-        let msg = self.inner.lock().await.diag(Request::new(req)).await?.into_inner();
-        let diag_out = msg
-            .diagnostics
-            .unwrap_or_default()
-            .diagnostics
-            .into_iter()
-            .map(|d| crate::diag::Diagnostic {
-                severity: u8::try_from(d.severity).unwrap_or(1u8),
-                span: crate::diag::DiagnosticSpan {
-                    start: crate::diag::DiagnosticPosition {
-                        line: d.span.unwrap().start.unwrap().line,
-                        col: d.span.unwrap().start.unwrap().col,
-                    },
-                    end: crate::diag::DiagnosticPosition {
-                        line: d.span.unwrap().end.unwrap().line,
-                        col: d.span.unwrap().end.unwrap().col,
-                    },
-                },
-                message: d.message,
-            })
-            .collect();
-        Ok(DiagnosticOutput { diagnostics: diag_out })
+
+        let resp = self.inner.lock().await.diag(Request::new(req)).await?.into_inner();
+
+        if resp.diagnostics.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(connector::DiagnosticResponse {
+                diagnostics: resp
+                    .diagnostics
+                    .into_iter()
+                    .map(|d| crate::diag::Diagnostic {
+                        severity: u8::try_from(d.severity).unwrap_or(1u8),
+                        span: crate::diag::DiagnosticSpan {
+                            start: crate::diag::DiagnosticPosition {
+                                line: d.span.unwrap().start.unwrap().line,
+                                col: d.span.unwrap().start.unwrap().col,
+                            },
+                            end: crate::diag::DiagnosticPosition {
+                                line: d.span.unwrap().end.unwrap().line,
+                                col: d.span.unwrap().end.unwrap().col,
+                            },
+                        },
+                        message: d.message,
+                    })
+                    .collect(),
+            }))
+        }
+
+        // let diag_out = msg
+        //     .diagnostics
+        //     .unwrap_or_default()
+        //     .diagnostics
+        //     .into_iter()
+        //     .map(|d| crate::diag::Diagnostic {
+        //         severity: u8::try_from(d.severity).unwrap_or(1u8),
+        //         span: crate::diag::DiagnosticSpan {
+        //             start: crate::diag::DiagnosticPosition {
+        //                 line: d.span.unwrap().start.unwrap().line,
+        //                 col: d.span.unwrap().start.unwrap().col,
+        //             },
+        //             end: crate::diag::DiagnosticPosition {
+        //                 line: d.span.unwrap().end.unwrap().line,
+        //                 col: d.span.unwrap().end.unwrap().col,
+        //             },
+        //         },
+        //         message: d.message,
+        //     })
+        //     .collect();
+        // Ok(connector::DiagnosticResponse { diagnostics: diag_out })
     }
 
-    async fn unbundle(&self, addr: &Path, bundle: &[u8]) -> Result<Vec<BundleOutput>> {
+    async fn unbundle(&self, addr: &Path, bundle: &[u8]) -> Result<Vec<UnbundleResponseElement>> {
         let req = UnbundleRequest {
             addr: addr.to_string_lossy().into(),
             bundle: bundle.to_vec(),
@@ -551,7 +588,7 @@ impl Connector for GrpcConnectorClient {
         Ok(resp
             .bundles
             .into_iter()
-            .map(|b| BundleOutput {
+            .map(|b| UnbundleResponseElement {
                 filename: PathBuf::from(b.filename),
                 file_contents: b.file_contents,
             })

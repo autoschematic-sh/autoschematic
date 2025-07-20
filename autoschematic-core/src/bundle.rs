@@ -9,14 +9,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     connector::{
-        Connector, ConnectorOutbox, DocIdent, FilterOutput, GetDocOutput, GetResourceOutput, OpExecOutput, OpPlanOutput,
-        SkeletonOutput, VirtToPhyOutput,
+        Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
+        PlanResponseElement, SkeletonResponse, VirtToPhyResponse,
     },
-    diag::DiagnosticOutput,
+    diag::DiagnosticResponse,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BundleOutput {
+pub struct UnbundleResponseElement {
     pub filename: PathBuf,
     pub file_contents: String,
 }
@@ -29,21 +29,21 @@ pub trait Bundle: Connector {
 
     async fn init(&self) -> Result<(), anyhow::Error>;
 
-    async fn filter(&self, addr: &Path) -> Result<FilterOutput, anyhow::Error>;
+    async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error>;
 
-    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> anyhow::Result<Vec<BundleOutput>>;
+    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> anyhow::Result<Vec<UnbundleResponseElement>>;
 
-    async fn get_skeletons(&self) -> Result<Vec<SkeletonOutput>, anyhow::Error> {
+    async fn get_skeletons(&self) -> Result<Vec<SkeletonResponse>, anyhow::Error> {
         Ok(Vec::new())
     }
-    async fn get_docstring(&self, _addr: &Path, _ident: DocIdent) -> anyhow::Result<Option<GetDocOutput>> {
+    async fn get_docstring(&self, _addr: &Path, _ident: DocIdent) -> anyhow::Result<Option<GetDocResponse>> {
         Ok(None)
     }
     async fn eq(&self, _addr: &Path, a: &[u8], b: &[u8]) -> Result<bool, anyhow::Error> {
         Ok(a == b)
     }
-    async fn diag(&self, _addr: &Path, _a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
-        Ok(DiagnosticOutput { diagnostics: Vec::new() })
+    async fn diag(&self, _addr: &Path, _a: &[u8]) -> Result<Option<DiagnosticResponse>, anyhow::Error> {
+        Ok(None)
     }
 }
 
@@ -57,11 +57,11 @@ impl Bundle for Arc<dyn Bundle> {
         Bundle::init(self.as_ref()).await
     }
 
-    async fn filter(&self, addr: &Path) -> Result<FilterOutput, anyhow::Error> {
+    async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error> {
         Bundle::filter(self.as_ref(), addr).await
     }
 
-    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> anyhow::Result<Option<GetDocOutput>> {
+    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> anyhow::Result<Option<GetDocResponse>> {
         Bundle::get_docstring(self.as_ref(), addr, ident).await
     }
 
@@ -69,11 +69,11 @@ impl Bundle for Arc<dyn Bundle> {
         Bundle::eq(self.as_ref(), addr, a, b).await
     }
 
-    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
+    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<Option<DiagnosticResponse>, anyhow::Error> {
         Bundle::diag(self.as_ref(), addr, a).await
     }
 
-    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> anyhow::Result<Vec<BundleOutput>> {
+    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> anyhow::Result<Vec<UnbundleResponseElement>> {
         Bundle::unbundle(self.as_ref(), addr, resource).await
     }
 }
@@ -89,7 +89,7 @@ impl Connector for Arc<dyn Bundle> {
         Bundle::init(self).await
     }
 
-    async fn filter(&self, addr: &Path) -> Result<FilterOutput, anyhow::Error> {
+    async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error> {
         Bundle::filter(self, addr).await
     }
 
@@ -101,7 +101,7 @@ impl Connector for Arc<dyn Bundle> {
         Ok(Vec::new())
     }
 
-    async fn get(&self, _addr: &Path) -> Result<Option<GetResourceOutput>, anyhow::Error> {
+    async fn get(&self, _addr: &Path) -> Result<Option<GetResourceResponse>, anyhow::Error> {
         Ok(None)
     }
 
@@ -110,30 +110,30 @@ impl Connector for Arc<dyn Bundle> {
         _addr: &Path,
         _current: Option<Vec<u8>>,
         _desired: Option<Vec<u8>>,
-    ) -> Result<Vec<OpPlanOutput>, anyhow::Error> {
+    ) -> Result<Vec<PlanResponseElement>, anyhow::Error> {
         Ok(Vec::new())
     }
 
-    async fn op_exec(&self, _addr: &Path, _op: &str) -> Result<OpExecOutput, anyhow::Error> {
-        Ok(OpExecOutput {
+    async fn op_exec(&self, _addr: &Path, _op: &str) -> Result<OpExecResponse, anyhow::Error> {
+        Ok(OpExecResponse {
             outputs: Some(HashMap::new()),
             friendly_message: Some(String::from("Bundle: No-op!")),
         })
     }
 
-    async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyOutput, anyhow::Error> {
-        Ok(VirtToPhyOutput::Present(addr.into()))
+    async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyResponse, anyhow::Error> {
+        Ok(VirtToPhyResponse::Present(addr.into()))
     }
 
     async fn addr_phy_to_virt(&self, addr: &Path) -> Result<Option<PathBuf>, anyhow::Error> {
         Ok(Some(addr.into()))
     }
 
-    async fn get_skeletons(&self) -> Result<Vec<SkeletonOutput>, anyhow::Error> {
+    async fn get_skeletons(&self) -> Result<Vec<SkeletonResponse>, anyhow::Error> {
         Bundle::get_skeletons(self).await
     }
 
-    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> anyhow::Result<Option<GetDocOutput>> {
+    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> anyhow::Result<Option<GetDocResponse>> {
         Bundle::get_docstring(self, addr, ident).await
     }
 
@@ -141,11 +141,11 @@ impl Connector for Arc<dyn Bundle> {
         Bundle::eq(self, addr, a, b).await
     }
 
-    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
+    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<Option<DiagnosticResponse>, anyhow::Error> {
         Bundle::diag(self, addr, a).await
     }
 
-    async fn unbundle(&self, addr: &Path, bundle: &[u8]) -> anyhow::Result<Vec<BundleOutput>> {
+    async fn unbundle(&self, addr: &Path, bundle: &[u8]) -> anyhow::Result<Vec<UnbundleResponseElement>> {
         Bundle::unbundle(self, addr, bundle).await
     }
 }

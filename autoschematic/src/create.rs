@@ -4,7 +4,7 @@ use anyhow::bail;
 use dialoguer::{Confirm, Input, Select};
 use regex::Regex;
 
-use autoschematic_core::{connector::FilterOutput, connector_cache::ConnectorCache, workflow};
+use autoschematic_core::{connector::FilterResponse, connector_cache::ConnectorCache, workflow};
 
 use crate::{config::load_autoschematic_config, spinner::spinner::show_spinner};
 
@@ -88,7 +88,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
     }
 
     let spinner_stop = show_spinner().await;
-    if workflow::filter::filter(&config, &connector_cache, None, None, &prefix, &output_path).await? == FilterOutput::None {
+    if workflow::filter::filter(&config, &connector_cache, None, None, &prefix, &output_path).await? == FilterResponse::None {
         spinner_stop.send(()).unwrap();
         let write_override = Confirm::new()
             .with_prompt(

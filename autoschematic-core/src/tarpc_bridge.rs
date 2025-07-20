@@ -20,12 +20,12 @@ use tokio::net::{UnixListener, UnixStream};
 use tracing_subscriber::EnvFilter;
 
 use crate::{
-    bundle::BundleOutput,
+    bundle::UnbundleResponseElement,
     connector::{
-        Connector, ConnectorOutbox, DocIdent, FilterOutput, GetDocOutput, GetResourceOutput, OpExecOutput, OpPlanOutput,
-        SkeletonOutput, VirtToPhyOutput, spawn::wait_for_socket,
+        Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
+        PlanResponseElement, SkeletonResponse, VirtToPhyResponse, spawn::wait_for_socket,
     },
-    diag::DiagnosticOutput,
+    diag::DiagnosticResponse,
     error::ErrorMessage,
 };
 
@@ -33,25 +33,28 @@ use crate::{
 pub trait TarpcConnector {
     async fn init() -> Result<(), ErrorMessage>;
 
-    async fn filter(addr: PathBuf) -> Result<FilterOutput, ErrorMessage>;
+    async fn filter(addr: PathBuf) -> Result<FilterResponse, ErrorMessage>;
 
     async fn list(subpath: PathBuf) -> Result<Vec<PathBuf>, ErrorMessage>;
 
     async fn subpaths() -> Result<Vec<PathBuf>, ErrorMessage>;
 
-    async fn get(addr: PathBuf) -> Result<Option<GetResourceOutput>, ErrorMessage>;
+    async fn get(addr: PathBuf) -> Result<Option<GetResourceResponse>, ErrorMessage>;
 
-    async fn plan(addr: PathBuf, current: Option<Vec<u8>>, desired: Option<Vec<u8>>)
-    -> Result<Vec<OpPlanOutput>, ErrorMessage>;
+    async fn plan(
+        addr: PathBuf,
+        current: Option<Vec<u8>>,
+        desired: Option<Vec<u8>>,
+    ) -> Result<Vec<PlanResponseElement>, ErrorMessage>;
 
-    async fn op_exec(addr: PathBuf, op: String) -> Result<OpExecOutput, ErrorMessage>;
-    async fn addr_virt_to_phy(addr: PathBuf) -> Result<VirtToPhyOutput, ErrorMessage>;
+    async fn op_exec(addr: PathBuf, op: String) -> Result<OpExecResponse, ErrorMessage>;
+    async fn addr_virt_to_phy(addr: PathBuf) -> Result<VirtToPhyResponse, ErrorMessage>;
     async fn addr_phy_to_virt(addr: PathBuf) -> Result<Option<PathBuf>, ErrorMessage>;
-    async fn get_skeletons() -> Result<Vec<SkeletonOutput>, ErrorMessage>;
-    async fn get_docstring(addr: PathBuf, ident: DocIdent) -> Result<Option<GetDocOutput>, ErrorMessage>;
+    async fn get_skeletons() -> Result<Vec<SkeletonResponse>, ErrorMessage>;
+    async fn get_docstring(addr: PathBuf, ident: DocIdent) -> Result<Option<GetDocResponse>, ErrorMessage>;
     async fn eq(addr: PathBuf, a: Vec<u8>, b: Vec<u8>) -> Result<bool, ErrorMessage>;
-    async fn diag(addr: PathBuf, a: Vec<u8>) -> Result<DiagnosticOutput, ErrorMessage>;
-    async fn unbundle(addr: PathBuf, a: Vec<u8>) -> Result<Vec<BundleOutput>, ErrorMessage>;
+    async fn diag(addr: PathBuf, a: Vec<u8>) -> Result<Option<DiagnosticResponse>, ErrorMessage>;
+    async fn unbundle(addr: PathBuf, a: Vec<u8>) -> Result<Vec<UnbundleResponseElement>, ErrorMessage>;
 }
 
 #[derive(Clone)]
@@ -64,7 +67,7 @@ impl TarpcConnector for ConnectorServer {
         Ok(Connector::init(&*self.connector.lock().await).await?)
     }
 
-    async fn filter(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<FilterOutput, ErrorMessage> {
+    async fn filter(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<FilterResponse, ErrorMessage> {
         Ok(Connector::filter(&*self.connector.lock().await, &addr).await?)
     }
 
@@ -78,7 +81,11 @@ impl TarpcConnector for ConnectorServer {
         Ok(res?)
     }
 
-    async fn get(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<Option<GetResourceOutput>, ErrorMessage> {
+    async fn get(
+        self,
+        _context: ::tarpc::context::Context,
+        addr: PathBuf,
+    ) -> Result<Option<GetResourceResponse>, ErrorMessage> {
         Ok(Connector::get(&*self.connector.lock().await, &addr).await?)
     }
 
@@ -88,7 +95,7 @@ impl TarpcConnector for ConnectorServer {
         addr: PathBuf,
         current: Option<Vec<u8>>,
         desired: Option<Vec<u8>>,
-    ) -> Result<Vec<OpPlanOutput>, ErrorMessage> {
+    ) -> Result<Vec<PlanResponseElement>, ErrorMessage> {
         Ok(Connector::plan(&*self.connector.lock().await, &addr, current, desired).await?)
     }
 
@@ -97,7 +104,7 @@ impl TarpcConnector for ConnectorServer {
         _context: ::tarpc::context::Context,
         addr: PathBuf,
         op: String,
-    ) -> Result<OpExecOutput, ErrorMessage> {
+    ) -> Result<OpExecResponse, ErrorMessage> {
         Ok(Connector::op_exec(&*self.connector.lock().await, &addr, &op).await?)
     }
 
@@ -105,7 +112,7 @@ impl TarpcConnector for ConnectorServer {
         self,
         _context: ::tarpc::context::Context,
         addr: PathBuf,
-    ) -> Result<VirtToPhyOutput, ErrorMessage> {
+    ) -> Result<VirtToPhyResponse, ErrorMessage> {
         Ok(Connector::addr_virt_to_phy(&*self.connector.lock().await, &addr).await?)
     }
 
@@ -117,7 +124,7 @@ impl TarpcConnector for ConnectorServer {
         Ok(Connector::addr_phy_to_virt(&*self.connector.lock().await, &addr).await?)
     }
 
-    async fn get_skeletons(self, _context: ::tarpc::context::Context) -> Result<Vec<SkeletonOutput>, ErrorMessage> {
+    async fn get_skeletons(self, _context: ::tarpc::context::Context) -> Result<Vec<SkeletonResponse>, ErrorMessage> {
         Ok(Connector::get_skeletons(&*self.connector.lock().await).await?)
     }
 
@@ -126,7 +133,7 @@ impl TarpcConnector for ConnectorServer {
         _context: ::tarpc::context::Context,
         addr: PathBuf,
         ident: DocIdent,
-    ) -> Result<Option<GetDocOutput>, ErrorMessage> {
+    ) -> Result<Option<GetDocResponse>, ErrorMessage> {
         Ok(Connector::get_docstring(&*self.connector.lock().await, &addr, ident).await?)
     }
 
@@ -139,7 +146,7 @@ impl TarpcConnector for ConnectorServer {
         _context: tarpc::context::Context,
         addr: PathBuf,
         a: Vec<u8>,
-    ) -> Result<DiagnosticOutput, ErrorMessage> {
+    ) -> Result<Option<DiagnosticResponse>, ErrorMessage> {
         Ok(Connector::diag(&*self.connector.lock().await, &addr, &a).await?)
     }
 
@@ -148,7 +155,7 @@ impl TarpcConnector for ConnectorServer {
         _context: tarpc::context::Context,
         addr: PathBuf,
         resource: Vec<u8>,
-    ) -> Result<Vec<BundleOutput>, ErrorMessage> {
+    ) -> Result<Vec<UnbundleResponseElement>, ErrorMessage> {
         Ok(Connector::unbundle(&*self.connector.lock().await, &addr, &resource).await?)
     }
 }
@@ -158,7 +165,7 @@ impl<C: Connector> TarpcConnector for C {
         Ok(Connector::init(&self).await?)
     }
 
-    async fn filter(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<FilterOutput, ErrorMessage> {
+    async fn filter(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<FilterResponse, ErrorMessage> {
         Ok(Connector::filter(&self, &addr).await?)
     }
 
@@ -170,7 +177,11 @@ impl<C: Connector> TarpcConnector for C {
         Ok(Connector::subpaths(&self).await?)
     }
 
-    async fn get(self, _context: ::tarpc::context::Context, addr: PathBuf) -> Result<Option<GetResourceOutput>, ErrorMessage> {
+    async fn get(
+        self,
+        _context: ::tarpc::context::Context,
+        addr: PathBuf,
+    ) -> Result<Option<GetResourceResponse>, ErrorMessage> {
         Ok(Connector::get(&self, &addr).await?)
     }
 
@@ -180,7 +191,7 @@ impl<C: Connector> TarpcConnector for C {
         addr: PathBuf,
         current: Option<Vec<u8>>,
         desired: Option<Vec<u8>>,
-    ) -> Result<Vec<OpPlanOutput>, ErrorMessage> {
+    ) -> Result<Vec<PlanResponseElement>, ErrorMessage> {
         Ok(Connector::plan(&self, &addr, current, desired).await?)
     }
 
@@ -189,7 +200,7 @@ impl<C: Connector> TarpcConnector for C {
         _context: ::tarpc::context::Context,
         addr: PathBuf,
         op: String,
-    ) -> Result<OpExecOutput, ErrorMessage> {
+    ) -> Result<OpExecResponse, ErrorMessage> {
         Ok(Connector::op_exec(&self, &addr, &op).await?)
     }
 
@@ -197,7 +208,7 @@ impl<C: Connector> TarpcConnector for C {
         self,
         _context: ::tarpc::context::Context,
         addr: PathBuf,
-    ) -> Result<VirtToPhyOutput, ErrorMessage> {
+    ) -> Result<VirtToPhyResponse, ErrorMessage> {
         Ok(Connector::addr_virt_to_phy(&self, &addr).await?)
     }
 
@@ -209,7 +220,7 @@ impl<C: Connector> TarpcConnector for C {
         Ok(Connector::addr_phy_to_virt(&self, &addr).await?)
     }
 
-    async fn get_skeletons(self, _context: ::tarpc::context::Context) -> Result<Vec<SkeletonOutput>, ErrorMessage> {
+    async fn get_skeletons(self, _context: ::tarpc::context::Context) -> Result<Vec<SkeletonResponse>, ErrorMessage> {
         Ok(Connector::get_skeletons(&self).await?)
     }
 
@@ -218,7 +229,7 @@ impl<C: Connector> TarpcConnector for C {
         _context: ::tarpc::context::Context,
         addr: PathBuf,
         ident: DocIdent,
-    ) -> Result<Option<GetDocOutput>, ErrorMessage> {
+    ) -> Result<Option<GetDocResponse>, ErrorMessage> {
         Ok(Connector::get_docstring(&self, &addr, ident).await?)
     }
 
@@ -231,7 +242,7 @@ impl<C: Connector> TarpcConnector for C {
         _context: tarpc::context::Context,
         addr: PathBuf,
         a: Vec<u8>,
-    ) -> Result<DiagnosticOutput, ErrorMessage> {
+    ) -> Result<Option<DiagnosticResponse>, ErrorMessage> {
         Ok(Connector::diag(&self, &addr, &a).await?)
     }
 
@@ -240,7 +251,7 @@ impl<C: Connector> TarpcConnector for C {
         _context: tarpc::context::Context,
         addr: PathBuf,
         resource: Vec<u8>,
-    ) -> Result<Vec<BundleOutput>, ErrorMessage> {
+    ) -> Result<Vec<UnbundleResponseElement>, ErrorMessage> {
         Ok(Connector::unbundle(&self, &addr, &resource).await?)
     }
 }
@@ -274,7 +285,7 @@ impl Connector for TarpcConnectorClient {
         Ok(res??)
     }
 
-    async fn filter(&self, addr: &Path) -> Result<FilterOutput, anyhow::Error> {
+    async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error> {
         let res = self.filter(context_1m_deadline(), addr.to_path_buf()).await;
         Ok(res??)
     }
@@ -289,7 +300,7 @@ impl Connector for TarpcConnectorClient {
         Ok(res??)
     }
 
-    async fn get(&self, addr: &Path) -> Result<Option<GetResourceOutput>, anyhow::Error> {
+    async fn get(&self, addr: &Path) -> Result<Option<GetResourceResponse>, anyhow::Error> {
         Ok(self.get(context_10m_deadline(), addr.to_path_buf()).await??)
     }
 
@@ -298,19 +309,19 @@ impl Connector for TarpcConnectorClient {
         addr: &Path,
         current: Option<Vec<u8>>,
         desired: Option<Vec<u8>>,
-    ) -> Result<Vec<OpPlanOutput>, anyhow::Error> {
+    ) -> Result<Vec<PlanResponseElement>, anyhow::Error> {
         Ok(self
             .plan(context_10m_deadline(), addr.to_path_buf(), current, desired)
             .await??)
     }
 
-    async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecOutput, anyhow::Error> {
+    async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecResponse, anyhow::Error> {
         Ok(self
             .op_exec(context_100m_deadline(), addr.to_path_buf(), op.to_string())
             .await??)
     }
 
-    async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyOutput, anyhow::Error> {
+    async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyResponse, anyhow::Error> {
         Ok(self.addr_virt_to_phy(context_1m_deadline(), addr.to_path_buf()).await??)
     }
 
@@ -318,11 +329,11 @@ impl Connector for TarpcConnectorClient {
         Ok(self.addr_phy_to_virt(context_1m_deadline(), addr.to_path_buf()).await??)
     }
 
-    async fn get_skeletons(&self) -> Result<Vec<SkeletonOutput>, anyhow::Error> {
+    async fn get_skeletons(&self) -> Result<Vec<SkeletonResponse>, anyhow::Error> {
         Ok(self.get_skeletons(context_1m_deadline()).await??)
     }
 
-    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocOutput>, anyhow::Error> {
+    async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocResponse>, anyhow::Error> {
         Ok(self.get_docstring(context_1m_deadline(), addr.to_path_buf(), ident).await??)
     }
 
@@ -332,11 +343,11 @@ impl Connector for TarpcConnectorClient {
             .await??)
     }
 
-    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
+    async fn diag(&self, addr: &Path, a: &[u8]) -> Result<Option<DiagnosticResponse>, anyhow::Error> {
         Ok(self.diag(context_1m_deadline(), addr.to_path_buf(), a.to_owned()).await??)
     }
 
-    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> Result<Vec<BundleOutput>, anyhow::Error> {
+    async fn unbundle(&self, addr: &Path, resource: &[u8]) -> Result<Vec<UnbundleResponseElement>, anyhow::Error> {
         Ok(self
             .unbundle(context_1m_deadline(), addr.to_path_buf(), resource.to_owned())
             .await??)

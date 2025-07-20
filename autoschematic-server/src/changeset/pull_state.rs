@@ -3,9 +3,9 @@ use std::{collections::HashSet, path::PathBuf};
 use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;
 use anyhow::Context;
-use autoschematic_core::connector::{FilterOutput, OutputMapFile};
+use autoschematic_core::connector::{FilterResponse, OutputMapFile};
 use autoschematic_core::{
-    connector::{Connector, VirtToPhyOutput},
+    connector::{Connector, VirtToPhyResponse},
     glob::addr_matches_filter,
     template::{ReadOutput, template_config},
 };
@@ -48,9 +48,10 @@ impl ChangeSet {
 
         'prefix: for (prefix_name, prefix) in autoschematic_config.prefixes {
             if let Some(prefix_filter) = &prefix_filter
-                && prefix_name != *prefix_filter {
-                    continue;
-                }
+                && prefix_name != *prefix_filter
+            {
+                continue;
+            }
 
             // let diff_objects = self.get_modified_objects()?;
             let filtered_objects: Vec<&Object> = self
@@ -59,10 +60,11 @@ impl ChangeSet {
                 .filter(|object| {
                     let global_addr = &object.filename;
                     if global_addr.starts_with(&prefix_name)
-                        && let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name) {
-                            // If this address is not under `subpath`, skip it.
-                            return addr_matches_filter(virt_addr, &subpath);
-                        }
+                        && let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name)
+                    {
+                        // If this address is not under `subpath`, skip it.
+                        return addr_matches_filter(virt_addr, &subpath);
+                    }
                     false
                 })
                 .collect();
@@ -73,9 +75,10 @@ impl ChangeSet {
 
             'connector: for connector_def in prefix.connectors {
                 if let Some(connector_filter) = &connector_filter
-                    && connector_def.shortname != *connector_filter {
-                        continue 'connector;
-                    }
+                    && connector_def.shortname != *connector_filter
+                {
+                    continue 'connector;
+                }
 
                 let (connector, mut inbox) = self
                     .connector_cache
@@ -118,25 +121,25 @@ impl ChangeSet {
                     );
 
                     let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
-                        VirtToPhyOutput::NotPresent => {
+                        VirtToPhyResponse::NotPresent => {
                             continue 'object;
                         }
-                        VirtToPhyOutput::Deferred(read_outputs) => {
+                        VirtToPhyResponse::Deferred(read_outputs) => {
                             pull_state_report.deferred_count += 1;
                             for output in read_outputs {
                                 pull_state_report.missing_outputs.insert(output);
                             }
                             continue 'object;
                         }
-                        VirtToPhyOutput::Present(phy_addr) => phy_addr,
-                        VirtToPhyOutput::Null(phy_addr) => phy_addr,
+                        VirtToPhyResponse::Present(phy_addr) => phy_addr,
+                        VirtToPhyResponse::Null(phy_addr) => phy_addr,
                     };
 
                     if self
                         .connector_cache
                         .filter(&connector_def.shortname, &PathBuf::from(&prefix_name), virt_addr)
                         .await?
-                        == FilterOutput::Resource
+                        == FilterResponse::Resource
                     {
                         // coz::progress!("pull_state_per_object");
                         let file_check_run_id = self
@@ -191,20 +194,21 @@ impl ChangeSet {
                             }
 
                             if let Some(outputs) = current.outputs
-                                && !outputs.is_empty() {
-                                    tick_import_count = true;
+                                && !outputs.is_empty()
+                            {
+                                tick_import_count = true;
 
-                                    let output_map_file = OutputMapFile::OutputMap(outputs);
-                                    let prefix = PathBuf::from(&prefix_name);
+                                let output_map_file = OutputMapFile::OutputMap(outputs);
+                                let prefix = PathBuf::from(&prefix_name);
 
-                                    let virt_output_path = output_map_file.write(&prefix, virt_addr)?;
-                                    self.git_add(repo, &virt_output_path)?;
+                                let virt_output_path = output_map_file.write(&prefix, virt_addr)?;
+                                self.git_add(repo, &virt_output_path)?;
 
-                                    if virt_addr != phy_addr {
-                                        let phy_output_path = OutputMapFile::write_link(&prefix, &phy_addr, virt_addr)?;
-                                        self.git_add(repo, &phy_output_path)?;
-                                    }
+                                if virt_addr != phy_addr {
+                                    let phy_output_path = OutputMapFile::write_link(&prefix, &phy_addr, virt_addr)?;
+                                    self.git_add(repo, &phy_output_path)?;
                                 }
+                            }
                         } else if delete {
                             // Resource didn't exist remotely, and `delete` was indicated, so let's delete it!
                             let prefix = PathBuf::from(&prefix_name);

@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     config::Spec,
-    connector::{OpExecOutput, OpPlanOutput},
+    connector::{OpExecResponse, PlanResponseElement},
     error::ErrorMessage,
     template::ReadOutput,
 };
@@ -24,7 +24,7 @@ pub struct PlanReport {
     /// Optional: if different to virt_addr, represents the \
     /// result of Connector::addr_virt_to_phy()
     pub phy_addr: Option<PathBuf>,
-    pub connector_ops: Vec<OpPlanOutput>,
+    pub connector_ops: Vec<PlanResponseElement>,
     pub reads_outputs: Vec<ReadOutput>,
     // TODO we don't distinguish between missing outputs used to template and missing parent resource
     // outputs to compute Connector::addr_virt_to_phy(). Should we?
@@ -48,7 +48,7 @@ pub struct ApplyReport {
     pub prefix: PathBuf,
     pub virt_addr: PathBuf,
     pub phy_addr: Option<PathBuf>,
-    pub outputs: Vec<OpExecOutput>,
+    pub outputs: Vec<OpExecResponse>,
     pub wrote_files: Vec<PathBuf>,
     pub error: Option<ErrorMessage>,
 }
@@ -75,7 +75,7 @@ pub struct PlanReportOld {
     pub prefix: String,
     pub virt_addr: PathBuf,
     pub phy_addr: Option<PathBuf>,
-    pub connector_ops: Vec<OpPlanOutput>,
+    pub connector_ops: Vec<PlanResponseElement>,
     pub reads_outputs: Vec<ReadOutput>,
     pub error: Option<ErrorMessage>,
 }
@@ -98,7 +98,7 @@ pub struct ApplyReportOld {
     pub prefix: PathBuf,
     pub virt_addr: PathBuf,
     pub phy_addr: Option<PathBuf>,
-    pub outputs: Vec<OpExecOutput>,
+    pub outputs: Vec<OpExecResponse>,
     pub wrote_files: Vec<PathBuf>,
     pub error: Option<ErrorMessage>,
 }

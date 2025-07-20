@@ -23,7 +23,7 @@ use crate::connector::spawn::python::autoschematic_connector_hooks;
 
 use crate::{
     config::AutoschematicConfig,
-    diag::{Diagnostic, DiagnosticOutput, DiagnosticPosition, DiagnosticSeverity, DiagnosticSpan},
+    diag::{Diagnostic, DiagnosticResponse, DiagnosticPosition, DiagnosticSeverity, DiagnosticSpan},
     error::{AutoschematicError, AutoschematicErrorType},
 };
 
@@ -106,7 +106,7 @@ pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &[u8], b: &[u8]) -> Resu
     Ok(a == b)
 }
 
-pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticOutput, anyhow::Error> {
+pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticResponse, anyhow::Error> {
     let text = std::str::from_utf8(text)?;
 
     let res = ron::Deserializer::from_str_with_options(text, &RON);
@@ -114,10 +114,10 @@ pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticOu
         Ok(mut deserializer) => {
             let result: Result<T, _> = serde_path_to_error::deserialize(&mut deserializer);
             match result {
-                Ok(_) => Ok(DiagnosticOutput::default()),
+                Ok(_) => Ok(DiagnosticResponse::default()),
                 Err(e) => {
                     let inner_error = deserializer.span_error(e.inner().clone());
-                    Ok(DiagnosticOutput {
+                    Ok(DiagnosticResponse {
                         diagnostics: vec![Diagnostic {
                             span: DiagnosticSpan {
                                 start: DiagnosticPosition {
@@ -136,7 +136,7 @@ pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticOu
                 }
             }
         }
-        Err(e) => Ok(DiagnosticOutput {
+        Err(e) => Ok(DiagnosticResponse {
             diagnostics: vec![Diagnostic {
                 span: DiagnosticSpan {
                     start: DiagnosticPosition {

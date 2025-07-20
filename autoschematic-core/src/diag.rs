@@ -37,6 +37,6 @@ pub struct Diagnostic {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "python", derive(FromPyObject))]
-pub struct DiagnosticOutput {
+pub struct DiagnosticResponse {
     pub diagnostics: Vec<Diagnostic>,
 }

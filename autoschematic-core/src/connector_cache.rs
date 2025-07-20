@@ -7,7 +7,7 @@ use std::{
 use crate::{
     config::Spec,
     connector::{
-        Connector, ConnectorInbox, FilterOutput,
+        Connector, ConnectorInbox, FilterResponse,
         spawn::spawn_connector,
     },
     error::AutoschematicError,
@@ -28,7 +28,7 @@ pub struct ConnectorCache {
     /// Used to cache the results of Connector::filter(addr), which are assumed to be
     /// static. Since filter() is the most common call, this can speed up workflows by
     /// avoiding calling out to the connectors so many times.
-    filter_cache: Arc<DashMap<HashKey, HashMap<PathBuf, FilterOutput>>>,
+    filter_cache: Arc<DashMap<HashKey, HashMap<PathBuf, FilterResponse>>>,
     // binary_cache: BinaryCache,
 }
 
@@ -99,7 +99,7 @@ impl ConnectorCache {
     /// we cache its results to avoid expensive RPC calls.
     /// Note that this does not initialize connectors if they aren't yet present.
     /// Also, note that calling init() on a connector will invalidate the cached filter data.
-    pub async fn filter(&self, name: &str, prefix: &Path, addr: &Path) -> anyhow::Result<FilterOutput> {
+    pub async fn filter(&self, name: &str, prefix: &Path, addr: &Path) -> anyhow::Result<FilterResponse> {
         let connector_key = (name.into(), prefix.into());
         // let filter_key = (connector_key.clone(), addr.into());
 
@@ -114,7 +114,7 @@ impl ConnectorCache {
             connector_filter_cache.insert(addr.into(), res);
             Ok(res)
         } else {
-            Ok(FilterOutput::None)
+            Ok(FilterResponse::None)
         }
     }
 

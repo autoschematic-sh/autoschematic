@@ -7,10 +7,10 @@ use std::{
 use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;
 use anyhow::Context;
-use autoschematic_core::connector::FilterOutput;
+use autoschematic_core::connector::FilterResponse;
 use autoschematic_core::report::{PlanReport, PlanReportSet};
 use autoschematic_core::{
-    connector::{Connector, VirtToPhyOutput},
+    connector::{Connector, VirtToPhyResponse},
     glob::addr_matches_filter,
     template::template_config,
 };
@@ -51,9 +51,10 @@ impl ChangeSet {
 
         'prefix: for (prefix_name, prefix) in autoschematic_config.prefixes {
             if let Some(prefix_filter) = &prefix_filter
-                && prefix_name != *prefix_filter {
-                    continue;
-                }
+                && prefix_name != *prefix_filter
+            {
+                continue;
+            }
 
             // let diff_objects = self.get_modified_objects()?;
             let filtered_objects: Vec<&Object> = self
@@ -62,10 +63,11 @@ impl ChangeSet {
                 .filter(|object| {
                     let global_addr = &object.filename;
                     if global_addr.starts_with(&prefix_name)
-                        && let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name) {
-                            // If this address is not under `subpath`, skip it.
-                            return addr_matches_filter(virt_addr, &subpath);
-                        }
+                        && let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name)
+                    {
+                        // If this address is not under `subpath`, skip it.
+                        return addr_matches_filter(virt_addr, &subpath);
+                    }
                     false
                 })
                 .collect();
@@ -76,9 +78,10 @@ impl ChangeSet {
 
             'connector: for connector_def in prefix.connectors {
                 if let Some(connector_filter) = &connector_filter
-                    && connector_def.shortname != *connector_filter {
-                        continue 'connector;
-                    }
+                    && connector_def.shortname != *connector_filter
+                {
+                    continue 'connector;
+                }
 
                 let (connector, mut inbox) = self
                     .connector_cache
@@ -117,23 +120,23 @@ impl ChangeSet {
                     );
 
                     let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
-                        VirtToPhyOutput::NotPresent => None,
-                        VirtToPhyOutput::Deferred(read_outputs) => {
+                        VirtToPhyResponse::NotPresent => None,
+                        VirtToPhyResponse::Deferred(read_outputs) => {
                             plan_report_set.deferred_count += 1;
                             for output in read_outputs {
                                 plan_report_set.deferred_pending_outputs.insert(output);
                             }
                             continue 'object;
                         }
-                        VirtToPhyOutput::Present(phy_addr) => Some(phy_addr),
-                        VirtToPhyOutput::Null(phy_addr) => Some(phy_addr),
+                        VirtToPhyResponse::Present(phy_addr) => Some(phy_addr),
+                        VirtToPhyResponse::Null(phy_addr) => Some(phy_addr),
                     };
 
                     if self
                         .connector_cache
                         .filter(&connector_def.shortname, &PathBuf::from(&prefix_name), virt_addr)
                         .await?
-                        == FilterOutput::Resource
+                        == FilterResponse::Resource
                     {
                         // coz::progress!("plan_per_object");
                         plan_report_set.object_count += 1;

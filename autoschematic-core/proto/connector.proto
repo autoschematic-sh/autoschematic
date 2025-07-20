@@ -6,13 +6,14 @@ message Empty {}
 
 /// --- Filter ---
 message FilterRequest  { string addr = 1; }
-enum FilterOutputType {
+enum FilterResponseType {
   CONFIG   = 0;
   RESOURCE = 1;
   BUNDLE   = 2;
-  NONE     = 3;
+  TASK     = 3;
+  NONE     = 4;
 }
-message FilterResponse { FilterOutputType filter = 1; }
+message FilterResponse { FilterResponseType filter = 1; }
 
 /// --- Listing ---
 message ListRequest  { string subpath = 1; }
@@ -35,27 +36,25 @@ message PlanRequest {
   bytes  current = 2;  // empty means “none”
   bytes  desired = 3;  // empty means “none”
 }
-message OpPlanOutput {
+message PlanResponseElement {
   string            op_definition    = 1;
   repeated string   writes_outputs   = 2;
   string            friendly_message = 3;
 }
 message PlanResponse {
-  repeated OpPlanOutput ops = 1;
+  repeated PlanResponseElement ops = 1;
 }
 
-/// --- Execute an op ---
 message OpExecRequest {
   string addr = 1;
   string op   = 2;
 }
 message OpExecResponse {
-  map<string,string> outputs          = 1;  // missing or empty ⇒ none
+  map<string,string> outputs          = 1;
   string             friendly_message = 2;
 }
 
-/// --- Address translation ---
-message AddrRequest {
+message AddrPhyToVirtRequest {
   string addr = 1;
 }
 message AddrPhyToVirtResponse {
@@ -63,18 +62,42 @@ message AddrPhyToVirtResponse {
   string virt_addr = 2;
 }
 
+/// --- Virt‐to‐phy mapping ---
+message AddrVirtToPhyRequest {
+  string addr = 1;
+}
+message ReadOutput {
+  string addr = 1;
+  string key  = 2;
+}
+message Deferred {
+  repeated ReadOutput reads = 1;
+}
+message Path {
+  string path = 1;
+}
+message AddrVirtToPhyResponse {
+  oneof result {
+    Empty    not_present = 1;
+    Deferred deferred    = 2;
+    Path     present     = 3;
+    Path     null        = 4;
+  }
+}
+
+
 /// --- Subpaths (parallelism hints) ---
 message SubpathsResponse {
   repeated string subpaths = 1;
 }
 
 /// --- Skeletons (templates) ---
-message SkeletonOutput {
+message Skeleton {
   string addr = 1;
   bytes  body = 2;
 }
 message GetSkeletonsResponse {
-  repeated SkeletonOutput skeletons = 1;
+  repeated Skeleton skeletons = 1;
 }
 
 /// --- Docstrings ---
@@ -119,35 +142,13 @@ message Diagnostic {
   DiagnosticSpan  span     = 2;
   string          message  = 3;
 }
-message DiagnosticOutput {
-  repeated Diagnostic diagnostics = 1;
-}
+
 message DiagRequest {
   string addr = 1;
   bytes  a    = 2;
 }
 message DiagResponse {
-  DiagnosticOutput diagnostics = 1;
-}
-
-/// --- Virt‐to‐phy mapping ---
-message ReadOutput {
-  string addr = 1;
-  string key  = 2;
-}
-message Deferred {
-  repeated ReadOutput reads = 1;
-}
-message Path {
-  string path = 1;
-}
-message VirtToPhyOutput {
-  oneof result {
-    Empty    not_present = 1;
-    Deferred deferred    = 2;
-    Path     present     = 3;
-    Path     null        = 4;
-  }
+  repeated Diagnostic diagnostics = 1;
 }
 
 /// --- Unbundle bundles into resources ---
@@ -155,28 +156,28 @@ message UnbundleRequest {
   string addr   = 1;
   bytes  bundle = 2;
 }
-message BundleOutput {
+message UnbundleResponseElement {
   string filename      = 1;
   string file_contents = 2;
 }
 message UnbundleResponse {
-  repeated BundleOutput bundles = 1;
+  repeated UnbundleResponseElement bundles = 1;
 }
 
 /// --- The Connector gRPC service ---
 service Connector {
-  rpc Init            (Empty)               returns (Empty);
-  rpc Filter          (FilterRequest)       returns (FilterResponse);
-  rpc List            (ListRequest)         returns (ListResponse);
-  rpc Subpaths        (Empty)               returns (SubpathsResponse);
-  rpc Get             (GetRequest)          returns (GetResponse);
-  rpc Plan            (PlanRequest)         returns (PlanResponse);
-  rpc OpExec          (OpExecRequest)       returns (OpExecResponse);
-  rpc AddrVirtToPhy   (AddrRequest)         returns (VirtToPhyOutput);
-  rpc AddrPhyToVirt   (AddrRequest)         returns (AddrPhyToVirtResponse);
-  rpc GetSkeletons    (Empty)               returns (GetSkeletonsResponse);
-  rpc GetDocstring    (GetDocRequest)       returns (GetDocResponse);
-  rpc Eq              (EqRequest)           returns (EqResponse);
-  rpc Diag            (DiagRequest)         returns (DiagResponse);
-  rpc Unbundle        (UnbundleRequest)     returns (UnbundleResponse);
+  rpc Init            (Empty)                returns (Empty);
+  rpc Filter          (FilterRequest)        returns (FilterResponse);
+  rpc List            (ListRequest)          returns (ListResponse);
+  rpc Subpaths        (Empty)                returns (SubpathsResponse);
+  rpc Get             (GetRequest)           returns (GetResponse);
+  rpc Plan            (PlanRequest)          returns (PlanResponse);
+  rpc OpExec          (OpExecRequest)        returns (OpExecResponse);
+  rpc AddrVirtToPhy   (AddrVirtToPhyRequest) returns (AddrVirtToPhyResponse);
+  rpc AddrPhyToVirt   (AddrPhyToVirtRequest) returns (AddrPhyToVirtResponse);
+  rpc GetSkeletons    (Empty)                returns (GetSkeletonsResponse);
+  rpc GetDocstring    (GetDocRequest)        returns (GetDocResponse);
+  rpc Eq              (EqRequest)            returns (EqResponse);
+  rpc Diag            (DiagRequest)          returns (DiagResponse);
+  rpc Unbundle        (UnbundleRequest)      returns (UnbundleResponse);
 }
