@@ -14,7 +14,7 @@ use autoschematic_core::{
 };
 use regex::Regex;
 
-use crate::task::test_task::TestTask;
+use crate::{safety_lock::check_safety_lock, task::test_task::TestTask};
 
 pub static TASK_REGISTRY: OnceLock<TaskRegistry> = OnceLock::new();
 
@@ -27,6 +27,8 @@ pub async fn spawn_task(
     arg: serde_json::Value,
     blocking: bool,
 ) -> anyhow::Result<()> {
+    check_safety_lock()?;
+
     // Match a Task name.
     // Task names take the form:
     // {type}:{path}
@@ -123,15 +125,16 @@ pub async fn spawn_task(
     let mut registry = registry.entries.write().await;
 
     if let Some(task) = registry.get(&registry_key)
-        && task.state == TaskState::Running {
-            bail!(
-                "Task {} already running for repo: {}/{} at prefix {}",
-                name,
-                owner,
-                repo,
-                prefix.to_str().unwrap_or_default()
-            )
-        }
+        && task.state == TaskState::Running
+    {
+        bail!(
+            "Task {} already running for repo: {}/{} at prefix {}",
+            name,
+            owner,
+            repo,
+            prefix.to_str().unwrap_or_default()
+        )
+    }
 
     // registry_outbox
     //     .send_async(AgentRegistryMessage::ShutDown)

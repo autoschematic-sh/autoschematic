@@ -1,6 +1,6 @@
 {
   "name": "autoschematic-sdk",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Build Autoschematic Connectors in Typescript.",
   "main": "src/index.ts",
   "scripts": {

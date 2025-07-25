@@ -19,6 +19,7 @@ use autoschematic_core::{
 use crate::{
     config::load_autoschematic_config,
     plan::{frame, print_frame_end, print_frame_start, print_plan, print_plan_addr},
+    safety_lock::check_safety_lock,
     spinner::spinner::show_spinner,
     util::{colour_op_message, try_colour_op_message_diff},
 };
@@ -30,6 +31,8 @@ pub async fn apply(
     ask_confirm: bool,
     skip_commit: bool,
 ) -> anyhow::Result<()> {
+    check_safety_lock()?;
+
     let repo_root = repo_root()?;
     let config = load_autoschematic_config()?;
 
@@ -47,6 +50,7 @@ pub async fn apply(
         Command::new("sh")
             .arg(pre_commit_hook)
             .stdin(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .stdout(Stdio::inherit())
             .output()
             .expect("Git: pre-commit hooks failed!");

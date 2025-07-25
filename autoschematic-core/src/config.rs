@@ -6,8 +6,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct AutoschematicConfig {
-    #[serde(default)]
-    pub safety_active: Option<bool>,
     pub prefixes: HashMap<String, Prefix>,
 }
 

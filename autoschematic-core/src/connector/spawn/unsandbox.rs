@@ -25,9 +25,8 @@ use crate::{
 use anyhow::bail;
 use async_trait::async_trait;
 
+use process_wrap::tokio::*;
 use rand::{Rng, distr::Alphanumeric};
-use tokio::process::Child;
-use walkdir::WalkDir;
 
 /// This module handles unsandboxed execution of connector instances.
 pub struct UnsandboxConnectorHandle {
@@ -35,7 +34,7 @@ pub struct UnsandboxConnectorHandle {
     socket: PathBuf,
     error_dump: PathBuf,
     read_thread: Option<JoinHandle<()>>,
-    child: Child,
+    child: Box<dyn process_wrap::tokio::TokioChildWrapper>,
 }
 
 fn random_socket_path() -> PathBuf {
@@ -154,140 +153,196 @@ pub async fn launch_server_binary(
         env = passthrough_secrets_from_env(&env)?;
     }
 
-    let mut pre_command = None;
-
-    let mut command = match spec {
-        Spec::Binary { path, protocol } => {
-            let mut binary_path = path.clone();
-            if !binary_path.is_file() {
-                binary_path = which::which(binary_path)?;
-            }
-
-            if !binary_path.is_file() {
-                bail!("launch_server_binary: {}: not found", binary_path.display())
-            }
-            let mut command = tokio::process::Command::new(binary_path);
-            let args = [shortname.into(), prefix.into(), socket.clone(), error_dump.clone()];
-            command.args(args);
+    if let Some(spec_pre_command) = spec.pre_command()? {
+        let mut command = TokioCommandWrap::with_new(spec_pre_command.binary, |command| {
+            command.args(spec_pre_command.args);
+            command.stderr(io::stderr());
             command.stdout(io::stderr());
-            command
-        }
-        Spec::Cargo { name, .. } => {
-            let cargo_home = match std::env::var("CARGO_HOME") {
-                Ok(p) => PathBuf::from(p),
-                Err(_) => {
-                    let Ok(home) = std::env::var("HOME") else {
-                        bail!("$HOME not set!");
-                    };
-                    PathBuf::from(home).join(".cargo")
-                }
-            };
-
-            // TODO Also parse `binary` and check .cargo/.cargo.toml
-            let binary_path = cargo_home.join("bin").join(name);
-
-            if !binary_path.is_file() {
-                bail!("launch_server_binary: {}: not found", binary_path.display())
-            }
-            let mut command = tokio::process::Command::new(binary_path);
-            let args = [shortname.into(), prefix.into(), socket.clone(), error_dump.clone()];
-            command.args(args);
-            command.stdout(io::stderr());
-            command
-        }
-        Spec::CargoLocal {
-            path, binary, features, ..
-        } => {
-            let manifest_path = path.join("Cargo.toml");
-            if !manifest_path.is_file() {
-                bail!("launch_server_binary: No Cargo.toml under {}", path.display())
-            }
-
-            let mut build_command = tokio::process::Command::new("cargo");
-            build_command.kill_on_drop(true);
-
-            build_command.args(["build", "--release", "--manifest-path", manifest_path.to_str().unwrap()]);
-            if let Some(binary) = binary {
-                build_command.args(["--bin", binary]);
-            }
-            if let Some(features) = features
-                && !features.is_empty()
-            {
-                build_command.args(["--features", &features.join(",")]);
-            }
-
-            pre_command = Some(build_command);
-
-            let mut command = tokio::process::Command::new("cargo");
             command.kill_on_drop(true);
-            command.args(["run", "--release", "--manifest-path", manifest_path.to_str().unwrap()]);
-            if let Some(binary) = binary {
-                command.args(["--bin", binary]);
-            }
-            if let Some(features) = features
-                && !features.is_empty()
-            {
-                command.args(["--features", &features.join(",")]);
-            }
-            command.args([String::from("--"), shortname.to_string()]);
-            command.args([prefix, &socket, &error_dump]);
-            command.stdout(io::stderr());
-            command
+        });
+
+        #[cfg(unix)]
+        {
+            command.wrap(ProcessGroup::leader());
         }
-        Spec::TypescriptLocal { path } => {
-            if !path.is_file() {
-                bail!("launch_server_binary: {}: not found", path.display())
-            }
-            let mut command = tokio::process::Command::new("tsx");
-            let args = [
-                path.into(),
-                shortname.into(),
-                prefix.into(),
-                socket.clone(),
-                error_dump.clone(),
-            ];
-            command.args(args);
-            command.stdout(io::stderr());
-            command
+        #[cfg(windows)]
+        {
+            command.wrap(JobObject);
         }
-    };
 
-    for (key, val) in env {
-        command.env(key, val);
-    }
+        let status = Box::into_pin(command.spawn()?.wait()).await?;
 
-    if let Some(mut pre_command) = pre_command {
-        let output = pre_command
-            .stdin(Stdio::inherit())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()
-            .await?;
-
-        if !output.status.success() {
-            bail!("Pre-command failed: {:?}: {}", pre_command, output.status)
+        if !status.success() {
+            bail!(
+                "launch_server_binary: pre_command failed: \n {:?} \n {:?}",
+                command.command(),
+                status.code()
+            )
         }
     }
+
+    let spec_command = spec.command()?;
+
+    let mut command = TokioCommandWrap::with_new(spec_command.binary, |command| {
+        command.args(spec_command.args);
+        command.args([shortname.into(), prefix.into(), socket.clone(), error_dump.clone()]);
+        command.stdout(io::stderr());
+        command.stderr(io::stderr());
+        command.kill_on_drop(true);
+
+        for (key, val) in env {
+            command.env(key, val);
+        }
+    });
+
+    #[cfg(unix)]
+    {
+        command.wrap(ProcessGroup::leader());
+    }
+    #[cfg(windows)]
+    {
+        command.wrap(JobObject);
+    }
+
+    // let mut pre_command = None;
+
+    // let mut command = match spec {
+    //     Spec::Binary { path, protocol } => {
+    //         let mut binary_path = path.clone();
+    //         if !binary_path.is_file() {
+    //             binary_path = which::which(binary_path)?;
+    //         }
+
+    //         if !binary_path.is_file() {
+    //             bail!("launch_server_binary: {}: not found", binary_path.display())
+    //         }
+    //         let mut command = tokio::process::Command::new(binary_path);
+    //         let args = [shortname.into(), prefix.into(), socket.clone(), error_dump.clone()];
+    //         command.args(args);
+    //         command.stdout(io::stderr());
+    //         command
+    //     }
+    //     Spec::Cargo { name, .. } => {
+    //         let cargo_home = match std::env::var("CARGO_HOME") {
+    //             Ok(p) => PathBuf::from(p),
+    //             Err(_) => {
+    //                 let Ok(home) = std::env::var("HOME") else {
+    //                     bail!("$HOME not set!");
+    //                 };
+    //                 PathBuf::from(home).join(".cargo")
+    //             }
+    //         };
+
+    //         // TODO Also parse `binary` and check .cargo/.cargo.toml
+    //         let binary_path = cargo_home.join("bin").join(name);
+
+    //         if !binary_path.is_file() {
+    //             bail!("launch_server_binary: {}: not found", binary_path.display())
+    //         }
+    //         let mut command = tokio::process::Command::new(binary_path);
+    //         let args = [shortname.into(), prefix.into(), socket.clone(), error_dump.clone()];
+    //         command.args(args);
+    //         command.stdout(io::stderr());
+    //         command
+    //     }
+    //     Spec::CargoLocal {
+    //         path, binary, features, ..
+    //     } => {
+    //         let manifest_path = path.join("Cargo.toml");
+    //         if !manifest_path.is_file() {
+    //             bail!("launch_server_binary: No Cargo.toml under {}", path.display())
+    //         }
+
+    //         let mut build_command = tokio::process::Command::new("cargo");
+    //         build_command.kill_on_drop(true);
+
+    //         build_command.args(["build", "--release", "--manifest-path", manifest_path.to_str().unwrap()]);
+    //         if let Some(binary) = binary {
+    //             build_command.args(["--bin", binary]);
+    //         }
+    //         if let Some(features) = features
+    //             && !features.is_empty()
+    //         {
+    //             build_command.args(["--features", &features.join(",")]);
+    //         }
+
+    //         pre_command = Some(build_command);
+
+    //         let mut command = tokio::process::Command::new("cargo");
+    //         command.kill_on_drop(true);
+    //         command.args(["run", "--release", "--manifest-path", manifest_path.to_str().unwrap()]);
+    //         if let Some(binary) = binary {
+    //             command.args(["--bin", binary]);
+    //         }
+    //         if let Some(features) = features
+    //             && !features.is_empty()
+    //         {
+    //             command.args(["--features", &features.join(",")]);
+    //         }
+    //         command.args([String::from("--"), shortname.to_string()]);
+    //         command.args([prefix, &socket, &error_dump]);
+    //         command.stdout(io::stderr());
+    //         command
+    //     }
+    //     Spec::TypescriptLocal { path } => {
+    //         if !path.is_file() {
+    //             bail!("launch_server_binary: {}: not found", path.display())
+    //         }
+    //         let mut command = tokio::process::Command::new("tsx");
+    //         let args = [
+    //             path.into(),
+    //             shortname.into(),
+    //             prefix.into(),
+    //             socket.clone(),
+    //             error_dump.clone(),
+    //         ];
+    //         command.args(args);
+    //         command.stdout(io::stderr());
+    //         command
+    //     }
+    // };
+
+    // for (key, val) in env {
+    //     command.env(key, val);
+    // }
+
+    // if let Some(mut pre_command) = pre_command {
+    //     let output = pre_command
+    //         .stdin(Stdio::inherit())
+    //         .stdout(Stdio::inherit())
+    //         .stderr(Stdio::inherit())
+    //         .output()
+    //         .await?;
+
+    //     if !output.status.success() {
+    //         bail!("Pre-command failed: {:?}: {}", pre_command, output.status)
+    //     }
+    // }
 
     let child = command.spawn()?;
 
     tracing::info!("Launching client at {:?}", socket);
 
-    let client = match spec {
-        Spec::Binary { protocol, .. } => match protocol {
-            crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
-            crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?,
-        },
-        Spec::Cargo { protocol, .. } => match protocol {
-            crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
-            crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?,
-        },
-        Spec::CargoLocal { protocol, .. } => match protocol {
-            crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
-            crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?,
-        },
-        Spec::TypescriptLocal { .. } => grpc_bridge::launch_client(&socket).await?,
+    let client = match spec.protocol() {
+        crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
+        crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?,
     };
+
+    // let client = match spec {
+    //     Spec::Binary { protocol, .. } => match protocol {
+    //         crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
+    //         crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?,
+    //     },
+    //     Spec::Cargo { protocol, .. } => match protocol {
+    //         crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
+    //         crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?,
+    //     },
+    //     Spec::CargoLocal { protocol, .. } => match protocol {
+    //         crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
+    //         crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?,
+    //     },
+    //     Spec::TypescriptLocal { .. } => grpc_bridge::launch_client(&socket).await?,
+    // };
 
     tracing::info!("Launched client.");
 
@@ -300,6 +355,7 @@ pub async fn launch_server_binary(
     })
 }
 
+// TODO this is probably unneeded with kill_on_drop()
 impl Drop for UnsandboxConnectorHandle {
     fn drop(&mut self) {
         tracing::info!("DROP on UnsandboxConnectorHandle! Killing subprocess");
@@ -320,59 +376,59 @@ impl Drop for UnsandboxConnectorHandle {
     }
 }
 
-pub fn unseal_secrets_to_folder(
-    keystore: &Box<dyn KeyStore>,
-    prefix: &Path,
-    connector_shortname: &str,
-    secret_mount: &Path,
-) -> anyhow::Result<()> {
-    for path in WalkDir::new(prefix.join(".secrets").join(connector_shortname))
-        .into_iter()
-        .filter_map(|entry| entry.ok())
-        .map(|entry| PathBuf::from(entry.path()))
-        .filter(|path| path.is_file())
-    {
-        tracing::error!("unseal_secrets: walk: {:?}", &path);
-        let secret_file = std::fs::read_to_string(&path)?;
-        let secrets: Vec<SealedSecret> = serde_json::from_str(&secret_file)?;
-        let secret_text = keystore.unseal_secret(secrets.first().unwrap())?;
-        let out_dir = secret_mount.join(prefix).join(connector_shortname);
-        let out_path = path.strip_prefix(prefix.join(".secrets").join(connector_shortname))?;
-        std::fs::create_dir_all(out_dir.join(out_path).parent().unwrap())?;
-        std::fs::write(out_dir.join(out_path), secret_text)?;
-    }
-    Ok(())
-}
+// pub fn unseal_secrets_to_folder(
+//     keystore: &Box<dyn KeyStore>,
+//     prefix: &Path,
+//     connector_shortname: &str,
+//     secret_mount: &Path,
+// ) -> anyhow::Result<()> {
+//     for path in WalkDir::new(prefix.join(".secrets").join(connector_shortname))
+//         .into_iter()
+//         .filter_map(|entry| entry.ok())
+//         .map(|entry| PathBuf::from(entry.path()))
+//         .filter(|path| path.is_file())
+//     {
+//         tracing::error!("unseal_secrets: walk: {:?}", &path);
+//         let secret_file = std::fs::read_to_string(&path)?;
+//         let secrets: Vec<SealedSecret> = serde_json::from_str(&secret_file)?;
+//         let secret_text = keystore.unseal_secret(secrets.first().unwrap())?;
+//         let out_dir = secret_mount.join(prefix).join(connector_shortname);
+//         let out_path = path.strip_prefix(prefix.join(".secrets").join(connector_shortname))?;
+//         std::fs::create_dir_all(out_dir.join(out_path).parent().unwrap())?;
+//         std::fs::write(out_dir.join(out_path), secret_text)?;
+//     }
+//     Ok(())
+// }
 
-fn seal_new_secrets_from_folder(
-    keystore: impl KeyStore,
-    prefix: &Path,
-    domain: &str,
-    connector_shortname: &str,
-    newer_than: SystemTime,
-    secret_mount: &Path,
-) -> anyhow::Result<()> {
-    // For each secret in the sandboxed connector's secret mount,
-    // if it's newer than newer_than, seal it and write it to the repo.
-    for path in WalkDir::new(secret_mount.join(connector_shortname))
-        .into_iter()
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry
-                .metadata()
-                .is_ok_and(|metadata| metadata.modified().is_ok_and(|system_time| system_time > newer_than))
-        })
-        .map(|entry| PathBuf::from(entry.path()))
-        .filter(|path| path.is_file())
-    {
-        let secret_file = std::fs::read_to_string(&path)?;
-        let mut sealed_secrets = Vec::new();
-        for key_id in keystore.list()? {
-            let sealed = keystore.seal_secret(domain, &key_id, &secret_file)?;
-            sealed_secrets.push(sealed);
-        }
-        let sealed_json = serde_json::to_string_pretty(&sealed_secrets)?;
-        std::fs::write(prefix.join(".secrets").join(connector_shortname).join(&path), sealed_json)?;
-    }
-    Ok(())
-}
+// fn seal_new_secrets_from_folder(
+//     keystore: impl KeyStore,
+//     prefix: &Path,
+//     domain: &str,
+//     connector_shortname: &str,
+//     newer_than: SystemTime,
+//     secret_mount: &Path,
+// ) -> anyhow::Result<()> {
+//     // For each secret in the sandboxed connector's secret mount,
+//     // if it's newer than newer_than, seal it and write it to the repo.
+//     for path in WalkDir::new(secret_mount.join(connector_shortname))
+//         .into_iter()
+//         .filter_map(|entry| entry.ok())
+//         .filter(|entry| {
+//             entry
+//                 .metadata()
+//                 .is_ok_and(|metadata| metadata.modified().is_ok_and(|system_time| system_time > newer_than))
+//         })
+//         .map(|entry| PathBuf::from(entry.path()))
+//         .filter(|path| path.is_file())
+//     {
+//         let secret_file = std::fs::read_to_string(&path)?;
+//         let mut sealed_secrets = Vec::new();
+//         for key_id in keystore.list()? {
+//             let sealed = keystore.seal_secret(domain, &key_id, &secret_file)?;
+//             sealed_secrets.push(sealed);
+//         }
+//         let sealed_json = serde_json::to_string_pretty(&sealed_secrets)?;
+//         std::fs::write(prefix.join(".secrets").join(connector_shortname).join(&path), sealed_json)?;
+//     }
+//     Ok(())
+// }

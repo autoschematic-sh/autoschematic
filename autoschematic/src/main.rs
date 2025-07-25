@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand, command};
 use tracing_subscriber::EnvFilter;
 
+use crate::safety_lock::{set_safety_lock, unset_safety_lock};
+
 mod apply;
 mod config;
 mod create;
@@ -10,6 +12,7 @@ mod import;
 mod init;
 mod install;
 mod plan;
+mod safety_lock;
 mod seal;
 mod spinner;
 mod sso;
@@ -24,11 +27,33 @@ pub struct AutoschematicCommand {
     #[command(subcommand)]
     pub command: AutoschematicSubcommand,
 }
+#[derive(Subcommand, Default, Debug)]
+pub enum AutoschematicInitSubcommand {
+    #[default]
+    Config,
+    Rbac,
+}
+
+#[derive(Subcommand, Default, Debug)]
+pub enum AutoschematicSafetySubcommand {
+    #[default]
+    Lock,
+    Unlock,
+}
 
 #[derive(Subcommand, Debug)]
 pub enum AutoschematicSubcommand {
     /// Create an Autoschematic config if not already present.
-    Init {},
+    Init {
+        #[command(subcommand)]
+        kind: AutoschematicInitSubcommand,
+    },
+    /// Set or unset the safety lock file. When set, the safety lock prevents any operations that would modify
+    /// infrastructure (Executing ConnectorOps or Tasks).
+    Safety {
+        #[command(subcommand)]
+        kind: AutoschematicSafetySubcommand,
+    },
     /// Validate that the Autoschematic config within this repository is well-formed.
     /// Includes autoschematic.lock.ron and autoschematic.rbac.ron if present.
     Validate {},
@@ -163,9 +188,10 @@ async fn main() -> anyhow::Result<()> {
         } => {
             seal::seal(&domain, prefix.as_deref(), &path, in_path.as_deref(), key_id.as_deref()).await?;
         }
-        AutoschematicSubcommand::Init {} => {
-            init::init()?;
-        }
+        AutoschematicSubcommand::Init { kind } => match kind {
+            AutoschematicInitSubcommand::Config => init::init()?,
+            AutoschematicInitSubcommand::Rbac => init::init_rbac()?,
+        },
         AutoschematicSubcommand::Validate {} => {
             validate::validate()?;
         }
@@ -206,6 +232,14 @@ async fn main() -> anyhow::Result<()> {
         AutoschematicSubcommand::Create { prefix, connector } => {
             create::create(&prefix, &connector).await?;
         }
+        AutoschematicSubcommand::Safety { kind } => match kind {
+            AutoschematicSafetySubcommand::Lock => {
+                set_safety_lock()?;
+            }
+            AutoschematicSafetySubcommand::Unlock => {
+                unset_safety_lock()?;
+            }
+        },
     };
 
     Ok(())

@@ -9,10 +9,19 @@ use std::{
 };
 
 use crate::{
-    bundle::UnbundleResponseElement, config::Spec, connector::{
+    bundle::UnbundleResponseElement,
+    config::Spec,
+    connector::{
         Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
         PlanResponseElement, SkeletonResponse, VirtToPhyResponse,
-    }, diag::DiagnosticResponse, error::ErrorMessage, grpc_bridge, keystore::KeyStore, secret::SealedSecret, tarpc_bridge::{self, TarpcConnector}, util::passthrough_secrets_from_env
+    },
+    diag::DiagnosticResponse,
+    error::ErrorMessage,
+    grpc_bridge,
+    keystore::KeyStore,
+    secret::SealedSecret,
+    tarpc_bridge::{self, TarpcConnector},
+    util::passthrough_secrets_from_env,
 };
 use anyhow::{Context, bail};
 use async_trait::async_trait;
@@ -409,7 +418,7 @@ pub async fn launch_server_binary_sandboxed(
 
     let client = match spec.protocol() {
         crate::config::Protocol::Tarpc => tarpc_bridge::launch_client(&socket).await?,
-        crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?
+        crate::config::Protocol::Grpc => grpc_bridge::launch_client(&socket).await?,
     };
     // launch_client(&socket).await?;
     tracing::info!("Launched client.");
@@ -440,6 +449,7 @@ impl Drop for SandboxConnectorHandle {
         }
 
         tracing::info!("DROP on SandboxConnectorHandle! Killing {}", self.pid);
+        // nix::sys::signal::kill(-self.pid, SIGKILL).unwrap();
         nix::sys::signal::kill(self.pid, SIGKILL).unwrap();
     }
 }

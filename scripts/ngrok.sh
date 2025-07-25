@@ -1,1 +1,2 @@
-ngrok http --domain=$WEBHOOK_DOMAIN 8086
+ngrok http \
+    --domain=$WEBHOOK_DOMAIN 8086
