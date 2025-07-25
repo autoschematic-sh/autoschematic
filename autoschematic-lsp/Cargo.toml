@@ -7,7 +7,7 @@ version = "0.7.0"
 edition = "2024"
 
 [dependencies]
-autoschematic-core = { path = "../autoschematic-core", version = "0.7.0", features = [
+autoschematic-core = { path = "../autoschematic-core", version = "0.7.1", features = [
     "grpc",
 ] }
 anyhow = "1.0.98"

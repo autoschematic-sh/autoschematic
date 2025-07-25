@@ -17,14 +17,14 @@ macro_rules! get_resource_response {
 #[macro_export]
 macro_rules! connector_op {
     ($op:expr, $message:expr) => {{
-        OpPlanResponseElement {
+        PlanResponseElement {
             op_definition: ConnectorOp::to_string(&$op)?,
             writes_outputs: Vec::new(),
             friendly_message: Some($message),
         }
     }};
     ($op:expr, $outputs:expr, $message:expr) => {{
-        OpPlanResponseElement {
+        PlanResponseElement {
             op_definition: ConnectorOp::to_string(&$op)?,
             writes_outputs: $outputs,
             friendly_message: Some($message),
@@ -35,7 +35,7 @@ macro_rules! connector_op {
 #[macro_export]
 macro_rules! op_exec_output {
     ($outputs:expr, $message:expr) => {{
-        Ok(OpExecOutput {
+        Ok(OpExecResponse {
             outputs: $outputs.map::<HashMap<String, Option<String>>, _>(|o| {
                 HashMap::from_iter(
                     o.into_iter()
@@ -46,7 +46,7 @@ macro_rules! op_exec_output {
         })
     }};
     ($message:expr) => {{
-        Ok(OpExecOutput {
+        Ok(OpExecResponse {
             outputs: None,
             friendly_message: Some($message),
         })
@@ -56,7 +56,7 @@ macro_rules! op_exec_output {
 #[macro_export]
 macro_rules! skeleton {
     ($addr:expr, $resource:expr) => {{
-        SkeletonOutput {
+        SkeletonResponse {
             addr: $addr.to_path_buf(),
             body: $resource.to_bytes()?,
         }
@@ -75,17 +75,17 @@ macro_rules! virt_to_phy {
             $(
                 <$enum>::$triv_variant { .. } => {
                     if let Some($triv_field) = $addr.get_output($prefix, stringify!($triv_field))? {
-                        Ok(VirtToPhyOutput::Present(
+                        Ok(VirtToPhyResponse::Present(
                             <$enum>::$triv_variant { $triv_field }.to_path_buf(),
                         ))
                     } else {
-                        Ok(VirtToPhyOutput::NotPresent)
+                        Ok(VirtToPhyResponse::NotPresent)
                     }
                 }
             )*
             $(
                 <$enum>::$null_variant { $null_field } => {
-                    Ok(VirtToPhyOutput::Null(<$enum>::$null_variant { $null_field: $null_field.into() }.to_path_buf()))
+                    Ok(VirtToPhyResponse::Null(<$enum>::$null_variant { $null_field: $null_field.into() }.to_path_buf()))
                 }
             )*
             $(

@@ -106,7 +106,7 @@ pub fn ron_check_eq<T: DeserializeOwned + PartialEq>(a: &[u8], b: &[u8]) -> Resu
     Ok(a == b)
 }
 
-pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticResponse, anyhow::Error> {
+pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<Option<DiagnosticResponse>, anyhow::Error> {
     let text = std::str::from_utf8(text)?;
 
     let res = ron::Deserializer::from_str_with_options(text, &RON);
@@ -114,10 +114,10 @@ pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticRe
         Ok(mut deserializer) => {
             let result: Result<T, _> = serde_path_to_error::deserialize(&mut deserializer);
             match result {
-                Ok(_) => Ok(DiagnosticResponse::default()),
+                Ok(_) => Ok(None),
                 Err(e) => {
                     let inner_error = deserializer.span_error(e.inner().clone());
-                    Ok(DiagnosticResponse {
+                    Ok(Some(DiagnosticResponse {
                         diagnostics: vec![Diagnostic {
                             span: DiagnosticSpan {
                                 start: DiagnosticPosition {
@@ -132,11 +132,11 @@ pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticRe
                             severity: DiagnosticSeverity::ERROR as u8,
                             message: format!("{} at {}", inner_error.code, e.path()),
                         }],
-                    })
+                    }))
                 }
             }
         }
-        Err(e) => Ok(DiagnosticResponse {
+        Err(e) => Ok(Some(DiagnosticResponse {
             diagnostics: vec![Diagnostic {
                 span: DiagnosticSpan {
                     start: DiagnosticPosition {
@@ -151,7 +151,7 @@ pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<DiagnosticRe
                 severity: DiagnosticSeverity::ERROR as u8,
                 message: format!("{}", e.code),
             }],
-        }),
+        })),
     }
 }
 
