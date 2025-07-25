@@ -10,8 +10,6 @@ pub fn load_github_private_key() -> Result<String, anyhow::Error> {
     let private_key_base64 = env::var("GITHUB_PRIVATE_KEY_BASE64");
     let private_key_path   = env::var("GITHUB_PRIVATE_KEY_PATH");
     
-    
-
     match (private_key_base64, private_key_path) {
         (Ok(_), Ok(_)) => {
             Err(anyhow::Error::msg("Ambiguous: Only one of GITHUB_PRIVATE_KEY_BASE64 and GITHUB_PRIVATE_KEY_PATH can be set!"))

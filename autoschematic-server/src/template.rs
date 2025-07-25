@@ -3,15 +3,18 @@ use std::path::PathBuf;
 use askama::Template;
 use rand::seq::IndexedRandom;
 
-
 const SUCCESS_EMOJI: &[&str] = &[
-    "🟢", "🟩", "🔋", "✅", "✔️", "📗", "🥦", "🌲", "🌳", "🌵", "🌿", "☘️", "🍀", "📗", "🍏",
-    "🍐", "🍈", "🍏", "🍐", "🥒", "🥬",
+    "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩",
+    "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩",
+    "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩",
+    "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🟩", "🌿", "🥬",
 ];
 
 const FAILURE_EMOJI: &[&str] = &[
-    "🟥", "🔴", "🍅", "🎈", "📕", "📮", "🚩",
-    "💔", "🩸", "🚨", "🎟️", "🛑",
+    "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥",
+    "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥",
+    "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥", "🟥",
+    "🟥", "🟥", "🟥", "🟥", "💔",
 ];
 
 pub fn random_success_emoji() -> &'static str {
@@ -26,13 +29,12 @@ pub fn random_failure_emoji() -> &'static str {
 #[template(path = "filter_matched_no_files.md")]
 pub struct FilterMatchedNoFiles {
     pub failure_emoji: &'static str,
-    pub command: String
+    pub command: String,
 }
 
 #[derive(Template)]
 #[template(path = "greeting.md")]
-pub struct GreetingTemplate {
-}
+pub struct GreetingTemplate {}
 
 #[derive(Template)]
 #[template(path = "plan_error.md")]
@@ -48,7 +50,6 @@ pub struct PlanErrorTemplate {
 pub struct PlanOverallErrorTemplate {
     pub failure_emoji: &'static str,
     pub error_message: String,
-
 }
 
 #[derive(Template)]
@@ -56,8 +57,7 @@ pub struct PlanOverallErrorTemplate {
 pub struct PlanDeferralLoopTemplate {
     pub failure_emoji: &'static str,
     pub deferred_count: usize,
-    pub output_keys: Vec<String>
-
+    pub output_keys: Vec<String>,
 }
 
 #[derive(Template)]
@@ -81,7 +81,7 @@ pub struct PlanOverallSuccessWithDeferralsTemplate {
     pub success_emoji: &'static str,
     pub apply_command: String,
     pub deferred_count: usize,
-    pub output_keys: Vec<String>
+    pub output_keys: Vec<String>,
 }
 
 #[derive(Template)]
@@ -114,8 +114,7 @@ pub struct ApplyOverallSuccessTemplate {
 
 #[derive(Template)]
 #[template(path = "apply_no_plan.md")]
-pub struct ApplyNoPlanTemplate {
-}
+pub struct ApplyNoPlanTemplate {}
 
 #[derive(Template)]
 #[template(path = "import_error.md")]
@@ -132,7 +131,6 @@ pub struct ImportSuccessTemplate {
     pub total_count: usize,
     pub success_emoji: &'static str,
 }
-
 
 #[derive(Template)]
 #[template(path = "skeleton_import_error.md")]
@@ -206,7 +204,7 @@ pub struct PullStateSuccessWithDeferralsTemplate {
     pub import_count: usize,
     pub deferred_count: usize,
     pub success_emoji: &'static str,
-    pub output_keys: Vec<String>
+    pub output_keys: Vec<String>,
 }
 
 #[derive(Template)]

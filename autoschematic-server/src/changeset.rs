@@ -31,7 +31,6 @@ use crate::{
 
 pub mod apply;
 pub mod import;
-pub mod import_skeletons;
 pub mod plan;
 pub mod pull_state;
 pub mod trace;
@@ -177,12 +176,12 @@ impl ChangeSet {
         let mut objects = Vec::new();
         while let Some(diff) = stream.try_next().await? {
             let path = PathBuf::from(diff.filename.clone());
-            tracing::warn!(
-                "Object {:?} : DiffEntryStatus: {:?} : prev = {:?}",
-                path,
-                diff.status,
-                diff.previous_filename
-            );
+            // tracing::warn!(
+            //     "Object {:?} : DiffEntryStatus: {:?} : prev = {:?}",
+            //     path,
+            //     diff.status,
+            //     diff.previous_filename
+            // );
 
             // It seems like github is pretty lenient in what counts as a "rename", even with
             // minor edits. We count all renames as a remove and create, for now.
@@ -208,23 +207,7 @@ impl ChangeSet {
 
         let temp_dir = TempDir::new("autoschematic")?;
 
-        tracing::warn!(
-            "unsorted objs: {:#?}",
-            &objects
-                .iter()
-                .map(|a| (a.filename.to_str().unwrap_or_default().into(), a.diff_status.clone()))
-                .collect::<Vec<(String, DiffEntryStatus)>>()
-        );
-
         let objects = sort_objects_by_apply_order(&objects);
-
-        tracing::warn!(
-            "sorted objs: {:#?}",
-            &objects
-                .iter()
-                .map(|a| (a.filename.to_str().unwrap_or_default().into(), a.diff_status.clone()))
-                .collect::<Vec<(String, DiffEntryStatus)>>()
-        );
 
         Ok(Self {
             temp_dir,
@@ -243,10 +226,7 @@ impl ChangeSet {
         })
     }
 
-    pub async fn autoschematic_config(&self) -> Result<AutoschematicConfig, anyhow::Error> {
-        // TODO if we're going to put access controls in autoschematic.ron,
-        //  they are instantly defeated by reading from HEAD.
-        // Therefore, we should read from whatever the default branch of the repo is.
+    pub async fn get_autoschematic_config(&self) -> Result<AutoschematicConfig, anyhow::Error> {
         let autoschematic_config_object = Object {
             owner: self.owner.clone(),
             repo: self.repo.clone(),
@@ -295,62 +275,4 @@ impl ChangeSet {
         remote.push::<&str>(&[&refspec], Some(&mut push_options))?;
         Ok(())
     }
-
-    // Write and commit the ./{prefix}/{addr}.out.json file,
-    //  and push it to the PR.
-    // This takes place after op_exec produces some outputs,
-    //  such as a newly created EC2 instance's ID,
-    //  or after get() imports a resource that similarly has outputs to store.
-    // pub fn write_commit_output_file(
-    //     &self,
-    //     repo: &Repository,
-    //     prefix: &Path,
-    //     addr: &Path,
-    //     phy_addr: Option<&Path>,
-    //     outputs: &OutputMap,
-    //     username: &str,
-    //     comment_url: &str,
-    //     merge_with_existing: bool,
-    // ) -> Result<(), anyhow::Error> {
-    //     if let Some(phy_addr) = phy_addr {
-    //         let virt_output_path = build_out_path(prefix, addr);
-    //         let phy_output_path = build_out_path(prefix, addr);
-
-    //         // self.write_output_file(prefix, addr, Some(phy_addr), outputs, merge_with_existing)?;
-
-    //         let mut index = repo.index()?;
-    //         index.add_all(
-    //             [virt_output_path, phy_output_path],
-    //             IndexAddOption::default(),
-    //             None,
-    //         )?;
-    //         index.write()?;
-    //     } else {
-    //         let output_path = build_out_path(prefix, addr);
-
-    //         // self.write_output_file(prefix, addr, None, outputs, merge_with_existing)?;
-
-    //         let mut index = repo.index()?;
-    //         index.add_all([output_path], IndexAddOption::default(), None)?;
-    //         index.write()?;
-    //     }
-
-    //     // TODO sign commits with a private key
-    //     // repo.commit_signed(u, signature, None);
-
-    //     let mut index = repo.index()?;
-    //     let oid = index.write_tree()?;
-    //     let parent_commit = repo.head()?.peel_to_commit()?;
-    //     let tree = repo.find_tree(oid)?;
-    //     let sig = git2::Signature::now("autoschematic", "apply@autoschematic.sh")?;
-    //     let message = format!("autoschematic apply by @{}: {}", username, comment_url);
-    //     repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent_commit])?;
-
-    //     let mut remote = repo.find_remote("origin")?;
-
-    //     let refspec = format!("refs/heads/{}:refs/heads/{}", self.head_ref, self.head_ref);
-    //     remote.push::<&str>(&[&refspec], None)?;
-
-    //     Ok(())
-    // }
 }

@@ -7,8 +7,11 @@ use std::{
 use super::trace::{append_run_log, finish_run, start_run};
 use super::util::check_run_url;
 use anyhow::Context;
-use autoschematic_core::connector::FilterResponse;
 use autoschematic_core::report::{PlanReport, PlanReportSet};
+use autoschematic_core::{
+    config_rbac::{self, AutoschematicRbacConfig},
+    connector::FilterResponse,
+};
 use autoschematic_core::{
     connector::{Connector, VirtToPhyResponse},
     glob::addr_matches_filter,
@@ -30,10 +33,12 @@ impl ChangeSet {
         comment_username: &str,
         comment_url: &str,
         continue_on_error: bool,
+        rbac_config: &AutoschematicRbacConfig,
+        rbac_user: &config_rbac::User,
     ) -> Result<(), anyhow::Error> {
         let trace_handle = start_run(self, comment_username, comment_url, "plan", "").await?;
 
-        let autoschematic_config = self.autoschematic_config().await?;
+        let autoschematic_config = self.get_autoschematic_config().await?;
 
         let check_run_url = check_run_url(self, &trace_handle);
 
@@ -81,6 +86,16 @@ impl ChangeSet {
                     && connector_def.shortname != *connector_filter
                 {
                     continue 'connector;
+                }
+
+                if !rbac_config.allows_read(rbac_user, &prefix_name, &connector_def.shortname) {
+                    tracing::info!(
+                        "RBAC denied for user {:?} in prefix {:?} with connector {}",
+                        rbac_user,
+                        prefix_name,
+                        connector_def.shortname
+                    );
+                    continue;
                 }
 
                 let (connector, mut inbox) = self

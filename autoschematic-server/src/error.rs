@@ -20,7 +20,10 @@ pub enum AutoschematicServerErrorType {
     /// Error when service is not installed on repository
     NotInstalled,
 
-    /// Error when service is not installed on repository
+    /// Error when the default branch (main, master, etc) does not have a valid RBAC config file "autoschematic.rbac.ron"
+    MissingRbacConfig,
+
+    /// Error when PR is not in a mergeable state (missing e.g. CI checks)
     NotMergeable,
     
     /// Error when a required HTTP header is missing
@@ -57,6 +60,9 @@ impl fmt::Display for AutoschematicServerError {
             }
             AutoschematicServerErrorType::InvalidLockString(name) => {
                 write!(f, "Invalid Lock String: {name}")
+            }
+            AutoschematicServerErrorType::MissingRbacConfig => {
+                write!(f, "No RBAC config (autoschematic.rbac.ron) present in the default branch")
             }
             AutoschematicServerErrorType::NotInstalled => write!(f, "Not installed on repo"),
             AutoschematicServerErrorType::NotMergeable => write!(f, "Pull request is not mergeable"),

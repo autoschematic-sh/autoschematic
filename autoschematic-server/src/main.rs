@@ -18,6 +18,7 @@ mod tracestore;
 mod url_builder;
 mod util;
 
+use actix_cors::Cors;
 use actix_files::NamedFile;
 use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use anyhow::Context;
@@ -41,7 +42,7 @@ use util::validate_github_hmac;
 
 use actix_web::{
     App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
-    cookie::Key,
+    cookie::{Key, SameSite},
     dev::{ServiceRequest, ServiceResponse},
     middleware::Logger,
     web::{self},
@@ -109,9 +110,34 @@ async fn async_main() -> anyhow::Result<()> {
     tracing::info!("Visit https://{}/create-app to create a Github App", webhook_domain);
 
     Ok(HttpServer::new(move || {
+        let cors = Cors::default()
+            .allowed_origin("http://localhost:5173")
+            .allowed_origin("https://autoschematic.sh")
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+            .allowed_headers(vec![
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "Upgrade",
+                "Connection",
+                "Sec-WebSocket-Key",
+                "Sec-WebSocket-Version",
+                "Sec-WebSocket-Extensions",
+                "ngrok-skip-browser-warning",
+            ])
+            .supports_credentials()
+            .max_age(3600);
+
         App::new()
             .wrap(Logger::new("%r %s %b %D ms %a %{User-Agent}i"))
-            .wrap(SessionMiddleware::new(CookieSessionStore::default(), Key::from(&session_key)))
+            .wrap(
+                SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&session_key))
+                    .cookie_secure(true) // required with SameSite=None
+                    .cookie_same_site(SameSite::None) // allow cross-site requests
+                    .cookie_domain(DOMAIN.get().cloned())
+                    .build(),
+            )
+            .wrap(cors)
             .route("/api/create-app", web::get().to(create_app))
             .route("/api/webhook", web::post().to(github_webhook))
             .route("/api/oauth", web::post().to(oauth))
@@ -140,16 +166,16 @@ async fn async_main() -> anyhow::Result<()> {
             )
             .route("/api/pubkeys", web::get().to(list_pubkeys))
             .route("/api/pubkey/{id}", web::get().to(get_pubkey))
-            .service(
-                actix_files::Files::new("/", "./dashboard-react/dist/")
-                    .index_file("index.html")
-                    .default_handler(actix_web::dev::fn_service(|req: ServiceRequest| async {
-                        let (req, _) = req.into_parts();
-                        let file = NamedFile::open_async("./dashboard-react/dist/index.html").await?;
-                        let res = file.into_response(&req);
-                        Ok(ServiceResponse::new(req, res))
-                    })),
-            )
+        // .service(
+        //     actix_files::Files::new("/", "./dashboard-react/dist/")
+        //         .index_file("index.html")
+        //         .default_handler(actix_web::dev::fn_service(|req: ServiceRequest| async {
+        //             let (req, _) = req.into_parts();
+        //             let file = NamedFile::open_async("./dashboard-react/dist/index.html").await?;
+        //             let res = file.into_response(&req);
+        //             Ok(ServiceResponse::new(req, res))
+        //         })),
+        // )
     })
     .bind("127.0.0.1:8086")?
     .run()
@@ -214,7 +240,7 @@ async fn get_pubkey(param: web::Path<String>) -> Result<HttpResponse, Error> {
 
 /// Handles incoming GitHub webhook events
 ///
-/// Validates the webhook signature, parses the event payload, 
+/// Validates the webhook signature, parses the event payload,
 /// and sends it on to event_handler::dispatch(...).
 ///
 /// # Headers
@@ -349,8 +375,11 @@ async fn oauth(query: web::Query<AuthRequest>, session: Session) -> Result<HttpR
     session.insert("access_token", access_token.to_string())?;
     session.insert("github_username", username.to_string())?;
 
+    let domain = DOMAIN.get().context("Missing WEBHOOK_DOMAIN environment variable").unwrap();
     // Redirect to dashboard
-    Ok(HttpResponse::Found().append_header(("Location", "/")).finish())
+    Ok(HttpResponse::TemporaryRedirect()
+        .insert_header(("Location", format!("http://localhost:5173/clusters/{}", domain)))
+        .finish())
 }
 
 async fn create_app() -> Result<HttpResponse, AutoschematicServerError> {

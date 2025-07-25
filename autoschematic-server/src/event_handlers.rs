@@ -1,5 +1,5 @@
 use askama::Template;
-use autoschematic_core::unescape::try_unescape;
+use autoschematic_core::{config_rbac, unescape::try_unescape};
 use clap::Parser;
 use octocrab::{
     models::webhook_events::{
@@ -17,8 +17,8 @@ use crate::{
     error::{AutoschematicServerError, AutoschematicServerErrorType},
     template::{
         self, ApplyErrorTemplate, ApplyNoPlanTemplate, ApplySuccessTemplate, CommandParseFailure, GreetingTemplate,
-        ImportErrorTemplate, ImportSuccessTemplate, PlanErrorTemplate, PlanNoChangesTemplate, PlanOverallErrorTemplate,
-        PlanOverallSuccessTemplate, PlanSuccessTemplate, PrLockHeld, SkeletonImportErrorTemplate,
+        ImportErrorTemplate, ImportSuccessTemplate, MiscError, PlanErrorTemplate, PlanNoChangesTemplate,
+        PlanOverallErrorTemplate, PlanOverallSuccessTemplate, PlanSuccessTemplate, PrLockHeld, SkeletonImportErrorTemplate,
         SkeletonImportSuccessTemplate, random_failure_emoji,
     },
 };
@@ -31,27 +31,27 @@ use crate::{
     },
 };
 
-
-/// 
+///
 pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicServerError> {
     tracing::debug!("Dispatching webhook event: {:?}", webhook_event.specific);
 
     if let Ok(Some(task_message)) = message_from_github_webhook(&webhook_event)
-        && let Some(registry) = TASK_REGISTRY.get() {
-            let entries = &*registry.entries.read().await;
+        && let Some(registry) = TASK_REGISTRY.get()
+    {
+        let entries = &*registry.entries.read().await;
 
-            for (key, entry) in entries.iter() {
-                tracing::error!("webhook sending message {:?}", &task_message);
-                let _ = entry.outbox.send(task_message.clone()).await;
-            }
-        };
+        for (key, entry) in entries.iter() {
+            tracing::error!("webhook sending message {:?}", &task_message);
+            let _ = entry.outbox.send(task_message.clone()).await;
+        }
+    };
 
     match webhook_event.specific {
         WebhookEventPayload::IssueComment(ref payload)
             if payload.action == IssueCommentWebhookEventAction::Created
                 || payload.action == IssueCommentWebhookEventAction::Edited =>
         {
-            let comment_username = payload.comment.user.login.clone();
+            let username = payload.comment.user.login.clone();
             let comment_id = payload.comment.id;
             let Some(ref comment_body) = payload.comment.body else {
                 return Ok(());
@@ -94,6 +94,24 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                         }
                     };
 
+                    let Ok(Some(rbac_config)) = changeset.get_rbac_config().await else {
+                        let e = AutoschematicServerError {
+                            kind: AutoschematicServerErrorType::MissingRbacConfig,
+                        };
+
+                        let misc_error = MiscError {
+                            error_message: try_unescape(&format!("{e:#}")).to_string(),
+                            failure_emoji: template::random_failure_emoji(),
+                        };
+
+                        changeset.create_comment(&misc_error.render()?).await?;
+                        return Err(e);
+                    };
+
+                    let rbac_user = config_rbac::User::GithubUser {
+                        username: username.clone(),
+                    };
+
                     let _ = changeset
                         .add_reaction(comment_id, octocrab::models::reactions::ReactionContent::Rocket)
                         .await;
@@ -116,7 +134,16 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                 .await?;
 
                             let res = changeset
-                                .import_all(subpath, prefix, connector, &comment_username, comment_url.as_str(), overwrite)
+                                .import_all(
+                                    subpath,
+                                    prefix,
+                                    connector,
+                                    &username,
+                                    comment_url.as_str(),
+                                    overwrite,
+                                    &rbac_config,
+                                    &rbac_user,
+                                )
                                 .await;
 
                             match res {
@@ -179,9 +206,11 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                     subpath.clone(),
                                     &prefix,
                                     &connector,
-                                    &comment_username,
+                                    &username,
                                     comment_url.as_str(),
                                     false,
+                                    &rbac_config,
+                                    &rbac_user,
                                 )
                                 .await;
                             match res {
@@ -347,8 +376,17 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                             let mut overall_success = true;
                             match &changeset.last_plan {
                                 Some(_) => {
+
                                     let apply_report_set = changeset
-                                        .apply(&repo, subpath, connector, &comment_username, comment_url.as_str())
+                                        .apply(
+                                            &repo,
+                                            subpath,
+                                            connector,
+                                            &username,
+                                            comment_url.as_str(),
+                                            &rbac_config,
+                                            &rbac_user,
+                                        )
                                         .await?;
 
                                     for apply_report in apply_report_set.apply_reports {
@@ -415,15 +453,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                             let repo = changeset.clone_repo().await?;
 
                             let res = changeset
-                                .pull_state(
-                                    &repo,
-                                    subpath,
-                                    prefix,
-                                    connector,
-                                    &comment_username,
-                                    comment_url.as_str(),
-                                    delete,
-                                )
+                                .pull_state(&repo, subpath, prefix, connector, &username, comment_url.as_str(), delete)
                                 .await;
 
                             match res {
@@ -494,65 +524,6 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                     changeset.create_comment(&msg).await?;
                                 }
                             }
-                        }
-                        crate::command::AutoschematicSubcommand::ImportSkeletons {
-                            prefix,
-                            connector,
-                            subpath,
-                        } => {
-                            let subpath = subpath.map(PathBuf::from);
-
-                            let connector_check_run_id = changeset
-                                .create_check_run(None, comment_body, &check_run_url, CheckRunStatus::InProgress, None)
-                                .await?;
-
-                            let res = changeset
-                                .import_skeletons(subpath, connector, &comment_username, comment_url.as_str())
-                                .await;
-
-                            match res {
-                                Ok(imported_count) => {
-                                    changeset
-                                        .create_check_run(
-                                            Some(connector_check_run_id),
-                                            comment_body,
-                                            &check_run_url,
-                                            CheckRunStatus::Completed,
-                                            Some(CheckRunConclusion::Success),
-                                        )
-                                        .await?;
-
-                                    let import_success_template = SkeletonImportSuccessTemplate {
-                                        imported_count,
-                                        success_emoji: template::random_success_emoji(),
-                                    };
-
-                                    changeset.create_comment(&import_success_template.render()?).await?;
-                                }
-                                Err(e) => {
-                                    tracing::error!("{}", e);
-                                    changeset
-                                        .create_check_run(
-                                            Some(connector_check_run_id),
-                                            comment_body,
-                                            &check_run_url,
-                                            CheckRunStatus::Completed,
-                                            Some(CheckRunConclusion::Failure),
-                                        )
-                                        .await?;
-
-                                    let import_error_template = SkeletonImportErrorTemplate {
-                                        error_message: try_unescape(&format!("{e:#}")).to_string(),
-                                        failure_emoji: template::random_failure_emoji(),
-                                    };
-
-                                    changeset.create_comment(&import_error_template.render()?).await?;
-                                }
-                            }
-                        }
-                        crate::command::AutoschematicSubcommand::Safety { off: _ } => {
-                            tracing::warn!("Safety command not yet implemented");
-                            changeset.create_comment("⚠️ Safety command not yet implemented").await?;
                         }
                         crate::command::AutoschematicSubcommand::Help {} => {
                             changeset.create_comment(HELP).await?;

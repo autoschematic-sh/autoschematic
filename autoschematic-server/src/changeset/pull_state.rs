@@ -39,7 +39,7 @@ impl ChangeSet {
 
         let trace_handle = start_run(self, comment_username, comment_url, "pull-state", "").await?;
 
-        let autoschematic_config = self.autoschematic_config().await?;
+        let autoschematic_config = self.get_autoschematic_config().await?;
 
         let check_run_url = check_run_url(self, &trace_handle);
 

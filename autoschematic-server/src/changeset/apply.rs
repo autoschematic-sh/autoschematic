@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use super::trace::{append_run_log, finish_run, start_run};
 use anyhow::bail;
+use autoschematic_core::config_rbac;
+use autoschematic_core::config_rbac::AutoschematicRbacConfig;
 use autoschematic_core::report::ApplyReport;
 use autoschematic_core::report::ApplyReportSet;
 use autoschematic_core::workflow;
@@ -19,8 +21,11 @@ impl ChangeSet {
         connector_filter: Option<String>,
         comment_username: &str,
         comment_url: &str,
+        rbac_config: &AutoschematicRbacConfig,
+        rbac_user: &config_rbac::User,
     ) -> Result<ApplyReportSet, anyhow::Error> {
         let trace_handle = start_run(self, comment_username, comment_url, "apply", "").await?;
+        let mut pr_approvals = None;
 
         let mut apply_report_set = ApplyReportSet::default();
 
@@ -40,9 +45,41 @@ impl ChangeSet {
         let _chwd = self.chwd_to_repo();
         for plan_report in &plan_report_set.plan_reports {
             if let Some(connector_filter) = &connector_filter
-                && plan_report.connector_shortname != *connector_filter {
+                && plan_report.connector_shortname != *connector_filter
+            {
+                continue;
+            }
+
+            if !rbac_config.allows_apply_without_approval(
+                rbac_user,
+                &plan_report.prefix.to_string_lossy().to_string(),
+                &plan_report.connector_shortname,
+            ) {
+                if !rbac_config.allows_apply_with_approval(
+                    rbac_user,
+                    &plan_report.prefix.to_string_lossy().to_string(),
+                    &plan_report.connector_shortname,
+                ) {
                     continue;
                 }
+
+                if pr_approvals.is_none() {
+                    pr_approvals = Some(self.get_pr_approvals().await?);
+                }
+
+                if let Some(ref pr_approvals) = pr_approvals {
+                    if !rbac_config.allows_apply_if_approved_by(
+                        rbac_user,
+                        &plan_report.prefix.to_string_lossy().to_string(),
+                        &plan_report.connector_shortname,
+                        pr_approvals,
+                    ) {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+            }
 
             let virt_addr = plan_report.virt_addr.clone();
             // let phy_addr = plan_report.phy_addr.clone();
@@ -68,7 +105,7 @@ impl ChangeSet {
                 continue;
             };
 
-            if let Some(ref error) = plan_report.error {
+            if let Some(ref _error) = plan_report.error {
                 let _file_check_run_id = self
                     .create_check_run(
                         None,
@@ -87,7 +124,7 @@ impl ChangeSet {
                 .get_or_spawn_connector(
                     &plan_report.connector_shortname,
                     connector_spec,
-                    &PathBuf::from(&prefix),
+                    &prefix,
                     &plan_report.connector_env,
                     Some(KEYSTORE.clone()),
                 )

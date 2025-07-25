@@ -121,28 +121,6 @@ pub enum AutoschematicSubcommand {
         delete: bool,
     },
 
-    /// Import each connector's skeleton resources into the repo.
-    ImportSkeletons {
-        /// Optional path (can be a glob) to specify which subset of the changeset to apply.
-        #[arg(short, long, value_name = "prefix")]
-        prefix: Option<String>,
-
-        /// Optional: run for a single connector by name
-        #[arg(short, long, value_name = "connector")]
-        connector: Option<String>,
-
-        /// Optional path (can be a glob) to filter which resources are imported.
-        #[arg(short, long, value_name = "subpath")]
-        subpath: Option<String>,
-    },
-
-    /// Set or remove the safety catch, preventing `apply` until turned off.
-    Safety {
-        /// If specified as "off", turns the safety off; otherwise sets it on.
-        #[arg(value_name = "off")]
-        off: Option<String>,
-    },
-    
     Help {
     }
 

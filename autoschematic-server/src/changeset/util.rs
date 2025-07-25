@@ -1,28 +1,31 @@
-use std::{fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::bail;
+use autoschematic_core::{
+    config_rbac::{self, AutoschematicRbacConfig},
+    util::RON,
+};
 use git2::{
-    build::{CheckoutBuilder, RepoBuilder},
     Cred, FetchOptions, Oid, RemoteCallbacks, Repository,
+    build::{CheckoutBuilder, RepoBuilder},
 };
 use octocrab::{
     models::{
+        CheckRunId, CommentId,
+        pulls::ReviewState,
         reactions::ReactionContent,
         webhook_events::{EventInstallation, WebhookEvent},
-        CheckRunId, CommentId,
     },
     params::checks::{CheckRunConclusion, CheckRunStatus},
 };
 use secrecy::ExposeSecret;
 
-use crate::{
-    chwd::ChangeWorkingDirectory, credentials, tracestore::TraceHandle, DOMAIN,
-};
+use crate::{DOMAIN, chwd::ChangeWorkingDirectory, credentials, tracestore::TraceHandle};
 
 use super::ChangeSet;
 
 impl ChangeSet {
-    // Create a check run on the PR for this ChangeSet
+    /// Create a check run on the PR represented by this ChangeSet.
     pub async fn create_check_run(
         &self,
         check_run_id: Option<CheckRunId>,
@@ -87,11 +90,7 @@ impl ChangeSet {
         Ok(())
     }
 
-    pub async fn add_reaction(
-        &self,
-        comment_id: CommentId,
-        content: ReactionContent,
-    ) -> Result<(), anyhow::Error> {
+    pub async fn add_reaction(&self, comment_id: CommentId, content: ReactionContent) -> Result<(), anyhow::Error> {
         self.client
             .issues(self.owner.clone(), self.repo.clone())
             .create_comment_reaction(comment_id, content)
@@ -140,6 +139,7 @@ impl ChangeSet {
                 .clone(&repo_url, &repo_path)?,
         };
 
+        // TODO re-enable if we want to re-add git submodule support?
         // let submodules = repository.submodules()?;
 
         // let mut callbacks = RemoteCallbacks::new();
@@ -179,43 +179,76 @@ impl ChangeSet {
         Ok(repository)
     }
 
-    // pub fn get_modified_objects(&self) -> anyhow::Result<Vec<PathBuf>> {
-    //     let res = Vec::new();
-    //     let repository = Repository::open(&self.repo_path())?;
+    /// Get the RBAC config (autoschematic.rbac.ron) from the repository that this changeset points
+    /// to. In particular, get the latest state of it as commited to the default branch (main, master, etc)
+    /// as it would be useless to validate the config at the tip of a pull-request branch.
+    pub async fn get_rbac_config(&self) -> anyhow::Result<Option<AutoschematicRbacConfig>> {
+        let repository = self.client.repos(&self.owner, &self.repo).get().await?;
 
-    //     let base_obj = repository.revparse_single(&self.base_sha).context("revparse")?;
-    //     let head_obj = repository.revparse_single(&self.head_sha).context("revparse")?;
+        let Some(default_branch) = repository.default_branch else {
+            return Ok(None);
+        };
 
-    //     let base_tree = base_obj.peel(ObjectType::Tree).context("peel")?;
-    //     let head_tree = head_obj.peel(ObjectType::Tree).context("peel")?;
+        let config_content = self
+            .client
+            .repos(&self.owner, &self.repo)
+            .get_content()
+            .path("autoschematic.rbac.ron")
+            .r#ref(default_branch)
+            .send()
+            .await;
 
-    //     // let base_tree = repository.find_tree(Oid::from_str(&self.base_sha)?)?;
-    //     // let head_tree = repository.find_tree(Oid::from_str(&self.head_sha)?)?;
-        
-    //     repository.revwalk()?;
+        let contents = config_content?.take_items();
+        if contents.is_empty() {
+            return Ok(None);
+        }
 
-    //     let diff = repository.diff_tree_to_tree(base_tree.as_tree(), head_tree.as_tree(), None)?;
-    //     // let diff = repository.diff_blobs(Some(&base_tree), Some(&head_tree), None)?;
+        let c = &contents[0];
 
-    //     // TODO figure out how to walk the revs
-    //     //  to produce every file that has been touched between them!
-    //     for delta in diff.deltas() {
-    //         tracing::warn!(
-    //             "Delta {:?}, {:?} -> {:?}",
-    //             delta.status(),
-    //             delta.old_file().path(),
-    //             delta.new_file().path()
-    //         );
-    //     }
+        let Some(decoded_content) = c.decoded_content() else {
+            return Ok(None);
+        };
 
-    //     Ok(res)
-    // }
+        let config: AutoschematicRbacConfig = RON.from_str(&decoded_content)?;
+
+        Ok(Some(config))
+    }
+
+    pub async fn get_pr_approvals(&self) -> anyhow::Result<Vec<config_rbac::User>> {
+        let pages = self
+            .client
+            .pulls(&self.owner, &self.repo)
+            .list_reviews(self.issue_number)
+            .per_page(100)
+            .send()
+            .await?;
+
+        let mut reviews = self.client.all_pages(pages).await?;
+
+        reviews.sort_by_key(|r| r.submitted_at.unwrap_or_default());
+
+        let mut latest_reviews: HashMap<String, ReviewState> = HashMap::new();
+        for r in reviews {
+            if let (Some(user), Some(state)) = (r.user, r.state) {
+                latest_reviews.insert(user.login, state);
+            }
+        }
+
+        let mut approved = Vec::new();
+        // let mut rejected = Vec::new();
+        for (login, state) in latest_reviews {
+            match state {
+                ReviewState::Approved => approved.push(config_rbac::User::GithubUser { username: login }),
+                // ReviewState::ChangesRequested => rejected.push(login),
+                _ => {} // COMMENTED / DISMISSED / PENDING don’t count
+            }
+        }
+
+        Ok(approved)
+    }
 }
 
-pub async fn create_comment_standalone(
-    webhook_event: &WebhookEvent,
-    comment: &str,
-) -> anyhow::Result<()> {
+pub async fn create_comment_standalone(webhook_event: &WebhookEvent, comment: &str) -> anyhow::Result<()> {
     if let Some(EventInstallation::Minimal(ref installation_id)) = webhook_event.installation {
         let (client, _) = credentials::octocrab_installation_client(installation_id.id).await?;
 
@@ -228,17 +261,10 @@ pub async fn create_comment_standalone(
         };
 
         let issue_number = match &webhook_event.specific {
-            octocrab::models::webhook_events::WebhookEventPayload::IssueComment(payload) => {
-                payload.issue.number
-            }
-            octocrab::models::webhook_events::WebhookEventPayload::PullRequest(payload) => {
-                payload.number
-            }
+            octocrab::models::webhook_events::WebhookEventPayload::IssueComment(payload) => payload.issue.number,
+            octocrab::models::webhook_events::WebhookEventPayload::PullRequest(payload) => payload.number,
             _ => {
-                bail!(
-                    "create_comment_standalone: unhandled event type {:?}",
-                    webhook_event.specific
-                )
+                bail!("create_comment_standalone: unhandled event type {:?}", webhook_event.specific)
             }
         };
 
@@ -250,10 +276,7 @@ pub async fn create_comment_standalone(
     Ok(())
 }
 
-pub async fn add_reaction_standalone(
-    webhook_event: WebhookEvent,
-    content: ReactionContent,
-) -> anyhow::Result<()> {
+pub async fn add_reaction_standalone(webhook_event: WebhookEvent, content: ReactionContent) -> anyhow::Result<()> {
     if let Some(EventInstallation::Minimal(installation_id)) = webhook_event.installation {
         let (client, _) = credentials::octocrab_installation_client(installation_id.id).await?;
 
@@ -266,14 +289,9 @@ pub async fn add_reaction_standalone(
         };
 
         let comment_id = match webhook_event.specific {
-            octocrab::models::webhook_events::WebhookEventPayload::IssueComment(payload) => {
-                payload.comment.id
-            }
+            octocrab::models::webhook_events::WebhookEventPayload::IssueComment(payload) => payload.comment.id,
             _ => {
-                bail!(
-                    "create_comment_standalone: unhandled event type {:?}",
-                    webhook_event.specific
-                )
+                bail!("create_comment_standalone: unhandled event type {:?}", webhook_event.specific)
             }
         };
 
@@ -289,15 +307,8 @@ pub fn check_run_url(changeset: &ChangeSet, trace_handle: &TraceHandle) -> Strin
     match DOMAIN.get() {
         Some(domain) => format!(
             "https://{}/dashboard/{}/{}/{}/#{}",
-            domain,
-            changeset.owner,
-            changeset.repo,
-            changeset.issue_number,
-            trace_handle.run_key.run_id
+            domain, changeset.owner, changeset.repo, changeset.issue_number, trace_handle.run_key.run_id
         ),
         None => String::new(),
     }
 }
-
-// pub file_exists_in_prefix(addr: &Path, prefix: &Path) {
-// }
