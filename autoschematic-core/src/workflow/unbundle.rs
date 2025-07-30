@@ -7,8 +7,8 @@ use crate::{
     connector::{Connector, VirtToPhyResponse},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
-    template::template_config,
     report::PlanReport,
+    template::template_config,
     util::split_prefix_addr,
 };
 
@@ -115,9 +115,6 @@ pub async fn plan_connector(
     Ok(Some(plan_report))
 }
 
-/// For a given path, attempt to resolve its prefix and Connector impl and return a Vec of ConnectorOps.
-/// Note that this, unlike the server implementation, does not handle setting desired = None where files do
-/// not exist - it is intended to be used from the command line or from LSPs to quickly modify resources.
 pub async fn unbundle(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: Arc<ConnectorCache>,
@@ -139,14 +136,18 @@ pub async fn unbundle(
     let mut handles = Vec::new();
     'connector: for connector_def in prefix_def.connectors {
         if let Some(connector_filter) = &connector_filter
-            && connector_def.shortname != *connector_filter {
-                continue 'connector;
-            }
+            && connector_def.shortname != *connector_filter
+        {
+            continue 'connector;
+        }
 
         let connector_cache = connector_cache.clone();
         let keystore = keystore.clone();
         let prefix = prefix.clone();
         handles.push(tokio::spawn(async move {
+            // TODO Does unbundle require init()? Do bundles depend on the connector's config files,
+            // or should they only statically read output files and bundle files and produce bundled resources?
+            // (I'm leaning towards the latter!)
             let (connector, mut inbox) = connector_cache
                 .get_or_spawn_connector(
                     &connector_def.shortname,
@@ -154,6 +155,7 @@ pub async fn unbundle(
                     &prefix,
                     &connector_def.env,
                     keystore,
+                    false
                 )
                 .await
                 .unwrap();

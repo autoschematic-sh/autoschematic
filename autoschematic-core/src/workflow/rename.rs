@@ -37,6 +37,9 @@ pub async fn rename(
     let have_filter = false;
 
     'connector: for connector_def in &prefix_def.connectors {
+        // TODO Does rename, and therefore virt_to_phy/phy_to_virt require init()? Does virt to phy mapping 
+        // require the connector's config files, or ought it be statically determined by outputs alone?
+        // (I'm leaning towards the latter!)
         let (connector, mut inbox) = connector_cache
             .get_or_spawn_connector(
                 &connector_def.shortname,
@@ -44,6 +47,7 @@ pub async fn rename(
                 &prefix,
                 &connector_def.env,
                 keystore.clone(),
+                false,
             )
             .await?;
 

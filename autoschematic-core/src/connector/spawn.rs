@@ -1,13 +1,14 @@
-use std::{collections::HashMap, path::Path, sync::Arc, time::Duration};
+use std::{collections::HashMap, path::{Path, PathBuf}, sync::Arc, time::Duration};
 
 use crate::{
     config::Spec,
-    connector::{Connector, ConnectorInbox},
+    connector::{handle::ConnectorHandle, Connector, ConnectorInbox},
     keystore::KeyStore,
 };
 use anyhow::{Context, bail};
 #[cfg(feature = "python")]
 use python::PythonConnector;
+use rand::{distr::Alphanumeric, Rng};
 
 #[cfg(feature = "python")]
 pub mod python;
@@ -25,7 +26,7 @@ pub async fn spawn_connector(
     env: &HashMap<String, String>,
     // binary_cache: &BinaryCache,
     keystore: Option<Arc<dyn KeyStore>>,
-) -> Result<(Arc<dyn Connector>, ConnectorInbox), anyhow::Error> {
+) -> Result<(Arc<dyn ConnectorHandle>, ConnectorInbox), anyhow::Error> {
     let (outbox, inbox) = tokio::sync::broadcast::channel(64);
 
     Ok((
@@ -38,7 +39,7 @@ pub async fn spawn_connector(
             unsandbox::launch_server_binary(spec, shortname, prefix, env, outbox, keystore)
                 .await
                 .context("launch_server_binary()")?,
-        ) as Arc<dyn Connector>,
+        ) as Arc<dyn ConnectorHandle>,
         inbox,
     ))
 }
@@ -57,4 +58,34 @@ pub async fn wait_for_socket(socket: &Path, timeout: Duration) -> anyhow::Result
     }
 
     Ok(())
+}
+
+
+fn random_socket_path() -> PathBuf {
+    loop {
+        let socket_s: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
+
+        let mut socket = PathBuf::from("/tmp/").join(socket_s);
+
+        socket.set_extension("sock");
+
+        if let Ok(false) = socket.try_exists() {
+            tracing::info!("Creating socket at {:?}", socket);
+            return socket;
+        }
+    }
+}
+
+fn random_error_dump_path() -> PathBuf {
+    loop {
+        let dump_s: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
+
+        let mut dump = PathBuf::from("/tmp/").join(dump_s);
+
+        dump.set_extension("dump");
+
+        if let Ok(false) = dump.try_exists() {
+            return dump;
+        }
+    }
 }

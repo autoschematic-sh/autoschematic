@@ -32,9 +32,6 @@ pub trait KeyStore: Send + Sync + std::fmt::Debug {
     /// Fails if `id` is invalid.
     fn get_public_key(&self, id: &str) -> Result<String>;
     fn get_private_key(&self, id: &str) -> Result<String>;
-    /// Verifies a signed payload against key `id`.
-    /// Fails if `id` is invalid or if verification fails.
-    fn verify(&self, id: &str, payload: &str) -> Result<String>;
 
     fn create_keypair(&self, id: &str) -> Result<()>;
     fn delete_keypair(&self, id: &str) -> Result<()>;

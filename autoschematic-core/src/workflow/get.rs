@@ -31,6 +31,7 @@ pub async fn get(
                 prefix,
                 &connector_def.env,
                 keystore.clone(),
+                true,
             )
             .await?;
 

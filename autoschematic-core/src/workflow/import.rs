@@ -171,16 +171,18 @@ pub async fn import_all(
 
     for (prefix_name, prefix) in &autoschematic_config.prefixes {
         if let Some(prefix_filter) = &prefix_filter
-            && prefix_name != prefix_filter {
-                continue;
-            }
+            && prefix_name != prefix_filter
+        {
+            continue;
+        }
         for connector_def in &prefix.connectors {
             let prefix_name = PathBuf::from(&prefix_name);
 
             if let Some(connector_filter) = &connector_filter
-                && connector_def.shortname != *connector_filter {
-                    continue;
-                }
+                && connector_def.shortname != *connector_filter
+            {
+                continue;
+            }
             // subcount represents the number of resources imported by this connector,
             // count represents the number of resources imported by all connectors
             let imported_subcount: usize = 0;
@@ -193,6 +195,7 @@ pub async fn import_all(
                     &PathBuf::from(&prefix_name),
                     &connector_def.env,
                     keystore.clone(),
+                    true,
                 )
                 .await?;
             let _reader_handle = tokio::spawn(async move {
@@ -248,18 +251,19 @@ pub async fn import_all(
 
                         // Skip files that already exist in other resource groups.
                         if let Some(ref resource_group) = prefix.resource_group
-                            && let Some(neighbour_prefixes) = resource_group_map.get(resource_group) {
-                                // get all prefixes in this resource group except our own
-                                for neighbour_prefix in neighbour_prefixes.iter().filter(|p| **p != prefix_name) {
-                                    if neighbour_prefix.join(&phy_addr).exists() {
-                                        continue 'phy_addr;
-                                    }
+                            && let Some(neighbour_prefixes) = resource_group_map.get(resource_group)
+                        {
+                            // get all prefixes in this resource group except our own
+                            for neighbour_prefix in neighbour_prefixes.iter().filter(|p| **p != prefix_name) {
+                                if neighbour_prefix.join(&phy_addr).exists() {
+                                    continue 'phy_addr;
+                                }
 
-                                    if OutputMapFile::path(neighbour_prefix, &phy_addr).exists() {
-                                        continue 'phy_addr;
-                                    }
+                                if OutputMapFile::path(neighbour_prefix, &phy_addr).exists() {
+                                    continue 'phy_addr;
                                 }
                             }
+                        }
 
                         let prefix_name = prefix_name.clone();
                         let outbox = outbox.clone();

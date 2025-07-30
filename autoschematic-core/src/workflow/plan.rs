@@ -56,7 +56,6 @@ pub async fn plan_connector(
 
     let path = prefix.join(virt_addr);
 
-
     let connector_ops = if path.is_file() {
         // let desired = std::fs::read(&path)?;
         let desired_bytes = tokio::fs::read(&path).await?;
@@ -145,9 +144,10 @@ pub async fn plan(
 
     'connector: for connector_def in prefix_def.connectors {
         if let Some(connector_filter) = &connector_filter
-            && connector_def.shortname != *connector_filter {
-                continue 'connector;
-            }
+            && connector_def.shortname != *connector_filter
+        {
+            continue 'connector;
+        }
 
         let connector_cache = connector_cache.clone();
         let keystore = keystore.clone();
@@ -161,6 +161,7 @@ pub async fn plan(
                     &prefix,
                     &connector_def.env,
                     keystore,
+                    true,
                 )
                 .await?;
 

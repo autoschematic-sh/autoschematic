@@ -8,6 +8,7 @@ use crate::{
     config::Spec,
     connector::{
         Connector, ConnectorInbox, FilterResponse,
+        handle::{ConnectorHandle, ConnectorHandleStatus},
         spawn::spawn_connector,
     },
     error::AutoschematicError,
@@ -16,27 +17,52 @@ use crate::{
 
 use anyhow::Context;
 use dashmap::DashMap;
+use serde::Serialize;
+use tokio::task::JoinHandle;
 
-type HashKey = (String, PathBuf);
+#[derive(Clone, PartialEq, Eq, Hash, Serialize)]
+pub struct ConnectorCacheKey {
+    pub prefix: PathBuf,
+    pub shortname: String,
+}
 
 #[derive(Default)]
 pub struct ConnectorCache {
     // TODO when we run different connectors init() in parallel, we're fine. But we were to run the same init() in parallel,
     // we'd currently end up initializing two instances and only writing the second one under this scheme.
     // TODO: make this a map of <HashKey, RwLock<...>> or similar, and let consumers instead block on read() until the background init holding write() is finished!
-    cache: Arc<DashMap<HashKey, (Arc<dyn Connector>, ConnectorInbox)>>,
+    cache: Arc<DashMap<ConnectorCacheKey, (Arc<dyn ConnectorHandle>, ConnectorInbox)>>,
     /// Used to cache the results of Connector::filter(addr), which are assumed to be
     /// static. Since filter() is the most common call, this can speed up workflows by
     /// avoiding calling out to the connectors so many times.
-    filter_cache: Arc<DashMap<HashKey, HashMap<PathBuf, FilterResponse>>>,
+    init_status: Arc<DashMap<ConnectorCacheKey, bool>>,
+    filter_cache: Arc<DashMap<ConnectorCacheKey, HashMap<PathBuf, FilterResponse>>>,
     // binary_cache: BinaryCache,
 }
 
 /// A ConnectorCache represents a handle to multiple Connector instances. The server, CLI, and LSP
 /// implementations all use a ConnectorCache to initialize connectors on-demand.
 impl ConnectorCache {
+    pub async fn top(&self) -> HashMap<ConnectorCacheKey, ConnectorHandleStatus> {
+        let mut res = HashMap::new();
+
+        let keys: Vec<ConnectorCacheKey> = self.cache.iter().map(|kv| kv.key().clone()).collect();
+
+        for key in keys {
+            if let Some(kv) = self.cache.get(&key) {
+                res.insert(key, kv.0.status().await);
+            }
+        }
+
+        res
+    }
+
     pub async fn get_connector(&self, name: &str, prefix: &Path) -> Option<(Arc<dyn Connector>, ConnectorInbox)> {
-        let key = (name.into(), prefix.into());
+        let key = ConnectorCacheKey {
+            shortname: name.into(),
+            prefix: prefix.into(),
+        };
+
         if let Some(entry) = self.cache.get(&key) {
             let (connector, inbox) = &*entry;
             Some((connector.clone(), inbox.resubscribe()))
@@ -52,8 +78,12 @@ impl ConnectorCache {
         prefix: &Path,
         env: &HashMap<String, String>,
         keystore: Option<Arc<dyn KeyStore>>,
+        do_init: bool,
     ) -> Result<(Arc<dyn Connector>, ConnectorInbox), AutoschematicError> {
-        let key = (name.into(), prefix.into());
+        let key = ConnectorCacheKey {
+            shortname: name.into(),
+            prefix: prefix.into(),
+        };
 
         if !self.cache.contains_key(&key) {
             // let connector_type = parse_connector_name(name)?;
@@ -65,9 +95,12 @@ impl ConnectorCache {
                 .await
                 .context("spawn_connector()")?;
 
-            if let Err(e) = connector.init().await {
-                tracing::error!("In prefix {}: failed to init connector {}: {:#?}", prefix.display(), name, e);
-            };
+            if do_init {
+                if let Err(e) = connector.init().await {
+                    tracing::error!("In prefix {}: failed to init connector {}: {:#?}", prefix.display(), name, e);
+                };
+                self.init_status.insert(key.clone(), true);
+            }
 
             let connector_arc = Arc::new(connector);
 
@@ -79,14 +112,25 @@ impl ConnectorCache {
                 return Err(anyhow::anyhow!("Failed to get connector from cache: name {}, prefix {:?}", name, prefix).into());
             };
             let (connector, inbox) = &*entry;
+
+            if do_init && self.init_status.get(&key).is_none() {
+                if let Err(e) = connector.init().await {
+                    tracing::error!("In prefix {}: failed to init connector {}: {:#?}", prefix.display(), name, e);
+                };
+                self.init_status.insert(key.clone(), true);
+            }
+
             Ok((connector.clone(), inbox.resubscribe()))
         }
     }
 
     pub async fn init_connector(&self, name: &str, prefix: &Path) -> Option<anyhow::Result<()>> {
-        let connector_key = (name.into(), prefix.into());
+        let key = ConnectorCacheKey {
+            shortname: name.into(),
+            prefix: prefix.into(),
+        };
 
-        if let Some(entry) = self.cache.get(&connector_key) {
+        if let Some(entry) = self.cache.get(&key) {
             let (connector, _inbox) = &*entry;
             self.clear_filter_cache(name, prefix).await;
             Some(connector.init().await)
@@ -100,15 +144,17 @@ impl ConnectorCache {
     /// Note that this does not initialize connectors if they aren't yet present.
     /// Also, note that calling init() on a connector will invalidate the cached filter data.
     pub async fn filter(&self, name: &str, prefix: &Path, addr: &Path) -> anyhow::Result<FilterResponse> {
-        let connector_key = (name.into(), prefix.into());
-        // let filter_key = (connector_key.clone(), addr.into());
+        let key = ConnectorCacheKey {
+            shortname: name.into(),
+            prefix: prefix.into(),
+        };
 
         // Get the filter cache for connector `name` at prefix `prefix`, or initialize it.
-        let mut connector_filter_cache = { self.filter_cache.entry(connector_key.clone()).or_default() };
+        let mut connector_filter_cache = { self.filter_cache.entry(key.clone()).or_default() };
 
         if let Some(value) = connector_filter_cache.get(addr) {
             Ok(*value)
-        } else if let Some(entry) = self.cache.get(&connector_key) {
+        } else if let Some(entry) = self.cache.get(&key) {
             let (connector, _inbox) = &*entry;
             let res = connector.filter(addr).await?;
             connector_filter_cache.insert(addr.into(), res);
@@ -120,9 +166,12 @@ impl ConnectorCache {
 
     ///
     pub async fn clear_filter_cache(&self, name: &str, prefix: &Path) {
-        let connector_key = (name.into(), prefix.into());
+        let key = ConnectorCacheKey {
+            shortname: name.into(),
+            prefix: prefix.into(),
+        };
 
-        self.filter_cache.remove(&connector_key);
+        self.filter_cache.remove(&key);
     }
 
     /// Drop all entries in the connector and filter caches.

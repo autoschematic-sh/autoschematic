@@ -88,6 +88,7 @@ impl ChangeSet {
                         &PathBuf::from(&prefix_name),
                         &connector_def.env,
                         Some(KEYSTORE.clone()),
+                        true,
                     )
                     .await?;
 

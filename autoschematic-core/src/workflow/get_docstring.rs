@@ -32,13 +32,15 @@ pub async fn get_docstring(
                 prefix,
                 &connector_def.env,
                 keystore.clone(),
+                false,
             )
             .await?;
 
         if connector.filter(addr).await? == FilterResponse::Resource
-            && let Some(doc) = connector.get_docstring(addr, ident.clone()).await? {
-                return Ok(Some(doc));
-            }
+            && let Some(doc) = connector.get_docstring(addr, ident.clone()).await?
+        {
+            return Ok(Some(doc));
+        }
     }
 
     Ok(None)

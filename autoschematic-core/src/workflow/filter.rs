@@ -28,6 +28,7 @@ pub async fn filter(
                 prefix,
                 &connector_def.env,
                 keystore.clone(),
+                true,
             )
             .await?;
 

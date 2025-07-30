@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -9,7 +10,7 @@ use anyhow::{Result, bail};
 use autoschematic_core::{
     config::AutoschematicConfig,
     config_rbac::AutoschematicRbacConfig,
-    connector::FilterResponse,
+    connector::{FilterResponse, handle::ConnectorHandleStatus},
     connector_cache::ConnectorCache,
     manifest::ConnectorManifest,
     template::{self},
@@ -160,7 +161,6 @@ impl LanguageServer for Backend {
         }
 
         let keystore = None;
-        eprintln!("execute_command: {params:?}");
 
         match params.command.as_str() {
             "relaunch" => {
@@ -283,6 +283,17 @@ impl LanguageServer for Backend {
                 }
 
                 return Ok(Some(serde_json::to_value(false).unwrap()));
+            }
+            "top" => {
+                let topRes = self.connector_cache.top().await;
+
+                let mut res: HashMap<PathBuf, HashMap<String, ConnectorHandleStatus>> = HashMap::new();
+
+                for (key, value) in topRes {
+                    res.entry(key.prefix).or_insert(HashMap::new()).insert(key.shortname, value);
+                }
+
+                return Ok(Some(serde_json::to_value(res).unwrap()));
             }
             _ => {}
         }
@@ -429,6 +440,7 @@ impl Backend {
                             &PathBuf::from(prefix_name),
                             &connector_def.env,
                             None,
+                            false,
                         )
                         .await?;
 
@@ -603,12 +615,16 @@ impl Backend {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let connector_cache = ConnectorCache::default();
+
+    // let rd_handle = connector_cache.start_monitoring().await;
+
     let (stdin, stdout) = (tokio::io::stdin(), tokio::io::stdout());
     let (service, socket) = LspService::new(|client| Backend {
         client,
         docs: DashMap::new(),
         autoschematic_config: RwLock::new(None),
-        connector_cache: Arc::new(ConnectorCache::default()),
+        connector_cache: Arc::new(connector_cache),
     });
     Server::new(stdin, stdout, socket).serve(service).await;
     Ok(())

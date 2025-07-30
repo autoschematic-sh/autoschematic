@@ -87,33 +87,6 @@ impl KeyStore for OndiskKeyStore {
         let pub_bytes = secret_key.to_bytes();
         Ok(BASE64_STANDARD.encode(pub_bytes))
     }
-
-    fn verify(&self, id: &str, payload: &str) -> Result<String> {
-        // let store = Self::new()?;
-        // let key_path = store.key_path(id);
-        // let public_key_bytes = fs::read(key_path)?;
-        // let verifying_key = VerifyingKey::from_sec1_bytes(&public_key_bytes)?;
-        // let signature_hex = payload; // Assuming payload contains the signature
-        // let signature_bytes = hex::decode(signature_hex)?;
-        // let signature = Signature::from_bytes(&signature_bytes)?;
-        // verifying_key.verify(payload.as_bytes(), &signature)?;
-        Ok("Verified".to_string())
-    }
-    
-    // fn seal_secret(&self, id: &str, payload: &str) -> Result<String> {
-    //     let key_path = self.key_path(id);
-    //     let private_key_bytes = fs::read(key_path)?;
-    //     let signing_key = SigningKey::from_pkcs8_der(&private_key_bytes)?;
-    //     let verifying_key: &VerifyingKey = signing_key.verifying_key();
-        
-    //     // verifying_key.verify(msg, signature);
-
-    //     Ok(String::from(""))
-    // }
-    
-    // fn unseal_secret(&self, id: &str, payload: &str) -> Result<String> {
-    //     todo!()
-    // }
     
     fn create_keypair(&self, id: &str) -> Result<()> {
         // let mut rng = OsRng;

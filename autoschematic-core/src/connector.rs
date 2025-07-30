@@ -214,7 +214,6 @@ impl OutputMapFile {
     }
 
     pub fn delete(prefix: &Path, addr: &Path) -> anyhow::Result<Option<PathBuf>> {
-        // TODO this oughta return Option<PathBuf> so the user can know if a file was actually deleted
         let path = Self::path(prefix, addr);
         if path.is_file() {
             std::fs::remove_file(&path)?;
@@ -225,9 +224,9 @@ impl OutputMapFile {
     }
 }
 
-pub mod parse;
+pub mod handle;
 pub mod spawn;
-pub mod r#type;
+pub mod task;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Clone)]
 pub enum FilterResponse {
@@ -341,6 +340,7 @@ pub struct OpExecResponse {
 /// TaskExecResponse represents the result of a Connector successfully executing a Task.
 pub struct TaskExecResponse {
     pub outputs: Option<HashMap<String, Option<String>>>,
+    pub secrets: Option<HashMap<PathBuf, Option<String>>>,
     pub friendly_message: Option<String>,
 }
 
@@ -535,6 +535,28 @@ pub trait Connector: Send + Sync {
     async fn unbundle(&self, _addr: &Path, _bundle: &[u8]) -> anyhow::Result<Vec<UnbundleResponseElement>> {
         Ok(Vec::new())
     }
+    
+    /// Design: TODO: Maybe we'll have task_send_msg(handle, msg) and task_recv_msg(handle) -> Option<msg>?
+    /// ...as well as list_task_handles()? 
+    /// This is an area, like global repo locking, where we ought to be careful about how
+    /// we serialize task messages in order to be flexible regarding our shared store over e.g. redis
+    async fn task_exec(&self, addr: &Path, ) -> anyhow::Result<Option<TaskExecResponse>> {
+        Ok(None)
+    }
+
+
+
+    
+    /// Design: TODO: How shall we define the GetMetricResponse enum?
+    /// Again, how will metrics be stored by the server and queried?
+    async fn list_metrics(&self, addr: &Path, ) -> anyhow::Result<Vec<String>> {
+        Ok(Vec::new())
+    }
+    
+    async fn read_metric(&self, addr: &Path, name: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
 }
 
 // Helper traits for defining custom internal types in Connector implementations.

@@ -5,7 +5,7 @@
   "description": "Language Server support and Ctrl-P shortcuts for Autoschematic.",
   "repository": "https://github.com/autoschematic-sh/autoschematic",
   "version": "0.6.0",
-  "icon":"resources/logo.png",
+  "icon": "resources/logo.png",
   "engines": {
     "vscode": "^1.99.0"
   },
@@ -77,7 +77,8 @@
       "autoschematicStatusView": [
         {
           "id": "connector-summary",
-          "name": "Prefixes"
+          "name": "Connectors By Prefix",
+          "icon": "resources/logo_dark.svg"
         }
       ]
     },

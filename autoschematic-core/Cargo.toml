@@ -63,6 +63,7 @@ dashmap = "6.1.0"
 strsim = "0.11.1"
 tokio-stream = "0.1.17"
 process-wrap = { version = "8.2.1", features = ["tokio1"] }
+sysinfo = "0.36.1"
 
 [build-dependencies]
 tonic-build = { version = "0.13.1", optional = true }

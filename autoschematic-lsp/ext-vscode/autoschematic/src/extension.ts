@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 import * as util from 'util';
+import * as connectorView from './connectorView';
 import { ExecuteCommandRequest, LanguageClient, LanguageClientOptions, LSPErrorCodes, RevealOutputChannelOn, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 
 async function handlePullRemoteState(filePath: string, client: LanguageClient): Promise<void> {
@@ -183,7 +184,6 @@ export async function activate(context: vscode.ExtensionContext) {
 				arguments: [fileUri.path]
 			});
 
-			console.log("filterResponse", filterResponse);
 			if (filterResponse != "Resource") {
 				vscode.window.showErrorMessage(`Not a resource file for any active connector: ${fileUri.path}`);
 				return;
@@ -426,4 +426,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.then(undefined, (error) => {
 			vscode.window.showErrorMessage(`Error starting Autoschematic Language Server: ${error}`);
 		});
+
+
+	connectorView.activate(context, client);
 }

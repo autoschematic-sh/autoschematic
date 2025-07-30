@@ -1,9 +1,9 @@
-use std::{path::{Path, PathBuf}, sync::Arc};
-
-use crate::{
-    config::AutoschematicConfig, connector_cache::ConnectorCache,
-    error::AutoschematicError, keystore::KeyStore,
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
 };
+
+use crate::{config::AutoschematicConfig, connector_cache::ConnectorCache, error::AutoschematicError, keystore::KeyStore};
 
 pub async fn list(
     autoschematic_config: &AutoschematicConfig,
@@ -33,6 +33,7 @@ pub async fn list(
                 prefix,
                 &connector_def.env,
                 keystore,
+                true,
             )
             .await?;
 

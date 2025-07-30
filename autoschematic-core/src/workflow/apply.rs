@@ -98,6 +98,7 @@ pub async fn apply(
                 &plan_report.prefix,
                 &connector_def.env,
                 keystore.clone(),
+                true,
             )
             .await?;
 

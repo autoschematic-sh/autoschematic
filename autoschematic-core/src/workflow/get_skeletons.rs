@@ -26,6 +26,7 @@ pub async fn get_skeletons(
             prefix,
             &connector_def.env,
             keystore.clone(),
+            false
         )
         .await?;
 

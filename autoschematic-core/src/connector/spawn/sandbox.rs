@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    ffi::{CString, OsStr, OsString},
+    ffi::CString,
     fs::create_dir_all,
     path::{Path, PathBuf},
     sync::Arc,
@@ -14,19 +14,20 @@ use crate::{
     connector::{
         Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
         PlanResponseElement, SkeletonResponse, VirtToPhyResponse,
+        handle::{ConnectorHandle, ConnectorHandleStatus},
+        spawn::{random_error_dump_path, random_socket_path},
     },
     diag::DiagnosticResponse,
     error::ErrorMessage,
     grpc_bridge,
     keystore::KeyStore,
     secret::SealedSecret,
-    tarpc_bridge::{self, TarpcConnector},
+    tarpc_bridge::{self},
     util::passthrough_secrets_from_env,
 };
 use anyhow::{Context, bail};
 use async_trait::async_trait;
 
-use libc::CS;
 use nix::{
     errno::Errno,
     sched::CloneFlags,
@@ -34,8 +35,10 @@ use nix::{
     sys::signal::kill,
     unistd::{Pid, Uid, execve, getegid, geteuid, pipe, setresuid},
 };
+use once_cell::sync::Lazy;
 use rand::{Rng, distr::Alphanumeric};
-use tokio::sync::mpsc::Receiver;
+use sysinfo::ProcessRefreshKind;
+use tokio::sync::Mutex;
 use walkdir::WalkDir;
 
 /// This module handles sandboxing of connector instances using Linux-kernel specific
@@ -49,9 +52,9 @@ pub struct SandboxConnectorHandle {
 }
 
 impl SandboxConnectorHandle {
-    pub fn still_alive(&self) -> anyhow::Result<()> {
+    pub fn still_alive(&self) -> anyhow::Result<i32> {
         if kill(self.pid, None).is_ok() {
-            Ok(())
+            Ok(self.pid.as_raw())
         } else {
             if self.error_dump.is_file() {
                 match std::fs::read_to_string(&self.error_dump) {
@@ -63,35 +66,6 @@ impl SandboxConnectorHandle {
             } else {
                 bail!("Connector process exited without any error dump!")
             }
-        }
-    }
-}
-
-fn random_socket_path() -> PathBuf {
-    loop {
-        let socket_s: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
-
-        let mut socket = PathBuf::from("/tmp/").join(socket_s);
-
-        socket.set_extension("sock");
-
-        if let Ok(false) = socket.try_exists() {
-            tracing::info!("Creating socket at {:?}", socket);
-            return socket;
-        }
-    }
-}
-
-fn random_error_dump_path() -> PathBuf {
-    loop {
-        let dump_s: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
-
-        let mut dump = PathBuf::from("/tmp/").join(dump_s);
-
-        dump.set_extension("dump");
-
-        if let Ok(false) = dump.try_exists() {
-            return dump;
         }
     }
 }
@@ -201,6 +175,34 @@ impl Connector for SandboxConnectorHandle {
         self.still_alive()
             .context(format!("After unbundle({}, _, _)", addr.to_string_lossy()))?;
         res
+    }
+}
+
+pub static SYSINFO: Lazy<Arc<Mutex<sysinfo::System>>> = Lazy::new(|| Arc::new(Mutex::new(sysinfo::System::new())));
+
+#[async_trait]
+impl ConnectorHandle for SandboxConnectorHandle {
+    async fn status(&self) -> ConnectorHandleStatus {
+        match self.still_alive() {
+            Ok(pid) => {
+                let pid = sysinfo::Pid::from_u32(pid.try_into().unwrap());
+                SYSINFO.lock().await.refresh_processes_specifics(
+                    sysinfo::ProcessesToUpdate::Some(&[pid]),
+                    false,
+                    ProcessRefreshKind::nothing().with_cpu().with_memory(),
+                );
+
+                if let Some(p) = SYSINFO.lock().await.process(pid) {
+                    return ConnectorHandleStatus::Alive {
+                        memory: p.memory(),
+                        cpu_usage: p.cpu_usage(),
+                    };
+                } else {
+                    return ConnectorHandleStatus::Dead;
+                }
+            }
+            Err(_) => ConnectorHandleStatus::Dead,
+        }
     }
 }
 
