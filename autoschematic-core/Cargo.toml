@@ -3,19 +3,19 @@ cargo-features = ["edition2024"]
 name = "autoschematic-core"
 description = "Core shared functionality for Autoschematic."
 license = "MIT"
-version = "0.7.1"
+version = "0.8.0"
 edition = "2024"
 
 [features]
 default = ["grpc"]
 sandbox = ["nix"]
-grpc = ["tonic-build", "tonic", "prost"]
+grpc = ["tonic-build", "tonic-prost-build", "tonic", "prost", "tonic-prost"]
 
 [dependencies]
 anyhow = "1.0.95"
 async-trait = "0.1.86"
 serde = { version = "1.0.217", features = ["derive"] }
-tarpc = { version = "0.36.0", features = [
+tarpc = { version = "0.37.0", features = [
     "serde-transport-bincode",
     "serde-transport-json",
     "unix",
@@ -24,8 +24,9 @@ tokio = { version = "1.43.0", features = ["full", "rt-multi-thread"] }
 futures = "0.3.31"
 tracing = "0.1.41"
 serde_json = "1.0.140"
-tonic = { version = "0.13.1", optional = true }
-prost = { version = "0.13.1", optional = true }
+tonic = { version = "0.14.1", optional = true }
+prost = { version = "0.14.1", optional = true }
+tonic-prost = { version = "0.14.1", optional = true }
 regex = "1.11.1"
 lazy_static = "1.5.0"
 nix = { version = "0.30.1", optional = true, features = [
@@ -62,8 +63,9 @@ which = "8.0.0"
 dashmap = "6.1.0"
 strsim = "0.11.1"
 tokio-stream = "0.1.17"
-process-wrap = { version = "8.2.1", features = ["tokio1"] }
-sysinfo = "0.36.1"
+process-wrap = { version = "9.0.0", features = ["tokio1"] }
+sysinfo = "0.37.0"
 
 [build-dependencies]
-tonic-build = { version = "0.13.1", optional = true }
+tonic-build = { version = "0.14.1", optional = true }
+tonic-prost-build = { version = "0.14.1", optional = true }

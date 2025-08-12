@@ -4,10 +4,12 @@ use std::{
     sync::Arc,
 };
 
+use async_trait::async_trait;
+
 use crate::{
-    config::Spec,
+    config::{AutoschematicConfig, Spec},
     connector::{
-        Connector, ConnectorInbox, FilterResponse,
+        Connector, ConnectorInbox, ConnectorOutbox, FilterResponse,
         handle::{ConnectorHandle, ConnectorHandleStatus},
         spawn::spawn_connector,
     },
@@ -15,10 +17,10 @@ use crate::{
     keystore::KeyStore,
 };
 
-use anyhow::Context;
+use anyhow::{Context, bail};
 use dashmap::DashMap;
 use serde::Serialize;
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, JoinSet};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct ConnectorCacheKey {
@@ -31,6 +33,8 @@ pub struct ConnectorCache {
     // TODO when we run different connectors init() in parallel, we're fine. But we were to run the same init() in parallel,
     // we'd currently end up initializing two instances and only writing the second one under this scheme.
     // TODO: make this a map of <HashKey, RwLock<...>> or similar, and let consumers instead block on read() until the background init holding write() is finished!
+    config: AutoschematicConfig,
+    keystore: Option<Arc<dyn KeyStore>>,
     cache: Arc<DashMap<ConnectorCacheKey, (Arc<dyn ConnectorHandle>, ConnectorInbox)>>,
     /// Used to cache the results of Connector::filter(addr), which are assumed to be
     /// static. Since filter() is the most common call, this can speed up workflows by
@@ -143,7 +147,7 @@ impl ConnectorCache {
     /// we cache its results to avoid expensive RPC calls.
     /// Note that this does not initialize connectors if they aren't yet present.
     /// Also, note that calling init() on a connector will invalidate the cached filter data.
-    pub async fn filter(&self, name: &str, prefix: &Path, addr: &Path) -> anyhow::Result<FilterResponse> {
+    pub async fn filter_cached(&self, name: &str, prefix: &Path, addr: &Path) -> anyhow::Result<FilterResponse> {
         let key = ConnectorCacheKey {
             shortname: name.into(),
             prefix: prefix.into(),
@@ -182,3 +186,67 @@ impl ConnectorCache {
         self.filter_cache.clear();
     }
 }
+
+// TODO we'll revisit this later...
+// #[async_trait]
+// impl Connector for Arc<ConnectorCache> {
+//     async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error>
+//     where
+//         Self: Sized,
+//     {
+//         bail!("ConnectorCache::new() is a stub!")
+//         // let connector_cache = ConnectorCache::default();
+//         // Ok(Arc::new(connector_cache))
+//     }
+
+//     async fn init(&self) -> anyhow::Result<()> {
+//         let mut joinset: JoinSet<anyhow::Result<()>> = JoinSet::new();
+
+//         for (prefix, prefix_def) in &self.config.prefixes {
+//             for connector_def in &prefix_def.connectors {
+//                 let cache = self.clone();
+//                 let prefix = prefix.clone();
+//                 let connector_def = connector_def.clone();
+
+//                 joinset.spawn(async move {
+//                     cache
+//                         .get_or_spawn_connector(
+//                             &connector_def.shortname,
+//                             &connector_def.spec,
+//                             &PathBuf::from(prefix),
+//                             &connector_def.env,
+//                             cache.keystore.clone(),
+//                             true,
+//                         )
+//                         .await?;
+//                     Ok(())
+//                 });
+//             }
+//         }
+
+//         while let Some(res) = joinset.join_next().await {}
+
+//         Ok(())
+//     }
+
+//     async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error> {
+//         let keys: Vec<ConnectorCacheKey> = self.cache.iter().map(|kv| kv.key().clone()).collect();
+
+//         let mut joinset: JoinSet<anyhow::Result<FilterResponse>> = JoinSet::new();
+
+//         for key in keys {
+//             let cache = self.clone();
+//             let cache_addr = addr.to_owned();
+//             joinset.spawn(async move { cache.filter_cached(&key.shortname, &key.prefix, &cache_addr).await });
+//         }
+
+//         while let Some(res) = joinset.join_next().await {
+//             match res?? {
+//                 FilterResponse::None => continue,
+//                 other => return Ok(other),
+//             }
+//         }
+
+//         Ok(FilterResponse::None)
+//     }
+// }

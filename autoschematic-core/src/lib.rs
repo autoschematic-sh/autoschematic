@@ -12,7 +12,7 @@ pub mod flock;
 pub mod git_util;
 pub mod glob;
 pub mod grpc_bridge;
-pub mod grpc_generated;
+mod grpc_generated;
 pub mod keystore;
 pub mod macros;
 pub mod manifest;

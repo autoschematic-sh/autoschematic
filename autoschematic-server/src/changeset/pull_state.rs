@@ -138,7 +138,7 @@ impl ChangeSet {
 
                     if self
                         .connector_cache
-                        .filter(&connector_def.shortname, &PathBuf::from(&prefix_name), virt_addr)
+                        .filter_cached(&connector_def.shortname, &PathBuf::from(&prefix_name), virt_addr)
                         .await?
                         == FilterResponse::Resource
                     {

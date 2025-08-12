@@ -18,6 +18,7 @@ mod spinner;
 mod sso;
 mod task;
 mod ui;
+mod unbundle;
 mod util;
 mod validate;
 
@@ -27,6 +28,7 @@ pub struct AutoschematicCommand {
     #[command(subcommand)]
     pub command: AutoschematicSubcommand,
 }
+
 #[derive(Subcommand, Default, Debug)]
 pub enum AutoschematicInitSubcommand {
     #[default]
@@ -128,6 +130,36 @@ pub enum AutoschematicSubcommand {
         /// Optional path (can be a glob) to filter which resources are imported.
         #[arg(short, long, value_name = "subpath")]
         subpath: Option<String>,
+
+        /// If set, don't ask for any confirmation before executing. Use with caution!
+        #[arg(long, value_name = "skip_confirm", default_value_t = false)]
+        skip_confirm: bool,
+
+        /// If set, don't ask to run git commit (assume 'no').
+        #[arg(long, value_name = "skip_commit", default_value_t = false)]
+        skip_commit: bool,
+    },
+    /// Unpack bundle files to produce or refresh their children.
+    Unbundle {
+        /// Optional: run for a single prefix by name
+        #[arg(short, long, value_name = "prefix")]
+        prefix: Option<String>,
+
+        /// Optional: run for a single connector by name
+        #[arg(short, long, value_name = "connector")]
+        connector: Option<String>,
+
+        /// Optional path (can be a glob) to filter which resources are imported.
+        #[arg(short, long, value_name = "subpath")]
+        subpath: Option<String>,
+
+        /// If set, bundle outputs "clobber" existing files even if they weren't in the bundle before
+        #[arg(long, value_name = "overbundle", default_value_t = false)]
+        overbundle: bool,
+
+        /// If set, don't stage the new bundle output files in git.
+        #[arg(long, value_name = "no-stage", default_value_t = false)]
+        no_stage: bool,
     },
     /// Execute a task as defined by a connector.
     RunTask {
@@ -213,10 +245,21 @@ async fn main() -> anyhow::Result<()> {
             prefix,
             connector,
             subpath,
+            skip_confirm,
+            skip_commit,
         } => {
-            let ask_confirm = true;
-            let skip_commit = false;
+            let ask_confirm = !skip_confirm;
             apply::apply(prefix, connector, subpath, ask_confirm, skip_commit).await?;
+        }
+        AutoschematicSubcommand::Unbundle {
+            prefix,
+            connector,
+            subpath,
+            overbundle,
+            no_stage,
+        } => {
+            let git_stage = !no_stage;
+            unbundle::unbundle(&prefix, &connector, &subpath, overbundle, git_stage).await?;
         }
         AutoschematicSubcommand::Import {
             prefix,

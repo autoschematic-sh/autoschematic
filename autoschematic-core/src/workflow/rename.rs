@@ -64,7 +64,7 @@ pub async fn rename(
         });
 
         if connector_cache
-            .filter(&connector_def.shortname, &prefix, &old_virt_addr)
+            .filter_cached(&connector_def.shortname, &prefix, &old_virt_addr)
             .await?
             == FilterResponse::Resource
         {

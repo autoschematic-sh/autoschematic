@@ -177,7 +177,7 @@ pub async fn plan(
                 }
             });
 
-            if connector_cache.filter(&connector_def.shortname, &prefix, &virt_addr).await? == FilterResponse::Resource {
+            if connector_cache.filter_cached(&connector_def.shortname, &prefix, &virt_addr).await? == FilterResponse::Resource {
                 let plan_report = plan_connector(&connector_def.shortname, connector, &prefix, &virt_addr).await?;
                 return Ok(plan_report);
             }

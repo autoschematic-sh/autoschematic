@@ -392,7 +392,7 @@ impl Backend {
             };
 
             for connector_def in &prefix_def.connectors {
-                match self.connector_cache.filter(&connector_def.shortname, &prefix, addr).await? {
+                match self.connector_cache.filter_cached(&connector_def.shortname, &prefix, addr).await? {
                     // TODO If the user edits a connector's config file,
                     // we need to re-init the connector, and clear the filter cache for that connector!
                     // autoschematic_core::connector::FilterResponse::Config => {

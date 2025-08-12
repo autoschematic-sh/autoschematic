@@ -157,8 +157,8 @@ message UnbundleRequest {
   bytes  bundle = 2;
 }
 message UnbundleResponseElement {
-  string filename      = 1;
-  string file_contents = 2;
+  string addr      = 1;
+  bytes contents = 2;
 }
 message UnbundleResponse {
   repeated UnbundleResponseElement bundles = 1;

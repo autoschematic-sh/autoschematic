@@ -283,8 +283,8 @@ impl GrpcConnector for GrpcConnectorServer {
         let out = bundles
             .into_iter()
             .map(|b| proto::UnbundleResponseElement {
-                filename: b.filename.to_string_lossy().into(),
-                file_contents: b.file_contents,
+                addr: b.addr.to_string_lossy().into(),
+                contents: b.contents,
             })
             .collect();
         Ok(Response::new(UnbundleResponse { bundles: out }))
@@ -589,8 +589,8 @@ impl Connector for GrpcConnectorClient {
             .bundles
             .into_iter()
             .map(|b| UnbundleResponseElement {
-                filename: PathBuf::from(b.filename),
-                file_contents: b.file_contents,
+                addr: PathBuf::from(b.addr),
+                contents: b.contents,
             })
             .collect())
     }

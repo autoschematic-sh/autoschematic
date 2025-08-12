@@ -544,8 +544,6 @@ pub trait Connector: Send + Sync {
         Ok(None)
     }
 
-
-
     
     /// Design: TODO: How shall we define the GetMetricResponse enum?
     /// Again, how will metrics be stored by the server and queried?

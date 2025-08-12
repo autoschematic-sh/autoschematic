@@ -3,7 +3,7 @@ use std::{
     io,
     path::{Path, PathBuf},
     rc::Rc,
-    sync::Arc,
+    sync::{Arc, Mutex},
     thread::JoinHandle,
 };
 
@@ -25,10 +25,10 @@ use crate::{
 use anyhow::bail;
 use async_trait::async_trait;
 
+use libc::killpg;
 use once_cell::sync::Lazy;
 use process_wrap::tokio::*;
 use sysinfo::{Pid, Process, ProcessRefreshKind, System};
-use tokio::sync::Mutex;
 
 /// This module handles unsandboxed execution of connector instances.
 pub struct UnsandboxConnectorHandle {
@@ -36,7 +36,7 @@ pub struct UnsandboxConnectorHandle {
     socket: PathBuf,
     error_dump: PathBuf,
     read_thread: Option<JoinHandle<()>>,
-    child: Box<dyn process_wrap::tokio::TokioChildWrapper>,
+    child: Arc<Mutex<Box<dyn process_wrap::tokio::ChildWrapper>>>,
 }
 
 #[async_trait]
@@ -127,7 +127,7 @@ pub async fn launch_server_binary(
     }
 
     if let Some(spec_pre_command) = spec.pre_command()? {
-        let mut command = TokioCommandWrap::with_new(spec_pre_command.binary, |command| {
+        let mut command = CommandWrap::with_new(spec_pre_command.binary, |command| {
             command.args(spec_pre_command.args);
             command.stderr(io::stderr());
             command.stdout(io::stderr());
@@ -143,7 +143,7 @@ pub async fn launch_server_binary(
             command.wrap(JobObject);
         }
 
-        let status = Box::into_pin(command.spawn()?.wait()).await?;
+        let status = command.spawn()?.wait().await?;
 
         if !status.success() {
             bail!(
@@ -156,7 +156,7 @@ pub async fn launch_server_binary(
 
     let spec_command = spec.command()?;
 
-    let mut command = TokioCommandWrap::with_new(spec_command.binary, |command| {
+    let mut command = CommandWrap::with_new(spec_command.binary, |command| {
         command.args(spec_command.args);
         command.args([shortname.into(), prefix.into(), socket.clone(), error_dump.clone()]);
         command.stdout(io::stderr());
@@ -193,14 +193,20 @@ pub async fn launch_server_binary(
         socket,
         error_dump,
         read_thread: None,
-        child,
+        child: Arc::new(child.into()),
     })
 }
 
 impl Drop for UnsandboxConnectorHandle {
     fn drop(&mut self) {
-        self.child.start_kill().unwrap();
-        self.child.try_wait().unwrap();
+        let pid = self.child.lock().unwrap().inner().id().unwrap();
+
+        unsafe {
+            killpg(pid.try_into().unwrap(), 9);
+        }
+
+        // self.child.lock().unwrap().start_kill().unwrap();
+        // self.child.lock().unwrap().try_wait().unwrap();
 
         match std::fs::remove_file(&self.socket) {
             Ok(_) => {}
@@ -216,31 +222,31 @@ impl Drop for UnsandboxConnectorHandle {
     }
 }
 
-pub static SYSINFO: Lazy<Arc<Mutex<sysinfo::System>>> = Lazy::new(|| Arc::new(Mutex::new(sysinfo::System::new())));
+pub static SYSINFO: Lazy<Arc<tokio::sync::Mutex<sysinfo::System>>> =
+    Lazy::new(|| Arc::new(tokio::sync::Mutex::new(sysinfo::System::new())));
 
 #[async_trait]
 impl ConnectorHandle for UnsandboxConnectorHandle {
     async fn status(&self) -> ConnectorHandleStatus {
-        match self.child.inner().id() {
-            Some(pid) => {
-                let pid = Pid::from_u32(pid);
+        let Some(pid) = self.child.lock().unwrap().inner().id() else {
+            return ConnectorHandleStatus::Dead;
+        };
 
-                SYSINFO.lock().await.refresh_processes_specifics(
-                    sysinfo::ProcessesToUpdate::Some(&[pid]),
-                    false,
-                    ProcessRefreshKind::nothing().with_cpu().with_memory(),
-                );
+        let pid = Pid::from_u32(pid);
 
-                if let Some(p) = SYSINFO.lock().await.process(pid) {
-                    return ConnectorHandleStatus::Alive {
-                        memory: p.memory(),
-                        cpu_usage: p.cpu_usage(),
-                    };
-                } else {
-                    return ConnectorHandleStatus::Dead;
-                }
-            }
-            None => ConnectorHandleStatus::Dead,
+        SYSINFO.lock().await.refresh_processes_specifics(
+            sysinfo::ProcessesToUpdate::Some(&[pid]),
+            false,
+            ProcessRefreshKind::nothing().with_cpu().with_memory(),
+        );
+
+        if let Some(p) = SYSINFO.lock().await.process(pid) {
+            return ConnectorHandleStatus::Alive {
+                memory: p.memory(),
+                cpu_usage: p.cpu_usage(),
+            };
+        } else {
+            return ConnectorHandleStatus::Dead;
         }
     }
 }

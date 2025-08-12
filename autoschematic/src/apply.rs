@@ -66,6 +66,25 @@ pub async fn apply(
         return Ok(());
     }
 
+    // let mut unbundle_results = Vec::new();
+    // for path in &staged_files {
+    //     if let Some(unbundle_report) = autoschematic_core::workflow::unbundle::unbundle(
+    //         &config,
+    //         connector_cache.clone(),
+    //         keystore.clone(),
+    //         &connector,
+    //         &path,
+    //     )
+    //     .await?
+    //     {
+    //         if let Some(elements) = unbundle_report.elements {
+    //             for element in elements {
+    //                 unbundle_results.push(element.addr);
+    //             }
+    //         }
+    //     }
+    // }
+
     for path in staged_files {
         let spinner_stop = show_spinner().await;
 

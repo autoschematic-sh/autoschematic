@@ -4,11 +4,13 @@ use std::{
 };
 
 use crate::{
+    bundle::{BundleMapFile, UnbundleResponseElement},
     config::Spec,
     connector::{OpExecResponse, PlanResponseElement},
     error::ErrorMessage,
     template::ReadOutput,
 };
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 //
 // A PlanReport outlines, for a given plan run at connector:prefix:addr:
@@ -80,15 +82,6 @@ pub struct PlanReportOld {
     pub error: Option<ErrorMessage>,
 }
 
-pub struct PlanReportSetOld {
-    pub overall_success: bool,
-    pub apply_success: bool,
-    pub plan_reports: Vec<PlanReportOld>,
-    pub object_count: usize,
-    pub deferred_count: usize,
-    pub deferred_pending_outputs: HashSet<ReadOutput>,
-}
-
 // An ApplyReport outlines, for a given apply run at connector:prefix:addr:
 // The error, if any, or
 // The list of ConnectorOps along with their human-readable descriptions
@@ -103,8 +96,47 @@ pub struct ApplyReportOld {
     pub error: Option<ErrorMessage>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct ApplyReportSetOld {
-    pub overall_success: bool,
-    pub apply_reports: Vec<ApplyReportOld>,
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
+pub struct UnbundleReport {
+    pub prefix: PathBuf,
+    pub addr: PathBuf,
+
+    pub missing_outputs: Vec<ReadOutput>,
+    pub elements: Option<Vec<UnbundleResponseElement>>,
+}
+
+impl UnbundleReport {
+    pub async fn write_to_disk(&self, overbundle: bool, git_stage: bool) -> anyhow::Result<()> {
+        let Some(ref elements) = self.elements else { return Ok(()) };
+
+        for element in elements {
+            let output_path = self.prefix.join(element.addr.clone());
+
+            if !overbundle && output_path.is_file() {
+                if let Some(bundle_map) = BundleMapFile::read(&self.prefix, &element.addr)? {
+                    match bundle_map {
+                        BundleMapFile::Bundle => {}
+                        BundleMapFile::ChildOf { parent } => {
+                            if parent != self.addr {
+                                bail!(
+                                    "UnbundleReport::write_to_disk(): {} exists but belongs to a different bundle, and overbundle is not set.",
+                                    output_path.display()
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    bail!(
+                        "UnbundleReport::write_to_disk(): {} exists but is not in a bundle, and overbundle is not set.",
+                        output_path.display()
+                    )
+                }
+            }
+
+            tokio::fs::write(output_path, &element.contents).await?;
+            BundleMapFile::write_link(&self.prefix, &element.addr, &self.addr)?;
+        }
+
+        Ok(())
+    }
 }

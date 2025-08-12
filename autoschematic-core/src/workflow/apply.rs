@@ -120,7 +120,7 @@ pub async fn apply(
         });
 
         if connector_cache
-            .filter(&connector_def.shortname, &plan_report.prefix, &plan_report.virt_addr)
+            .filter_cached(&connector_def.shortname, &plan_report.prefix, &plan_report.virt_addr)
             .await?
             == FilterResponse::Resource
         {

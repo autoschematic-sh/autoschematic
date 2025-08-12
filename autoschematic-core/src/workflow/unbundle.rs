@@ -1,127 +1,125 @@
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
-use anyhow::Context;
+use anyhow::{Context, bail};
+use tokio::task::JoinSet;
 
 use crate::{
+    bundle::{BundleMapFile, UnbundleResponseElement},
     config::AutoschematicConfig,
-    connector::{Connector, VirtToPhyResponse},
+    connector::{Connector, FilterResponse, VirtToPhyResponse},
     connector_cache::ConnectorCache,
+    git_util::git_add,
     keystore::KeyStore,
-    report::PlanReport,
+    report::{PlanReport, UnbundleReport},
     template::template_config,
     util::split_prefix_addr,
 };
 
-pub async fn plan_connector(
+pub async fn write_unbundle_element(
+    prefix: &Path,
+    parent: &Path,
+    element: &UnbundleResponseElement,
+    overbundle: bool,
+    git_stage: bool,
+) -> anyhow::Result<()> {
+    let output_path = prefix.join(element.addr.clone());
+
+    if !overbundle && output_path.is_file() {
+        if let Some(bundle_map) = BundleMapFile::read(&prefix, &element.addr)? {
+            match bundle_map {
+                BundleMapFile::Bundle => {}
+                BundleMapFile::ChildOf { parent: other_parent } => {
+                    if parent != other_parent {
+                        bail!(
+                            "UnbundleReport::write_to_disk(): {} exists but belongs to a different bundle, and overbundle is not set.",
+                            output_path.display()
+                        )
+                    }
+                }
+            }
+        } else {
+            bail!(
+                "UnbundleReport::write_to_disk(): {} exists but is not in a bundle, and overbundle is not set.",
+                output_path.display()
+            )
+        }
+    }
+
+    tokio::fs::write(&output_path, &element.contents).await?;
+    if git_stage {
+        git_add(&PathBuf::from("./"), &output_path)?;
+    }
+
+    let map_path = BundleMapFile::write_link(prefix, &element.addr, parent)?;
+    if git_stage {
+        git_add(&PathBuf::from("./"), &map_path)?;
+    }
+
+    Ok(())
+}
+
+pub async fn unbundle_connector(
     connector_shortname: &str,
-    connector: &Box<dyn Connector>,
+    connector: Arc<dyn Connector>,
     prefix: &Path,
     virt_addr: &Path,
-) -> Result<Option<PlanReport>, anyhow::Error> {
-    let mut plan_report = PlanReport::default();
-    plan_report.prefix = prefix.into();
-    plan_report.virt_addr = virt_addr.into();
+) -> Result<Option<UnbundleReport>, anyhow::Error> {
+    let mut unbundle_report = UnbundleReport::default();
+    unbundle_report.prefix = prefix.into();
+    unbundle_report.addr = virt_addr.into();
 
-    let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
-        VirtToPhyResponse::NotPresent => None,
-        VirtToPhyResponse::Deferred(read_outputs) => {
-            for output in read_outputs {
-                plan_report.missing_outputs.push(output);
-            }
-            return Ok(Some(plan_report));
-        }
-        VirtToPhyResponse::Present(phy_addr) => Some(phy_addr),
-        VirtToPhyResponse::Null(phy_addr) => Some(phy_addr),
-    };
-
-    let current = match phy_addr {
-        Some(ref phy_addr) => {
-            match connector.get(&phy_addr.clone()).await.context(format!(
-                "{}::get({})",
-                connector_shortname,
-                &phy_addr.to_str().unwrap_or_default()
-            ))? {
-                // Existing resource present for this address
-                Some(get_resource_output) => {
-                    let resource = get_resource_output.resource_definition;
-                    Some(resource)
-                }
-                // No existing resource present for this address
-                None => None,
-            }
-        }
-        None => None,
-    };
+    unbundle_report.elements = None;
 
     let path = prefix.join(virt_addr);
 
-    let connector_ops = if path.is_file() {
-        // let desired = std::fs::read(&path)?;
+    if path.is_file() {
         let desired_bytes = tokio::fs::read(&path).await?;
 
-        match std::str::from_utf8(&desired_bytes) {
+        let elements = match std::str::from_utf8(&desired_bytes) {
             Ok(desired) => {
                 let template_result = template_config(prefix, desired)?;
 
                 if !template_result.missing.is_empty() {
                     for read_output in template_result.missing {
-                        plan_report.missing_outputs.push(read_output);
+                        unbundle_report.missing_outputs.push(read_output);
                     }
 
-                    return Ok(Some(plan_report));
+                    return Ok(Some(unbundle_report));
                 } else {
-                    // TODO warning that this phy .unwrap_or( virt )
-                    // may be the most diabolically awful design
-                    // TODO remove awful design
                     connector
-                        .plan(
-                            &phy_addr.clone().unwrap_or(virt_addr.into()),
-                            current,
-                            Some(template_result.body.into()),
-                        )
+                        .unbundle(&virt_addr, template_result.body.as_bytes())
                         .await
-                        .context(format!("{}::plan({}, _, _)", connector_shortname, virt_addr.display()))?
+                        .context(format!("{}::unbundle({}, _, _)", connector_shortname, virt_addr.display()))?
                 }
             }
-            Err(_) => {
-                // TODO warning that this phy .unwrap_or( virt )
-                // may be the most diabolically awful design
-                // TODO remove awful design
-                connector
-                    .plan(&phy_addr.clone().unwrap_or(virt_addr.into()), current, Some(desired_bytes))
-                    .await
-                    .context(format!("{}::plan({}, _, _)", connector_shortname, virt_addr.display()))?
-            }
-        }
-    } else {
-        // The file does not exist, so `desired` is therefore None.
-        // Generally speaking, this will destroy the given resource if it currently exists.
-
-        // TODO warning that this phy .unwrap_or( virt )
-        // may be the most diabolically awful design
-        // TODO remove awful design
-        connector
-            .plan(&phy_addr.clone().unwrap_or(virt_addr.into()), current, None)
-            .await
-            .context(format!(
-                "{}::plan({}, _, _)",
+            Err(_) => connector.unbundle(&virt_addr, &desired_bytes).await.context(format!(
+                "{}::unbundle({}, _, _)",
                 connector_shortname,
-                virt_addr.to_str().unwrap_or_default()
-            ))?
+                virt_addr.display()
+            ))?,
+        };
+
+        unbundle_report.elements = Some(elements);
+    } else {
+        return Ok(None);
     };
 
-    plan_report.connector_ops = connector_ops;
-
-    Ok(Some(plan_report))
+    Ok(Some(unbundle_report))
 }
 
+/// For a given path, attempt to resolve its prefix and Connector impl and return a Vec of UnbundleResponseElements.
+/// `overbundle` decides whether to write a new bundle map file if a bundle should produce a file that exists, but is not marked as a child
+/// of that bundle. If `overbundle` is false, only bundle result files that are already linked to that parent are written to disk.
 pub async fn unbundle(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: Arc<ConnectorCache>,
     keystore: Option<Arc<dyn KeyStore>>,
     connector_filter: &Option<String>,
     path: &Path,
-) -> Result<Option<PlanReport>, anyhow::Error> {
+) -> Result<Option<UnbundleReport>, anyhow::Error> {
     let autoschematic_config = autoschematic_config.clone();
 
     let Some((prefix, virt_addr)) = split_prefix_addr(&autoschematic_config, path) else {
@@ -133,7 +131,9 @@ pub async fn unbundle(
     };
 
     let prefix_def = prefix_def.clone();
-    let mut handles = Vec::new();
+
+    let mut joinset: JoinSet<anyhow::Result<Option<UnbundleReport>>> = JoinSet::new();
+
     'connector: for connector_def in prefix_def.connectors {
         if let Some(connector_filter) = &connector_filter
             && connector_def.shortname != *connector_filter
@@ -144,10 +144,8 @@ pub async fn unbundle(
         let connector_cache = connector_cache.clone();
         let keystore = keystore.clone();
         let prefix = prefix.clone();
-        handles.push(tokio::spawn(async move {
-            // TODO Does unbundle require init()? Do bundles depend on the connector's config files,
-            // or should they only statically read output files and bundle files and produce bundled resources?
-            // (I'm leaning towards the latter!)
+        let virt_addr = virt_addr.clone();
+        joinset.spawn(async move {
             let (connector, mut inbox) = connector_cache
                 .get_or_spawn_connector(
                     &connector_def.shortname,
@@ -155,10 +153,9 @@ pub async fn unbundle(
                     &prefix,
                     &connector_def.env,
                     keystore,
-                    false
+                    true,
                 )
-                .await
-                .unwrap();
+                .await?;
 
             let _reader_handle = tokio::spawn(async move {
                 loop {
@@ -172,13 +169,22 @@ pub async fn unbundle(
                 }
             });
 
-            connector
-        }));
+            if connector_cache
+                .filter_cached(&connector_def.shortname, &prefix, &virt_addr)
+                .await?
+                == FilterResponse::Bundle
+            {
+                let unbundle_report = unbundle_connector(&connector_def.shortname, connector, &prefix, &virt_addr).await?;
+                return Ok(unbundle_report);
+            }
+            Ok(None)
+        });
+    }
 
-        // if connector_cache.filter(&connector_def.shortname, &prefix, &virt_addr).await? == FilterOutput::Resource {
-        //     let plan_report = plan_connector(&connector_def.shortname, &connector, &prefix, &virt_addr).await?;
-        //     return Ok(plan_report);
-        // }
+    while let Some(res) = joinset.join_next().await {
+        if let Some(unbundle_report) = res?? {
+            return Ok(Some(unbundle_report));
+        }
     }
 
     Ok(None)

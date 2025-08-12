@@ -1,10 +1,14 @@
 use std::{
     collections::HashMap,
-    path::{Path, PathBuf},
+    ffi::OsString,
+    fs::File,
+    io::BufReader,
+    path::{Component, Path, PathBuf},
     sync::Arc,
 };
 
 use async_trait::async_trait;
+use ron_pfnsec_fork::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -13,16 +17,133 @@ use crate::{
         PlanResponseElement, SkeletonResponse, VirtToPhyResponse,
     },
     diag::DiagnosticResponse,
+    util::RON,
 };
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub enum BundleMapFile {
+    Bundle,
+    ChildOf { parent: PathBuf },
+}
+
+impl BundleMapFile {
+    pub fn path(prefix: &Path, addr: &Path) -> PathBuf {
+        let mut output = prefix.to_path_buf();
+
+        output.push(".bundle");
+
+        // Join the parent portion of `addr`, if it exists
+        if let Some(parent) = addr.parent() {
+            // Guard against pathological cases like ".." or "." parents
+            // by only pushing normal components
+            for comp in parent.components() {
+                if let Component::Normal(_) = comp {
+                    output.push(comp)
+                }
+            }
+        }
+
+        let mut new_filename = OsString::new();
+        if let Some(fname) = addr.file_name() {
+            new_filename.push(fname);
+        } else {
+            // If there's no file name at all, we'll just use ".bun.ron"
+            // so `new_filename` right now is just "." — that's fine.
+            // We'll end up producing something like "./office/east/ec2/us-east-1/.bun.ron"
+        }
+        new_filename.push(".bun.ron");
+
+        output.push(new_filename);
+
+        output
+    }
+
+    pub fn read(prefix: &Path, addr: &Path) -> anyhow::Result<Option<Self>> {
+        let bundle_path = Self::path(prefix, addr);
+
+        if bundle_path.is_file() {
+            let file = File::open(&bundle_path)?;
+            let reader = BufReader::new(file);
+
+            let bundle: Self = RON.from_reader(reader)?;
+
+            return Ok(Some(bundle));
+        }
+
+        Ok(None)
+    }
+
+    pub fn read_recurse(prefix: &Path, addr: &Path) -> anyhow::Result<Option<Self>> {
+        let bundle_path = Self::path(prefix, addr);
+
+        if bundle_path.is_file() {
+            let file = File::open(&bundle_path)?;
+            let reader = BufReader::new(file);
+
+            let bundle: Self = RON.from_reader(reader)?;
+
+            match &bundle {
+                BundleMapFile::ChildOf { parent } => {
+                    return Self::read_recurse(prefix, &parent);
+                }
+                BundleMapFile::Bundle => return Ok(Some(bundle)),
+            }
+        }
+
+        Ok(None)
+    }
+
+    pub fn write(&self, prefix: &Path, addr: &Path) -> anyhow::Result<PathBuf> {
+        let bundle_path = Self::path(prefix, addr);
+        let pretty_config = PrettyConfig::default();
+
+        let contents = RON.to_string_pretty(self, pretty_config)?;
+
+        if let Some(parent) = bundle_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        if bundle_path.exists() {
+            std::fs::remove_file(&bundle_path)?;
+        }
+
+        std::fs::write(&bundle_path, contents)?;
+
+        Ok(bundle_path)
+    }
+
+    pub fn write_link(prefix: &Path, child: &Path, parent: &Path) -> anyhow::Result<PathBuf> {
+        let child_map = Self::ChildOf {
+            parent: parent.to_owned(),
+        };
+        child_map.write(prefix, child)?;
+        Ok(Self::path(prefix, child))
+    }
+
+    pub fn delete(prefix: &Path, addr: &Path) -> anyhow::Result<Option<PathBuf>> {
+        let path = Self::path(prefix, addr);
+        if path.is_file() {
+            std::fs::remove_file(&path)?;
+            Ok(Some(path))
+        } else {
+            Ok(None)
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnbundleResponseElement {
-    pub filename: PathBuf,
-    pub file_contents: String,
+    pub addr: PathBuf,
+    pub contents: Vec<u8>,
 }
 
+impl UnbundleResponseElement {}
+
 #[async_trait]
-pub trait Bundle: Connector {
+pub trait Bundle
+where
+    Self: Send + Sync,
+{
     async fn new(name: &str, prefix: &Path) -> Result<Arc<dyn Bundle>, anyhow::Error>
     where
         Self: Sized;
@@ -82,7 +203,7 @@ impl Bundle for Arc<dyn Bundle> {
 impl Connector for Arc<dyn Bundle> {
     async fn new(name: &str, prefix: &Path, _outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
         let bundle: Arc<dyn Bundle> = <Arc<(dyn Bundle + 'static)> as Bundle>::new(name, prefix).await?;
-        Ok(bundle)
+        Ok(Arc::new(bundle))
     }
 
     async fn init(&self) -> Result<(), anyhow::Error> {

@@ -36,7 +36,6 @@ use nix::{
     unistd::{Pid, Uid, execve, getegid, geteuid, pipe, setresuid},
 };
 use once_cell::sync::Lazy;
-use rand::{Rng, distr::Alphanumeric};
 use sysinfo::ProcessRefreshKind;
 use tokio::sync::Mutex;
 use walkdir::WalkDir;
