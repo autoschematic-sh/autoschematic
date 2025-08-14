@@ -147,8 +147,8 @@ pub async fn import_resource(
 pub async fn import_complete() {}
 
 pub async fn import_all(
-    autoschematic_config: &AutoschematicConfig,
-    connector_cache: &ConnectorCache,
+    autoschematic_config: Arc<AutoschematicConfig>,
+    connector_cache: Arc<ConnectorCache>,
     keystore: Option<Arc<dyn KeyStore>>,
     outbox: ImportOutbox,
     semaphore: Arc<Semaphore>,
@@ -166,7 +166,7 @@ pub async fn import_all(
     // Number of resources found
     let total_count: usize = 0;
 
-    // Represents the joinset for each list() operation.
+    // Represents the joinset for each Connector::list() operation.
     let mut subpath_joinset: JoinSet<anyhow::Result<Vec<PathBuf>>> = JoinSet::new();
 
     for (prefix_name, prefix) in &autoschematic_config.prefixes {
