@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use autoschematic_core::{config::Connector, connector_cache::ConnectorCache, workflow::import::ImportMessage};
 use crossterm::style::Stylize;
 use dialoguer::MultiSelect;
-use tokio::sync::Semaphore;
+use tokio::{sync::Semaphore, task::JoinSet};
 
 use crate::config::load_autoschematic_config;
 
@@ -14,8 +14,9 @@ pub async fn import(
     overwrite: bool,
 ) -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;
+    let config = Arc::new(config);
 
-    let connector_cache = ConnectorCache::default();
+    let connector_cache = Arc::new(ConnectorCache::default());
 
     let subpath = subpath.map(PathBuf::from);
 
@@ -104,7 +105,7 @@ pub async fn import(
             }
         }
     }
-    
+
     if total_connectors == 0 {
         println!(" ∅ Selection matched no connectors, or your prefix(es) are empty.");
         return Ok(());
@@ -112,10 +113,12 @@ pub async fn import(
 
     println!("{}", " Starting import. This may take a while!");
 
+    let mut connector_joinset: JoinSet<anyhow::Result<()>> = JoinSet::new();
+
     for (prefix_name, connector_names) in connector_selections {
         for connector_name in connector_names {
             let (sender, mut receiver) = tokio::sync::mpsc::channel(64);
-            let reader_handle = {
+            let reader_handle: tokio::task::JoinHandle<anyhow::Result<()>> = {
                 let prefix_name = prefix_name.clone();
                 let connector_name = connector_name.clone();
                 tokio::spawn(async move {
@@ -153,27 +156,38 @@ pub async fn import(
                             None => break,
                         }
                     }
+                    Ok(())
                 })
             };
 
-            let semaphore = Arc::new(Semaphore::new(10));
-            let import_counts = autoschematic_core::workflow::import::import_all(
-                &config,
-                &connector_cache,
-                keystore.clone(),
-                sender,
-                semaphore,
-                subpath.clone(),
-                Some(prefix_name.clone()),
-                Some(connector_name.clone()),
-                overwrite,
-            )
-            .await?;
+            let config = config.clone();
+            let prefix_name = prefix_name.clone();
+            let connector_cache = connector_cache.clone();
+            let keystore = keystore.clone();
+            let subpath = subpath.clone();
+            connector_joinset.spawn(async move {
+                let semaphore = Arc::new(Semaphore::new(10));
+                let import_counts = autoschematic_core::workflow::import::import_all(
+                    config,
+                    connector_cache,
+                    keystore,
+                    sender,
+                    semaphore,
+                    subpath,
+                    Some(prefix_name),
+                    Some(connector_name.clone()),
+                    overwrite,
+                )
+                .await?;
 
-            reader_handle.await?;
+                reader_handle.await?
+            });
         }
     }
 
+    while let Some(res) = connector_joinset.join_next().await {
+        res??
+    }
     println!("{}", " Success!".dark_green());
 
     Ok(())
