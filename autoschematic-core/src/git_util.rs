@@ -255,6 +255,7 @@ pub fn get_staged_files() -> Result<Vec<PathBuf>, git2::Error> {
     let mut staged = Vec::new();
     for entry in statuses.iter() {
         let s = entry.status();
+
         let is_staged = s.intersects(
             Status::INDEX_NEW
                 | Status::INDEX_MODIFIED
@@ -262,10 +263,16 @@ pub fn get_staged_files() -> Result<Vec<PathBuf>, git2::Error> {
                 | Status::INDEX_RENAMED
                 | Status::INDEX_TYPECHANGE,
         );
-        if is_staged
-            && let Some(path) = entry.path() {
-                staged.push(PathBuf::from(path));
+
+        if is_staged && let Some(path) = entry.path() {
+            staged.push(PathBuf::from(path));
+        }
+
+        if s.intersects(Status::INDEX_RENAMED) {
+            if let Some(new_path) = entry.head_to_index().and_then(|d| d.new_file().path()) {
+                staged.push(PathBuf::from(new_path));
             }
+        }
     }
     Ok(staged)
 }
