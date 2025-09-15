@@ -184,7 +184,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				arguments: [fileUri.path]
 			});
 
-			if (filterResponse != "Resource") {
+			if (!filterResponse.includes("Resource")) {
 				vscode.window.showErrorMessage(`Not a resource file for any active connector: ${fileUri.path}`);
 				return;
 			}

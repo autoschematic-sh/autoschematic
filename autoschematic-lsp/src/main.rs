@@ -262,34 +262,35 @@ impl LanguageServer for Backend {
                     return Ok(Some(serde_json::to_value(false).unwrap()));
                 };
 
-                if let Ok(res) = filter(autoschematic_config, &self.connector_cache, keystore, None, &prefix, &addr).await {
-                    match res {
-                        FilterResponse::Config => {
-                            return Ok(Some(serde_json::to_value("Config").unwrap()));
-                        }
-                        FilterResponse::Resource => {
-                            return Ok(Some(serde_json::to_value("Resource").unwrap()));
-                        }
-                        FilterResponse::Bundle => {
-                            return Ok(Some(serde_json::to_value("Bundle").unwrap()));
-                        }
-                        FilterResponse::Task => {
-                            return Ok(Some(serde_json::to_value("Task").unwrap()));
-                        }
-                        FilterResponse::None => {
-                            return Ok(Some(serde_json::to_value("None").unwrap()));
-                        }
-                    }
-                }
+                let Ok(filter_res) = filter(autoschematic_config, &self.connector_cache, keystore, None, &prefix, &addr).await
+                else {
+                    return Ok(Some(serde_json::to_value(false).unwrap()));
+                };
+                let mut res = Vec::<String>::new();
 
-                return Ok(Some(serde_json::to_value(false).unwrap()));
+                if filter_res.intersects(FilterResponse::Config) {
+                    res.push(String::from("Config"));
+                }
+                if filter_res.intersects(FilterResponse::Resource) {
+                    res.push(String::from("Resource"));
+                }
+                if filter_res.intersects(FilterResponse::Bundle) {
+                    res.push(String::from("Bundle"));
+                }
+                if filter_res.intersects(FilterResponse::Task) {
+                    res.push(String::from("Task"));
+                }
+                if filter_res.intersects(FilterResponse::Metric) {
+                    res.push(String::from("Metric"));
+                }
+                return Ok(Some(serde_json::to_value(res).unwrap()));
             }
             "top" => {
-                let topRes = self.connector_cache.top().await;
+                let top_res = self.connector_cache.top().await;
 
                 let mut res: HashMap<PathBuf, HashMap<String, ConnectorHandleStatus>> = HashMap::new();
 
-                for (key, value) in topRes {
+                for (key, value) in top_res {
                     res.entry(key.prefix).or_insert(HashMap::new()).insert(key.shortname, value);
                 }
 
@@ -392,12 +393,16 @@ impl Backend {
             };
 
             for connector_def in &prefix_def.connectors {
-                match self.connector_cache.filter_cached(&connector_def.shortname, &prefix, addr).await? {
+                match self
+                    .connector_cache
+                    .filter_cached(&connector_def.shortname, &prefix, addr)
+                    .await?
+                {
                     // TODO If the user edits a connector's config file,
                     // we need to re-init the connector, and clear the filter cache for that connector!
                     // autoschematic_core::connector::FilterResponse::Config => {
-                    autoschematic_core::connector::FilterResponse::Task => {}
-                    autoschematic_core::connector::FilterResponse::None => {}
+                    // autoschematic_core::connector::FilterResponse::Task => {}
+                    res if res == autoschematic_core::connector::FilterResponse::none() => {}
                     _ => {
                         if let Some((connector, _inbox)) =
                             self.connector_cache.get_connector(&connector_def.shortname, &prefix).await

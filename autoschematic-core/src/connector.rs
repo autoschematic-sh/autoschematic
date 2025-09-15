@@ -16,7 +16,7 @@ use async_trait::async_trait;
 use crate::{bundle::UnbundleResponseElement, template::ReadOutput};
 
 pub use crate::diag::DiagnosticResponse;
-    
+
 use crate::util::RON;
 
 /// ConnectorOps output by Connector::plan() may declare a set of output values
@@ -226,15 +226,18 @@ impl OutputMapFile {
 
 pub mod handle;
 pub mod spawn;
-pub mod task;
+pub mod task_registry;
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Clone)]
+// #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Clone)]
+#[bitmask_enum::bitmask(u32)]
+#[derive(Serialize, Deserialize)]
 pub enum FilterResponse {
     Config,
     Resource,
     Bundle,
     Task,
-    None,
+    Metric,
+    // None,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -336,12 +339,21 @@ pub struct OpExecResponse {
     pub friendly_message: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// TaskExecResponse represents the result of a Connector successfully executing a Task.
 pub struct TaskExecResponse {
+    /// The next value of `state` with which to call task_exec(...) next time. If None, the task is not executed again.
+    pub next_state: Option<Vec<u8>>,
+    pub modified_files: Option<Vec<PathBuf>>,
+    /// Task files, like Resource files, can have associated outputs. Outputs returned here are merged into the task's
+    /// output file.
     pub outputs: Option<HashMap<String, Option<String>>>,
+    /// Tasks may also return secret values for the runtime to optionally seal and write to disk if desired
     pub secrets: Option<HashMap<PathBuf, Option<String>>>,
+    /// Each task_exec phase can return a friendly human-readable message detailing its state.
     pub friendly_message: Option<String>,
+    /// Delay the next task_exec phase until at least `delay_until` seconds after the UNIX epoch
+    pub delay_until: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -451,7 +463,7 @@ pub trait Connector: Send + Sync {
     /// Get the current "real" state of the object at `addr`.
     /// For instance, get("aws/vpc/us-east-1/vpcs/vpc-0348895.ron") would query the AWS API for the
     /// current state of the vpc with that ID in the us-east-1 region in the account configured,
-    /// and form the textual, human-readable description as contained in the .ron file.
+    /// and form the human-readable (code) representation as contained in the .ron file.
     /// Note that get() only takes physical addresses - the addr_virt_to_phy is always carried out by the
     /// client ahead of time where needed.
     async fn get(&self, addr: &Path) -> Result<Option<GetResourceResponse>, anyhow::Error>;
@@ -474,7 +486,7 @@ pub trait Connector: Send + Sync {
     /// Execute a ConnectorOp.
     /// OpExecResponse may include output files, containing, for example,
     ///  the resultant IDs of created resources such as EC2 instances or VPCs.
-    /// This will be stored at ./{prefix}/{addr}.out.json,
+    /// This will be stored at ./{prefix}/{addr}.out.ron,
     ///  or merged if already present.
     async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecResponse, anyhow::Error>;
 
@@ -487,8 +499,8 @@ pub trait Connector: Send + Sync {
     /// `.outputs/aws/vpc/eu-west-2/vpcs/vpc-038598204.ron` -> PointerToVirtual("aws/vpc/eu-west-2/vpcs/main.ron")
     /// `.outputs/aws/vpc/eu-west-2/vpcs/main.ron` -> OutputMap({vpc_id: "vpc-038598204", ...})
     /// addr_virt_to_phy is where connectors define this mapping: that the physical address can be formed from the
-    /// virtual address by 
-    /// Most connectors shouldn't need to implement this and can just return Null.
+    /// virtual address by reading the output map and substituting certain path components.
+    /// Most connectors shouldn't need to override this.
     async fn addr_virt_to_phy(&self, addr: &Path) -> Result<VirtToPhyResponse, anyhow::Error> {
         Ok(VirtToPhyResponse::Null(addr.into()))
     }
@@ -523,38 +535,59 @@ pub trait Connector: Send + Sync {
     ///  to match remote state.
     /// The defaul implementation simply compares strings, without serializing or parsing in any way.
     /// addr is ignored in this default case.
-    async fn eq(&self, addr: &Path, a: &[u8], b: &[u8]) -> anyhow::Result<bool>;
+    async fn eq(&self, _addr: &Path, a: &[u8], b: &[u8]) -> anyhow::Result<bool> {
+        Ok(a == b)
+    }
 
     /// If a resource at `addr` with body `a` fails to parse, connectors may return diagnostics
     /// that outline where the parsing failed with error information.
     /// This is intended to aid development from an IDE or similar, with a language server hooking into connectors.
-    async fn diag(&self, addr: &Path, a: &[u8]) -> anyhow::Result<Option<DiagnosticResponse>>;
+    async fn diag(&self, _addr: &Path, _a: &[u8]) -> anyhow::Result<Option<DiagnosticResponse>> {
+        Ok(None)
+    }
 
     /// Where a Connector or Bundle implementation may define a bundle, with its associated ResourceAddress and Resource formats,
     /// This is where that bundle will be unpacked into one or more resources.
     async fn unbundle(&self, _addr: &Path, _bundle: &[u8]) -> anyhow::Result<Vec<UnbundleResponseElement>> {
         Ok(Vec::new())
     }
-    
+
     /// Design: TODO: Maybe we'll have task_send_msg(handle, msg) and task_recv_msg(handle) -> Option<msg>?
-    /// ...as well as list_task_handles()? 
+    /// ...as well as list_task_handles()?
     /// This is an area, like global repo locking, where we ought to be careful about how
     /// we serialize task messages in order to be flexible regarding our shared store over e.g. redis
-    async fn task_exec(&self, addr: &Path, ) -> anyhow::Result<Option<TaskExecResponse>> {
-        Ok(None)
+    /// POST: Ok, now we've hit on a stateless method pattern! This is good. State and task handles can live
+    /// in the runtime where they belong. Now, the question is how do we send messages to the runtime from a connector?
+    /// This is not strictly speaking task related, but it's worth trying to understand how we can implement,
+    /// say, tasks creating or rotating sealed secrets, or creating PRs, etc etc etc...
+    ///
+    async fn task_exec(
+        &self,
+        addr: &Path,
+        body: Vec<u8>,
+
+        // `arg` sets the initial argument for the task. `arg` is set to None after the first execution.
+        arg: Option<Vec<u8>>,
+        // The current state of the task as returned by a previous task_exec(...) call.
+        // state always starts as None when a task is first executed.
+        state: Option<Vec<u8>>,
+    ) -> anyhow::Result<TaskExecResponse> {
+        Ok(TaskExecResponse::default())
     }
 
-    
+    ///
+    /// Maybe get_messages(&self) -> anyhow::Result<Vec<Message>>
+    /// put_message(&self, Message) -> anyhow::Result<()>
+
     /// Design: TODO: How shall we define the GetMetricResponse enum?
     /// Again, how will metrics be stored by the server and queried?
-    async fn list_metrics(&self, addr: &Path, ) -> anyhow::Result<Vec<String>> {
+    async fn list_metrics(&self, addr: &Path) -> anyhow::Result<Vec<String>> {
         Ok(Vec::new())
     }
-    
+
     async fn read_metric(&self, addr: &Path, name: &str) -> anyhow::Result<()> {
         Ok(())
     }
-
 }
 
 // Helper traits for defining custom internal types in Connector implementations.

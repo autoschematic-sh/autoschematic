@@ -36,7 +36,7 @@ pub async fn get_docstring(
             )
             .await?;
 
-        if connector.filter(addr).await? == FilterResponse::Resource
+        if connector.filter(addr).await?.intersects(FilterResponse::none())
             && let Some(doc) = connector.get_docstring(addr, ident.clone()).await?
         {
             return Ok(Some(doc));

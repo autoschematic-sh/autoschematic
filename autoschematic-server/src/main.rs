@@ -12,7 +12,7 @@ mod github_util;
 mod object;
 mod repolock;
 mod secret;
-mod task;
+mod aux_task;
 mod template;
 mod tracestore;
 mod url_builder;
@@ -24,7 +24,7 @@ use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use anyhow::Context;
 use autoschematic_core::{
     keystore::{KeyStore, keystore_init},
-    task::registry::TaskRegistry,
+    aux_task::registry::TaskRegistry,
 };
 use dashboard::api_util::get_self;
 use error::{AutoschematicServerError, AutoschematicServerErrorType};
@@ -108,6 +108,9 @@ async fn async_main() -> anyhow::Result<()> {
 
     tracing::info!("Service configured with webhook URL: https://{}", webhook_domain);
     tracing::info!("Visit https://{}/create-app to create a Github App", webhook_domain);
+    // TODO Add the manifest install support here!
+    // TODO does that mean we get the secret from github... and then we have to store it?
+    // Or do we need to provide our secret value to github somehow after the manifest hook?
 
     Ok(HttpServer::new(move || {
         let cors = Cors::default()

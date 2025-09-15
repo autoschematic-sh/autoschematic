@@ -5,7 +5,7 @@ use std::{path::Path, sync::OnceLock};
 use anyhow::{Context, bail};
 use autoschematic_core::{
     error::{AutoschematicError, AutoschematicErrorType},
-    task::{
+    aux_task::{
         Task,
         message::TaskMessage,
         registry::{TaskRegistry, TaskRegistryEntry, TaskRegistryKey},

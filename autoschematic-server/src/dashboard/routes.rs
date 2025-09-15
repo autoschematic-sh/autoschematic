@@ -3,7 +3,7 @@ use std::{collections::HashSet, path::PathBuf};
 use actix_session::Session;
 use actix_web::{HttpRequest, HttpResponse, web};
 use actix_ws::{AggregatedMessage, Closed};
-use autoschematic_core::task::{message::TaskRegistryMessage, registry::TaskRegistryKey, state::TaskState};
+use autoschematic_core::aux_task::{message::TaskRegistryMessage, registry::TaskRegistryKey, state::TaskState};
 use futures::StreamExt;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -425,8 +425,11 @@ pub async fn spawn_task(
     };
 
     let (owner, repo, installation_id, prefix, name) = param.into_inner();
+    
 
-    crate::task::spawn_task(&owner, &repo, &PathBuf::from(prefix), &name, installation_id, arg.0)
+    // TODO RBAC check here! spawn_task({task_name}) must explicitly be granted to a principal to pass
+
+    crate::aux_task::spawn_task(&owner, &repo, &PathBuf::from(prefix), &name, installation_id, arg.0)
         .await
         .map_err(|e| error::AutoschematicServerError {
             kind: AutoschematicServerErrorType::InternalError(e),

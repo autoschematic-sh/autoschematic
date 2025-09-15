@@ -10,8 +10,8 @@ pub struct FilterRequest {
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct FilterResponse {
-    #[prost(enumeration = "FilterResponseType", tag = "1")]
-    pub filter: i32,
+    #[prost(uint32, tag = "1")]
+    pub bitmask: u32,
 }
 /// / --- Listing ---
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -275,11 +275,12 @@ pub struct UnbundleResponse {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum FilterResponseType {
-    Config = 0,
-    Resource = 1,
-    Bundle = 2,
-    Task = 3,
-    None = 4,
+    None = 0,
+    Config = 1,
+    Resource = 2,
+    Bundle = 4,
+    Task = 8,
+    Metric = 16,
 }
 impl FilterResponseType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -288,21 +289,23 @@ impl FilterResponseType {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
+            Self::None => "NONE",
             Self::Config => "CONFIG",
             Self::Resource => "RESOURCE",
             Self::Bundle => "BUNDLE",
             Self::Task => "TASK",
-            Self::None => "NONE",
+            Self::Metric => "METRIC",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
+            "NONE" => Some(Self::None),
             "CONFIG" => Some(Self::Config),
             "RESOURCE" => Some(Self::Resource),
             "BUNDLE" => Some(Self::Bundle),
             "TASK" => Some(Self::Task),
-            "NONE" => Some(Self::None),
+            "METRIC" => Some(Self::Metric),
             _ => None,
         }
     }

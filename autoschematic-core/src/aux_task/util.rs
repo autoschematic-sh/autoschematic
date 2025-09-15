@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::bail;
 use tokio::sync::mpsc::error::TryRecvError;
 
-use crate::task::{TaskInbox, message::TaskRegistryMessage};
+use crate::aux_task::{TaskInbox, message::TaskRegistryMessage};
 
 pub async fn drain_inbox(inbox: &mut TaskInbox) -> anyhow::Result<()> {
     loop {

@@ -37,13 +37,3 @@ pub trait Task: Send + Sync {
 
     async fn run(&mut self, arg: serde_json::Value) -> anyhow::Result<()>;
 }
-
-// pub struct Agent {
-//     pub owner: String,
-//     pub repo: String,
-//     pub test_suite_name: String,
-//     token: SecretBox<str>,
-//     pub client: Octocrab,
-//     inbox: AgentInbox,
-//     outbox: AgentOutbox,
-// }

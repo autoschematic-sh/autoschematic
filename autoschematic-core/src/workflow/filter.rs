@@ -11,10 +11,10 @@ pub async fn filter(
     addr: &Path,
 ) -> anyhow::Result<FilterResponse> {
     let Some(prefix_str) = prefix.to_str() else {
-        return Ok(FilterResponse::None);
+        return Ok(FilterResponse::none());
     };
     let Some(prefix_def) = autoschematic_config.prefixes.get(prefix_str) else {
-        return Ok(FilterResponse::None);
+        return Ok(FilterResponse::none());
     };
 
     for connector_def in &prefix_def.connectors {
@@ -33,13 +33,10 @@ pub async fn filter(
             .await?;
 
         match connector.filter(addr).await? {
-            FilterResponse::Config => return Ok(FilterResponse::Config),
-            FilterResponse::Resource => return Ok(FilterResponse::Resource),
-            FilterResponse::Bundle => return Ok(FilterResponse::Bundle),
-            FilterResponse::Task => return Ok(FilterResponse::Task),
-            FilterResponse::None => continue,
+            res if res == FilterResponse::none() => continue,
+            res => return Ok(res),
         }
     }
 
-    Ok(FilterResponse::None)
+    Ok(FilterResponse::none())
 }

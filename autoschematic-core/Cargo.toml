@@ -65,6 +65,7 @@ strsim = "0.11.1"
 tokio-stream = "0.1.17"
 process-wrap = { version = "9.0.0", features = ["tokio1"] }
 sysinfo = "0.37.0"
+bitmask-enum = "2.2.5"
 
 [build-dependencies]
 tonic-build = { version = "0.14.1", optional = true }

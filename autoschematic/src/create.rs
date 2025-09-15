@@ -88,7 +88,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
     }
 
     let spinner_stop = show_spinner().await;
-    if workflow::filter::filter(&config, &connector_cache, None, None, &prefix, &output_path).await? == FilterResponse::None {
+    if workflow::filter::filter(&config, &connector_cache, None, None, &prefix, &output_path).await? == FilterResponse::none() {
         spinner_stop.send(()).unwrap();
         let write_override = Confirm::new()
             .with_prompt(

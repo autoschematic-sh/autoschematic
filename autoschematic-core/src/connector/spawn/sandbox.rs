@@ -234,7 +234,6 @@ pub async fn launch_server_binary_sandboxed(
     //
     // The cloned child is started in a new mount namespace
     let mut flags = CloneFlags::CLONE_NEWNS;
-    // let mut flags = CloneFlags::CLONE_NEWNS;
     // Create the process in a new cgroup namespace.
     flags.insert(CloneFlags::CLONE_NEWCGROUP);
     // Create the process in a new IPC namespace.

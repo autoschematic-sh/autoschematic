@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     RON,
     github_util::{create_pull_request, merge_pr},
-    task::util::wait_for_comment_types,
+    aux_task::util::wait_for_comment_types,
 };
 
 use autoschematic_core::{

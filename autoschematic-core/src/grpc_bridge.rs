@@ -52,14 +52,8 @@ impl GrpcConnector for GrpcConnectorServer {
         let out = Connector::filter(&*self.inner.lock().await, &addr)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
-        let filt = match out {
-            connector::FilterResponse::Config => proto::FilterResponseType::Config,
-            connector::FilterResponse::Resource => proto::FilterResponseType::Resource,
-            connector::FilterResponse::Bundle => proto::FilterResponseType::Bundle,
-            connector::FilterResponse::Task => proto::FilterResponseType::Task,
-            connector::FilterResponse::None => proto::FilterResponseType::None,
-        };
-        Ok(Response::new(proto::FilterResponse { filter: filt as i32 }))
+
+        Ok(Response::new(proto::FilterResponse { bitmask: out.into() }))
     }
 
     async fn list(&self, req: Request<ListRequest>) -> Result<Response<ListResponse>, Status> {
@@ -338,14 +332,10 @@ impl Connector for GrpcConnectorClient {
         let req = FilterRequest {
             addr: addr.to_string_lossy().into(),
         };
+
         let resp = self.inner.lock().await.filter(Request::new(req)).await?.into_inner();
-        Ok(match resp.filter {
-            x if x == proto::FilterResponseType::Config as i32 => connector::FilterResponse::Config,
-            x if x == proto::FilterResponseType::Resource as i32 => connector::FilterResponse::Resource,
-            x if x == proto::FilterResponseType::Bundle as i32 => connector::FilterResponse::Bundle,
-            x if x == proto::FilterResponseType::Task as i32 => connector::FilterResponse::Task,
-            _ => connector::FilterResponse::None,
-        })
+
+        Ok(connector::FilterResponse::from(resp.bitmask))
     }
 
     async fn list(&self, subpath: &Path) -> Result<Vec<PathBuf>> {

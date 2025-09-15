@@ -2,7 +2,7 @@ use std::{path::Path, time::Duration};
 
 use anyhow::bail;
 
-use crate::task::util::{create_comment, wait_for_comment_types};
+use crate::aux_task::util::{create_comment, wait_for_comment_types};
 use autoschematic_core::git_util::pull_with_rebase;
 
 use super::TestTask;
@@ -53,7 +53,7 @@ impl TestTask {
         )
         .await?;
 
-        let (comment_type, comment) = wait_for_comment_types(
+        let (comment_type, _comment) = wait_for_comment_types(
             &self.owner,
             &self.repo,
             issue_number,

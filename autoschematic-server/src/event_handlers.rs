@@ -24,7 +24,7 @@ use crate::{
 };
 use crate::{TASK_REGISTRY, template::PullStateSuccessTemplate};
 use crate::{
-    task::util::message_from_github_webhook,
+    aux_task::util::message_from_github_webhook,
     template::{
         ApplyOverallSuccessTemplate, FilterMatchedNoFiles, PlanDeferralLoopTemplate, PlanOverallSuccessWithDeferralsTemplate,
         PullStateCleanTemplate, PullStateErrorTemplate, PullStateSuccessWithDeferralsTemplate,

@@ -8,7 +8,7 @@ mod fuzz_test;
 
 use autoschematic_core::{
     error::{AutoschematicError, AutoschematicErrorType},
-    task::{Task, TaskInbox, TaskOutbox, message::TaskMessage, state::TaskState, util::drain_inbox},
+    aux_task::{Task, TaskInbox, TaskOutbox, message::TaskMessage, state::TaskState, util::drain_inbox},
 };
 
 pub enum TestType {

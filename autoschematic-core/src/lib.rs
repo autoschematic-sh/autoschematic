@@ -19,7 +19,7 @@ pub mod manifest;
 pub mod report;
 pub mod secret;
 pub mod tarpc_bridge;
-pub mod task;
+pub mod aux_task;
 pub mod template;
 pub mod unescape;
 pub mod util;

@@ -1,7 +1,7 @@
 
 use crate::util::extract_template_message_type;
 use anyhow::bail;
-use autoschematic_core::task::{
+use autoschematic_core::aux_task::{
     TaskInbox, TaskOutbox,
     message::{IssueComment, TaskMessage, TaskRegistryMessage},
 };
@@ -17,7 +17,7 @@ pub async fn wait_for_comment_types(
     loop {
         match inbox.recv().await {
             Some(TaskRegistryMessage::IssueComment(issue_comment)) => {
-                tracing::error!("Got message! Type = {:?}", extract_template_message_type(&issue_comment.body));
+                tracing::info!("Got message! Type = {:?}", extract_template_message_type(&issue_comment.body));
                 if let Some(comment_message_type) = extract_template_message_type(&issue_comment.body)? {
                     if issue_comment.issue == issue
                         && issue_comment.owner == owner
@@ -26,7 +26,7 @@ pub async fn wait_for_comment_types(
                     {
                         return Ok((comment_message_type, issue_comment));
                     } else {
-                        tracing::error!("ignoring message type {:?}", comment_message_type)
+                        tracing::info!("ignoring message type {:?}", comment_message_type)
                     }
                 }
             }

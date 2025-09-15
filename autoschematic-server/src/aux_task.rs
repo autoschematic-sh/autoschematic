@@ -1,10 +1,11 @@
+pub mod pull_request_by_task;
 pub mod test_task;
 pub mod util;
 
 use std::{path::Path, time::Duration};
 
 use anyhow::{Context, bail};
-use autoschematic_core::task::{
+use autoschematic_core::aux_task::{
     Task,
     message::TaskMessage,
     registry::{TaskRegistryEntry, TaskRegistryKey},
@@ -13,9 +14,10 @@ use autoschematic_core::task::{
 use regex::Regex;
 
 use crate::{
-    TASK_REGISTRY, credentials,
+    TASK_REGISTRY,
+    aux_task::{pull_request_by_task::PullRequestByTask, test_task::TestTask},
+    credentials,
     error::{AutoschematicServerError, AutoschematicServerErrorType},
-    task::test_task::TestTask,
 };
 
 pub async fn spawn_task(
@@ -143,15 +145,16 @@ pub async fn spawn_task(
     let mut registry = registry.entries.write().await;
 
     if let Some(task) = registry.get(&registry_key)
-        && task.state == TaskState::Running {
-            bail!(
-                "Task {} already running for repo: {}/{} at prefix {}",
-                name,
-                owner,
-                repo,
-                prefix.to_str().unwrap_or_default()
-            )
-        }
+        && task.state == TaskState::Running
+    {
+        bail!(
+            "Task {} already running for repo: {}/{} at prefix {}",
+            name,
+            owner,
+            repo,
+            prefix.to_str().unwrap_or_default()
+        )
+    }
 
     // registry_outbox
     //     .send_async(AgentRegistryMessage::ShutDown)
@@ -170,14 +173,52 @@ pub async fn spawn_task(
                 installation_id,
             )
             .await
-            .context("TestAgent::new()")?;
+            .context("TestTask::new()")?;
 
             let error_registry_key = registry_key.clone();
             let join_handle = tokio::spawn(async move {
                 match task.run(arg).await {
                     Ok(()) => Ok(()),
                     Err(e) => {
-                        tracing::error!("Agent error: {}", e);
+                        tracing::error!("Task error: {}", e);
+                        Ok(task_outbox
+                            .send(TaskMessage::StateChange(TaskState::Error {
+                                message: format!("{e:#?}"),
+                            }))
+                            .await?)
+                    }
+                }
+            });
+            registry.insert(
+                registry_key,
+                TaskRegistryEntry {
+                    broadcast: registry_broadcast,
+                    outbox: registry_outbox,
+                    join_handle,
+                    state: TaskState::Stopped,
+                },
+            );
+            Ok(())
+        }
+        "pull_request_by_task" => {
+            let mut task = PullRequestByTask::new(
+                owner,
+                repo,
+                prefix,
+                &caps["path"],
+                task_inbox,
+                task_outbox.clone(),
+                installation_id,
+            )
+            .await
+            .context("PullRequestByTask::new()")?;
+
+            let error_registry_key = registry_key.clone();
+            let join_handle = tokio::spawn(async move {
+                match task.run(arg).await {
+                    Ok(()) => Ok(()),
+                    Err(e) => {
+                        tracing::error!("Task error: {}", e);
                         Ok(task_outbox
                             .send(TaskMessage::StateChange(TaskState::Error {
                                 message: format!("{e:#?}"),

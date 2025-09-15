@@ -7,13 +7,14 @@ message Empty {}
 /// --- Filter ---
 message FilterRequest  { string addr = 1; }
 enum FilterResponseType {
-  CONFIG   = 0;
-  RESOURCE = 1;
-  BUNDLE   = 2;
-  TASK     = 3;
-  NONE     = 4;
+  NONE     = 0;
+  CONFIG   = 1;
+  RESOURCE = 2;
+  BUNDLE   = 4;
+  TASK     = 8;
+  METRIC   = 16;
 }
-message FilterResponse { FilterResponseType filter = 1; }
+message FilterResponse { uint32 bitmask = 1; }
 
 /// --- Listing ---
 message ListRequest  { string subpath = 1; }
@@ -157,7 +158,7 @@ message UnbundleRequest {
   bytes  bundle = 2;
 }
 message UnbundleResponseElement {
-  string addr      = 1;
+  string addr    = 1;
   bytes contents = 2;
 }
 message UnbundleResponse {

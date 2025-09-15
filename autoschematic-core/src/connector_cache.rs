@@ -164,7 +164,7 @@ impl ConnectorCache {
             connector_filter_cache.insert(addr.into(), res);
             Ok(res)
         } else {
-            Ok(FilterResponse::None)
+            Ok(FilterResponse::none())
         }
     }
 
