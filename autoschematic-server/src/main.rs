@@ -1,5 +1,6 @@
 #![deny(unused_must_use)]
 
+mod aux_task;
 mod changeset;
 mod changeset_cache;
 mod chwd;
@@ -8,32 +9,33 @@ mod credentials;
 mod dashboard;
 mod error;
 mod event_handlers;
+mod github_cred_store;
 mod github_util;
 mod object;
 mod repolock;
 mod secret;
-mod aux_task;
 mod template;
 mod tracestore;
 mod url_builder;
 mod util;
 
 use actix_cors::Cors;
-use actix_files::NamedFile;
+// use actix_files::NamedFile;
 use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use anyhow::Context;
 use autoschematic_core::{
-    keystore::{KeyStore, keystore_init},
     aux_task::registry::TaskRegistry,
+    keystore::{KeyStore, keystore_init},
 };
 use dashboard::api_util::get_self;
 use error::{AutoschematicServerError, AutoschematicServerErrorType};
-use octocrab::models::webhook_events::WebhookEvent;
+use octocrab::{Octocrab, models::webhook_events::WebhookEvent};
 use once_cell::{self, sync::OnceCell};
 use ron_pfnsec_fork as ron;
+use secrecy::ExposeSecret;
 use serde::Deserialize;
+use serde_json::json;
 use std::{collections::HashMap, env, path::PathBuf, sync::Arc};
-use tera::Tera;
 use tokio::sync::RwLock;
 use tracestore::{InMemTraceStore, TraceStore};
 use tracing_subscriber::EnvFilter;
@@ -48,6 +50,11 @@ use actix_web::{
     web::{self},
 };
 
+use crate::{
+    dashboard::api_util::has_valid_session,
+    github_cred_store::{GITHUB_CRED_STORE, GithubCredStore, GithubCredStoreFile, get_github_cred_store},
+};
+
 static DOMAIN: OnceCell<String> = OnceCell::new();
 // static REPOLOCKSTORE: OnceCell<Box<dyn RepoLockStore>> = OnceCell::new();
 pub static TASK_REGISTRY: OnceCell<TaskRegistry> = OnceCell::new();
@@ -58,10 +65,17 @@ lazy_static::lazy_static! {
     .with_default_extension(ron::extensions::Extensions::UNWRAP_NEWTYPES)
     .with_default_extension(ron::extensions::Extensions::UNWRAP_VARIANT_NEWTYPES)
     .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME);
+
     pub static ref KEYSTORE: Arc<dyn KeyStore> = env::var("KEYSTORE")
         .context("Missing KEYSTORE environment variable")
         .map(|path| keystore_init(&path).expect("Failed to init keystore"))
         .unwrap();
+
+    pub static ref GITHUB_MANIFEST_ENABLED: bool = match env::var("AUTOSCHEMATIC_GITHUB_MANIFEST_ENABLED") {
+        Ok(s) if s == "false" => false,
+        Ok(_) => true,
+        Err(_) => false,
+    };
 }
 
 pub fn main() {
@@ -100,11 +114,18 @@ async fn async_main() -> anyhow::Result<()> {
         })
         .unwrap();
 
-    // dashboard::TEMPLATES.set(Tera::new("dashboard/**/*.html").unwrap()).unwrap();
-
-    let _webhook_secret = env::var("WEBHOOK_SECRET")
-        .context("Missing WEBHOOK_SECRET environment variable")
-        .unwrap();
+    if *GITHUB_MANIFEST_ENABLED {
+        match GithubCredStoreFile::load().await? {
+            Some(f) => {
+                GITHUB_CRED_STORE.set(RwLock::new(GithubCredStore::from(f))).unwrap();
+            }
+            None => {
+                GITHUB_CRED_STORE.set(RwLock::new(GithubCredStore::new().await?)).unwrap();
+            }
+        }
+    } else {
+        GITHUB_CRED_STORE.set(RwLock::new(GithubCredStore::new().await?)).unwrap();
+    }
 
     tracing::info!("Service configured with webhook URL: https://{}", webhook_domain);
     tracing::info!("Visit https://{}/create-app to create a Github App", webhook_domain);
@@ -141,11 +162,14 @@ async fn async_main() -> anyhow::Result<()> {
                     .build(),
             )
             .wrap(cors)
+            .route("/health", web::get().to(health_check))
             .route("/api/create-app", web::get().to(create_app))
             .route("/api/webhook", web::post().to(github_webhook))
             .route("/api/oauth", web::post().to(oauth))
             .route("/api/oauth", web::get().to(oauth))
+            .route("/api/manifest", web::get().to(manifest))
             .route("/api/login", web::get().to(login))
+            .route("/api/github_app_info", web::get().to(get_github_app_info))
             .route("/api/repo/", web::get().to(dashboard::routes::install_list))
             .route(
                 "/api/repo/{owner}/{repo}/{installation_id}/view",
@@ -153,7 +177,7 @@ async fn async_main() -> anyhow::Result<()> {
             )
             .route(
                 "/api/repo/{owner}/{repo}/{installation_id}/{prefix}/{task}/spawn",
-                web::post().to(dashboard::routes::spawn_task),
+                web::post().to(dashboard::routes::spawn_aux_task),
             )
             .route(
                 "/api/repo/{owner}/{repo}/{installation_id}/{prefix}/{task}/send",
@@ -185,28 +209,27 @@ async fn async_main() -> anyhow::Result<()> {
     .await?)
 }
 
-fn dashboard_app() -> actix_web::Result<actix_files::NamedFile> {
-    let path: PathBuf = PathBuf::from("./dashboard-react/dist/index.html");
-    Ok(actix_files::NamedFile::open(path)?)
+async fn health_check() -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({
+        "status": "ok",
+        "version": env!("CARGO_PKG_VERSION")
+    }))
 }
 
-async fn root() -> impl Responder {
-    "autoschematic is running!"
-}
-
-//
 async fn login() -> Result<HttpResponse, actix_web::Error> {
     let domain = DOMAIN.get().context("Missing WEBHOOK_DOMAIN environment variable").unwrap();
+    let cred = get_github_cred_store().await?.read().await;
 
-    let client_id = env::var("GITHUB_CLIENT_ID").map_err(|_| {
+    let Some(client_id) = cred.client_id.as_ref().map(|s| s.expose_secret()) else {
         tracing::error!("GITHUB_CLIENT_ID not configured");
-        AutoschematicServerError {
+        return Err(AutoschematicServerError {
             kind: AutoschematicServerErrorType::ConfigurationError {
                 name: "GITHUB_CLIENT_ID".to_string(),
                 message: "OAuth client ID must be configured".to_string(),
             },
         }
-    })?;
+        .into());
+    };
 
     let redirect_uri = format!("https://{domain}/api/oauth");
 
@@ -274,7 +297,7 @@ async fn github_webhook(req: HttpRequest, payload: web::Payload) -> Result<HttpR
 
     let body_bytes = payload.to_bytes_limited(DEFAULT_CONFIG_LIMIT).await??;
 
-    validate_github_hmac(&body_bytes, payload_signature)?;
+    validate_github_hmac(&body_bytes, payload_signature).await?;
 
     let webhook_event =
         WebhookEvent::try_from_header_and_body(event_header, &body_bytes).map_err(AutoschematicServerError::from)?;
@@ -300,37 +323,38 @@ struct AuthRequest {
 /// Handles OAuth callback from GitHub
 /// Exchanges the temporary code for an access token and stores it in the session.
 async fn oauth(query: web::Query<AuthRequest>, session: Session) -> Result<HttpResponse, Error> {
-    tracing::debug!("Processing OAuth callback");
+    let cred = get_github_cred_store().await?.read().await;
 
-    let client_id = env::var("GITHUB_CLIENT_ID").map_err(|_| {
+    let Some(client_id) = cred.client_id.as_ref().map(|s| s.expose_secret()) else {
         tracing::error!("GITHUB_CLIENT_ID not configured");
-        AutoschematicServerError {
+        return Err(AutoschematicServerError {
             kind: AutoschematicServerErrorType::ConfigurationError {
                 name: "GITHUB_CLIENT_ID".to_string(),
                 message: "OAuth client ID must be configured".to_string(),
             },
         }
-    })?;
+        .into());
+    };
 
-    let client_secret = env::var("GITHUB_CLIENT_SECRET").map_err(|_| {
+    let Some(client_secret) = cred.client_secret.as_ref().map(|s| s.expose_secret()) else {
         tracing::error!("GITHUB_CLIENT_SECRET not configured");
-        AutoschematicServerError {
+        return Err(AutoschematicServerError {
             kind: AutoschematicServerErrorType::ConfigurationError {
                 name: "GITHUB_CLIENT_SECRET".to_string(),
                 message: "OAuth client secret must be configured".to_string(),
             },
         }
-    })?;
+        .into());
+    };
 
     let code = &query.code;
-    tracing::debug!("Exchanging OAuth code for access token");
 
     // Exchange code for access token
     let client = reqwest::Client::new();
     let params = [
         ("client_id", client_id),
         ("client_secret", client_secret),
-        ("code", code.clone()),
+        ("code", &code.clone()),
     ];
 
     let res = client
@@ -383,6 +407,95 @@ async fn oauth(query: web::Query<AuthRequest>, session: Session) -> Result<HttpR
     Ok(HttpResponse::TemporaryRedirect()
         .insert_header(("Location", format!("http://localhost:5173/clusters/{}", domain)))
         .finish())
+}
+
+#[derive(Deserialize)]
+struct ManifestRequest {
+    code: String,
+    state: String,
+}
+
+/// Handles Manifest installation callback from GitHub
+async fn manifest(query: web::Query<ManifestRequest>, session: Session) -> Result<HttpResponse, Error> {
+    if !*GITHUB_MANIFEST_ENABLED {
+        return Err(AutoschematicServerError {
+            kind: AutoschematicServerErrorType::ConfigurationError {
+                name: "AUTOSCHEMATIC_GITHUB_MANIFEST_ENABLED".to_string(),
+                message: "Github App Manifest support is disabled.".to_string(),
+            },
+        }
+        .into());
+    }
+
+    let code = &query.code;
+
+    // Exchange code for access token
+    let client = reqwest::Client::new();
+    let url = format!("https://api.github.com/app-manifests/{code}/conversions");
+
+    tracing::error!("{:#?}", url);
+
+    let res = client
+        .post(url)
+        .header("Accept", "application/json")
+        .header("User-Agent", "Autoschematic-Cluster")
+        .send()
+        .await
+        .map_err(|e| {
+            tracing::error!("Manifest conversion failed: {}", e);
+            AutoschematicServerError::from(e)
+        })?;
+
+    let res_json: serde_json::Value = res.json().await.map_err(|e| {
+        tracing::error!("Invalid manifest response format: {}", e);
+        AutoschematicServerError::from(e)
+    })?;
+
+    let cred = get_github_cred_store().await?;
+
+    cred.write()
+        .await
+        .from_manifest_result(&res_json)
+        .map_err(|e| AutoschematicServerError::from(e))?;
+
+    cred.read()
+        .await
+        .save()
+        .await
+        .map_err(|e| AutoschematicServerError::from(e))?;
+
+    Ok(HttpResponse::TemporaryRedirect()
+        .append_header((
+            "Location",
+            format!("https://autoschematic.sh/clusters/{}", DOMAIN.get().unwrap()),
+        ))
+        .finish())
+}
+
+async fn get_github_app_info(session: Session) -> Result<HttpResponse, Error> {
+    let Some((_access_token, _github_username)) = has_valid_session(&session).await? else {
+        return Ok(HttpResponse::Unauthorized().finish());
+    };
+
+    let cred = get_github_cred_store().await?;
+
+    let Some(app_name) = &cred.read().await.app_name else {
+        return Ok(HttpResponse::Unauthorized().finish());
+    };
+
+    let Some(app_slug) = &cred.read().await.app_slug else {
+        return Ok(HttpResponse::Unauthorized().finish());
+    };
+
+    let Some(client_id) = &cred.read().await.client_id else {
+        return Ok(HttpResponse::Unauthorized().finish());
+    };
+
+    Ok(HttpResponse::Ok().json(json!({
+        "client_id": client_id.expose_secret(),
+        "app_name": app_name,
+        "app_slug": app_slug,
+    })))
 }
 
 async fn create_app() -> Result<HttpResponse, AutoschematicServerError> {

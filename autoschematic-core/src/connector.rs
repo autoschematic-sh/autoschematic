@@ -237,7 +237,7 @@ pub enum FilterResponse {
     Bundle,
     Task,
     Metric,
-    // None,
+    None = 0b0,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

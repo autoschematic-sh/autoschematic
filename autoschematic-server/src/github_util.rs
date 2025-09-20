@@ -46,32 +46,6 @@ struct GithubJwtClaims {
     alg: String,
 }
 
-pub fn create_jwt() -> anyhow::Result<SecretBox<str>> {
-    let app_id = std::env::var("GITHUB_APP_ID").context("env[GITHUB_APP_ID]")?;
-
-    let private_key_path = std::env::var("GITHUB_PRIVATE_KEY_PATH").context("env[GITHUB_PRIVATE_KEY_PATH]")?;
-
-    let pem_data = std::fs::read_to_string(&private_key_path).context(format!("Loading pem at {}", &private_key_path))?;
-
-    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-    let github_jwt_claims = GithubJwtClaims {
-        iat: now - std::time::Duration::from_secs(60).as_secs(),
-        exp: now + std::time::Duration::from_secs(9 * 60).as_secs(),
-        iss: app_id,
-        alg: "RS256".into(),
-    };
-
-    let token = encode(
-        &Header::new(Algorithm::RS256),
-        &github_jwt_claims,
-        &EncodingKey::from_rsa_pem(pem_data.as_bytes())
-            .context("Parsing RSA PEM data")
-            .context("EncodingKey::from_rsa_pem")?,
-    )?;
-
-    Ok(SecretBox::from(token))
-}
-
 pub async fn merge_pr(
     client: &octocrab::Octocrab,
     owner: &str,

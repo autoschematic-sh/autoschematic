@@ -1,16 +1,22 @@
-use std::{
-    env,
-    path::Path,
-};
+use std::{env, path::Path};
 
 use actix_web::http::header::HeaderValue;
 use anyhow::{Context, bail};
 use hmac::Mac;
 // use nix::fcntl::{Flock, FlockArg};
 use regex::Regex;
+use secrecy::ExposeSecret;
 use sha2::Sha256;
 
-pub fn validate_github_hmac(payload: &[u8], signature: &HeaderValue) -> anyhow::Result<()> {
+use crate::{github_cred_store::get_github_cred_store, GITHUB_CRED_STORE};
+
+pub async fn validate_github_hmac(payload: &[u8], signature: &HeaderValue) -> anyhow::Result<()> {
+    let cred = get_github_cred_store().await?.read().await;
+
+    let Some(webhook_secret) = cred.webhook_secret.as_ref().map(|s| s.expose_secret()) else {
+        bail!("Webhook disabled!");
+    };
+
     let sig_components: Vec<&str> = signature.to_str()?.split("=").collect();
     if sig_components.len() != 2 {
         bail!("Invalid Github webhook signature");
@@ -29,8 +35,6 @@ pub fn validate_github_hmac(payload: &[u8], signature: &HeaderValue) -> anyhow::
     };
 
     let signature_value = hex::decode(signature_hex)?;
-
-    let webhook_secret = env::var("WEBHOOK_SECRET")?;
 
     let mut mac = hmac::Hmac::<Sha256>::new_from_slice(webhook_secret.as_bytes())?;
 

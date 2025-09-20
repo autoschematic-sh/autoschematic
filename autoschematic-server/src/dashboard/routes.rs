@@ -1,7 +1,7 @@
-use std::{collections::HashSet, path::PathBuf};
+use std::{collections::HashSet, env, path::PathBuf};
 
 use actix_session::Session;
-use actix_web::{HttpRequest, HttpResponse, web};
+use actix_web::{rt::task, web, HttpRequest, HttpResponse};
 use actix_ws::{AggregatedMessage, Closed};
 use autoschematic_core::aux_task::{message::TaskRegistryMessage, registry::TaskRegistryKey, state::TaskState};
 use futures::StreamExt;
@@ -99,6 +99,7 @@ pub async fn dashboard(session: Session, param: web::Path<(String, String, u64)>
 
 pub async fn install_list(session: Session) -> Result<HttpResponse, actix_web::Error> {
     let Some((access_token, github_username)) = has_valid_session(&session).await? else {
+        tracing::error!("unauth!");
         return Ok(HttpResponse::Unauthorized().finish());
         // return Ok(HttpResponse::Found()
         //     .append_header(("Location", "/api/login"))
@@ -411,21 +412,32 @@ pub async fn log_subscribe(
     }
 }
 
-pub async fn spawn_task(
+pub async fn spawn_aux_task(
     req: HttpRequest,
     session: Session,
     param: web::Path<(String, String, u64, String, String)>,
     arg: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let Some((access_token, github_username)) = has_valid_session(&session).await? else {
-        return Ok(HttpResponse::Unauthorized().finish());
-        // return Ok(HttpResponse::Found()
-        //     .append_header(("Location", "/api/login"))
-        //     .finish());
+    let mut auth = false;
+
+    // TODO this needs to be MAC like the webhook signing secrets!
+    if let Ok(task_secret) = env::var("AUTOSCHEMATIC_SERVER_TASK_SECRET") {
+        if let Some(server_key) = req.headers().get("task-secret") {
+            if *server_key == task_secret {
+                auth = true;
+            }
+        }
+    }
+
+    if let Some((access_token, github_username)) = has_valid_session(&session).await? {
+        auth = true;
     };
 
+    if !auth {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
     let (owner, repo, installation_id, prefix, name) = param.into_inner();
-    
 
     // TODO RBAC check here! spawn_task({task_name}) must explicitly be granted to a principal to pass
 

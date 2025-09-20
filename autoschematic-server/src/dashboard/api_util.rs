@@ -301,7 +301,7 @@ pub async fn get_installations_for_user(user_access_token: &str) -> anyhow::Resu
                 }
             }
         }
-        tracing::error!("{:#?}", installation.get("target_type"))
+        // tracing::error!("{:#?}", installation.get("target_type"))
     }
 
     Ok(install_results)
