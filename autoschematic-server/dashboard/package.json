@@ -1,7 +1,0 @@
-{
-  "dependencies": {
-    "@tailwindcss/cli": "^4.0.8",
-    "ansi_up": "^6.0.2",
-    "tailwindcss": "^4.0.8"
-  }
-}
