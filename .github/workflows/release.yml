@@ -73,6 +73,8 @@ jobs:
       uses: arduino/setup-protoc@v3
       with:
         version: "32.x"
+        include-pre-releases: false
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
@@ -134,6 +136,8 @@ jobs:
       uses: arduino/setup-protoc@v3
       with:
         version: "32.x"
+        include-pre-releases: false
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
