@@ -148,16 +148,18 @@ pub fn extract_comments(src: &str) -> Vec<Comment> {
     let lines: Vec<&str> = src.lines().collect();
 
     if let Some(first_line) = lines.first()
-        && re_line.is_match(first_line) {
-            comments.push(Comment {
-                text: first_line.to_string(),
-                after: lines.get(1).map(|s| s.to_string()),
-                before: None,
-            });
-        }
+        && re_line.is_match(first_line)
+    {
+        comments.push(Comment {
+            text: first_line.to_string(),
+            after: lines.get(1).map(|s| s.to_string()),
+            before: None,
+        });
+    }
 
     for window in lines.windows(3) {
-        let prev_line = window.first()
+        let prev_line = window
+            .first()
             .filter(|s| s.trim().len() >= MIN_ANCHOR_LEN)
             .map(|s| s.to_string());
 
@@ -178,13 +180,14 @@ pub fn extract_comments(src: &str) -> Vec<Comment> {
     }
 
     if let Some(last_line) = lines.last()
-        && re_line.is_match(last_line) {
-            comments.push(Comment {
-                text: last_line.to_string(),
-                after: None,
-                before: lines.get(lines.len() - 2).map(|s| s.to_string()),
-            });
-        }
+        && re_line.is_match(last_line)
+    {
+        comments.push(Comment {
+            text: last_line.to_string(),
+            after: None,
+            before: lines.get(lines.len() - 2).map(|s| s.to_string()),
+        });
+    }
     comments
 }
 
@@ -196,24 +199,26 @@ pub fn apply_comments(mut target: String, comments: Vec<Comment>) -> String {
     for c in comments {
         // Exact before match
         if let Some(ref anchor) = c.before
-            && let Some(pos) = target.find(anchor) {
-                insert_after_line(&mut target, pos, &c.text);
-                continue;
-            }
+            && let Some(pos) = target.find(anchor)
+        {
+            insert_after_line(&mut target, pos, &c.text);
+            continue;
+        }
 
         // Exact after match
         if let Some(ref anchor) = c.after
-            && let Some(pos) = target.find(anchor) {
-                insert_before(&mut target, pos, &c.text);
-                continue;
-            }
+            && let Some(pos) = target.find(anchor)
+        {
+            insert_before(&mut target, pos, &c.text);
+            continue;
+        }
 
         // Fuzzy before/after match
         if let Some(pos) = fuzzy_find(&code_lines(&target), &c.after, &c.before) {
             insert_before(&mut target, pos, &c.text);
             continue;
         }
-        
+
         leftover_comments.push(c);
 
         // // ---------- 4) orphan bucket ----------
@@ -224,24 +229,26 @@ pub fn apply_comments(mut target: String, comments: Vec<Comment>) -> String {
     for c in leftover_comments {
         // Exact before match
         if let Some(ref anchor) = c.before
-            && let Some(pos) = target.find(anchor) {
-                insert_after_line(&mut target, pos, &c.text);
-                continue;
-            }
+            && let Some(pos) = target.find(anchor)
+        {
+            insert_after_line(&mut target, pos, &c.text);
+            continue;
+        }
 
         // Exact after match
         if let Some(ref anchor) = c.after
-            && let Some(pos) = target.find(anchor) {
-                insert_before(&mut target, pos, &c.text);
-                continue;
-            }
+            && let Some(pos) = target.find(anchor)
+        {
+            insert_before(&mut target, pos, &c.text);
+            continue;
+        }
 
         // Fuzzy before/after match
         if let Some(pos) = fuzzy_find(&code_lines(&target), &c.after, &c.before) {
             insert_before(&mut target, pos, &c.text);
             continue;
         }
-        
+
         // leftover_comments.push(c);
 
         // // // ---------- 4) orphan bucket ----------
@@ -283,7 +290,9 @@ fn fuzzy_find(lines: &Vec<(usize, String)>, after: &Option<String>, before: &Opt
                     let (start, _) = window.get(1).unwrap();
                     let (_, prev_line) = window.first().unwrap();
 
-                    if levenshtein(after.trim(), next_line.trim()) <= dist && levenshtein(before.trim(), prev_line.trim()) <= dist {
+                    if levenshtein(after.trim(), next_line.trim()) <= dist
+                        && levenshtein(before.trim(), prev_line.trim()) <= dist
+                    {
                         return Some(*start);
                     }
                 }

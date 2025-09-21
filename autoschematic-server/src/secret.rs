@@ -110,7 +110,7 @@ impl SealingConfig {
         secret: SecretBox<String>,
     ) -> Result<Vec<PathBuf>, anyhow::Error> {
         let mut res = Vec::new();
-        // For each active seal, encrypt 
+        // For each active seal, encrypt
         for seal_index in &self.active_seals {
             let sealed_secret_dir = &dir.join(format!("seal{}", seal_index));
             create_dir_all(sealed_secret_dir)?;
@@ -123,7 +123,7 @@ impl SealingConfig {
 
             let mut f = File::create_new(sealed_secret_path)?;
             f.write_all(sealed_secrets::encode(&map, seal.expose_secret())?.as_bytes())?;
-            
+
             res.push(sealed_secret_path.to_path_buf());
         }
 
@@ -144,12 +144,12 @@ impl SealingConfig {
                 let seal = load_seal(*seal_index)?;
                 let body = std::fs::read_to_string(sealed_secret_path)?;
                 let sec = sealed_secrets::decode(&body, seal.expose_secret())?;
-                // TOOO I'm sure this violates the whole point of the secretbox, 
+                // TOOO I'm sure this violates the whole point of the secretbox,
                 // which is to zero out the data on .drop() ....
                 let Some(secret) = sec.get("body") else {
                     return Err(anyhow::Error::msg(format!("Malformed secret: no 'body' at {:?}", secret_path)))
                 };
-                
+
                 return Ok(SecretBox::new(Box::new(secret.to_string())))
             }
             res.push(sealed_secret_path.to_path_buf());
@@ -157,9 +157,9 @@ impl SealingConfig {
 
         Err(anyhow::Error::msg(format!("No seal found to decode secret at {:?}", secret_path)))
     }
-    
+
     //For each secret in the secret store,
-    // for each active seal, if the secret has not yet been encrypted 
+    // for each active seal, if the secret has not yet been encrypted
     // with that seal, find an active seal that can decrypt it, and
     // encrypt a new copy with the "new" seal.
     // Inverse: a function that deletes sealed secrets signed by keys that are no longer active
@@ -169,7 +169,7 @@ impl SealingConfig {
     }
 
     pub fn remove_defunct_sealed_secrets() {
-        
+
     }
 }
  */

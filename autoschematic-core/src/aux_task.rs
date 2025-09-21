@@ -2,17 +2,11 @@ use std::path::Path;
 
 use async_trait::async_trait;
 use message::{TaskMessage, TaskRegistryMessage};
-// use test_task::TestTask;
-
 
 pub mod message;
-#[cfg(feature = "python")]
-mod python_task;
 pub mod registry;
 pub mod state;
 pub mod util;
-#[cfg(feature = "python")]
-use python_task::PythonTask;
 
 pub type TaskOutbox = tokio::sync::mpsc::Sender<TaskMessage>;
 pub type TaskInbox = tokio::sync::mpsc::Receiver<TaskRegistryMessage>;

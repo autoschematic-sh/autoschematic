@@ -9,13 +9,13 @@ macro_rules! try_option {
             Some(s) => s,
             None => return None,
         }
-    }
+    };
 }
 
 // Takes in a string with backslash escapes written out with literal backslash characters and
 // converts it to a string with the proper escaped characters.
 pub fn unescape(s: &str) -> Option<String> {
-    let mut queue : VecDeque<_> = String::from(s).chars().collect();
+    let mut queue: VecDeque<_> = String::from(s).chars().collect();
     let mut s = String::new();
 
     while let Some(c) = queue.pop_front() {
@@ -36,7 +36,7 @@ pub fn unescape(s: &str) -> Option<String> {
             Some('u') => s.push(try_option!(unescape_unicode(&mut queue))),
             Some('x') => s.push(try_option!(unescape_byte(&mut queue))),
             Some(c) if c.is_digit(8) => s.push(try_option!(unescape_octal(c, &mut queue))),
-            _ => return None
+            _ => return None,
         };
     }
 
@@ -46,7 +46,7 @@ pub fn unescape(s: &str) -> Option<String> {
 pub fn try_unescape(s: &str) -> Cow<'_, str> {
     match unescape(s) {
         Some(out) => Cow::Owned(out),
-        None => Cow::Borrowed(s)
+        None => Cow::Borrowed(s),
     }
 }
 
@@ -79,7 +79,7 @@ fn unescape_octal(c: char, queue: &mut VecDeque<char>) -> Option<char> {
             let _ = queue.pop_front();
             Some(ch)
         }
-        None => unescape_octal_no_leading(c, queue)
+        None => unescape_octal_no_leading(c, queue),
     }
 }
 

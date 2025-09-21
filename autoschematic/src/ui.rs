@@ -1,16 +1,16 @@
-use std::{error::Error, io};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
+use std::{error::Error, io};
 use tui::{
+    Frame, Terminal,
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::Spans,
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
-    Frame, Terminal,
 };
 
 struct Item {
@@ -29,11 +29,7 @@ struct PlanDisplay {
 
 impl PlanDisplay {
     fn new() -> PlanDisplay {
-        let info_titles = vec![
-            "Placeholder A".into(),
-            "Placeholder B".into(),
-            "Placeholder C".into(),
-        ];
+        let info_titles = vec!["Placeholder A".into(), "Placeholder B".into(), "Placeholder C".into()];
         let items = (1..=1000)
             .map(|i| Item {
                 title: format!("Item {i}"),
@@ -91,11 +87,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     // --- Restore terminal ---
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;
 
     if let Err(err) = res {
@@ -111,7 +103,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut PlanDisplay) -> io:
         // handle input
         if let Event::Key(key) = event::read()? {
             match key.code {
-                KeyCode::Char('q') => return Ok(()),      // quit
+                KeyCode::Char('q') => return Ok(()), // quit
                 KeyCode::Tab => {
                     // switch focus between list and input
                     app.input_mode = !app.input_mode;
@@ -160,7 +152,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut PlanDisplay) {
             app.info_titles
                 .iter()
                 .map(|_| Constraint::Length(5))
-                .collect::<Vec<Constraint>>()
+                .collect::<Vec<Constraint>>(),
         )
         .split(chunks[0]);
     for (i, title) in app.info_titles.iter().enumerate() {
@@ -189,10 +181,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut PlanDisplay) {
         .iter()
         .map(|it| {
             if it.expanded {
-                ListItem::new(vec![
-                    Spans::from(it.title.clone()),
-                    Spans::from(it.extended.clone()),
-                ])
+                ListItem::new(vec![Spans::from(it.title.clone()), Spans::from(it.extended.clone())])
             } else {
                 ListItem::new(Spans::from(it.title.clone()))
             }
@@ -214,18 +203,16 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut PlanDisplay) {
         .constraints([Constraint::Min(0), Constraint::Length(20)].as_ref())
         .split(bottom);
 
-    let instruction = Paragraph::new("Type 4925 to apply all of these operations")
-        .block(Block::default().borders(Borders::ALL));
+    let instruction =
+        Paragraph::new("Type 4925 to apply all of these operations").block(Block::default().borders(Borders::ALL));
     f.render_widget(instruction, bottom_chunks[0]);
 
     let input = Paragraph::new(app.input.as_ref())
-        .style(
-            if app.input_mode {
-                Style::default().fg(Color::Yellow)
-            } else {
-                Style::default()
-            },
-        )
+        .style(if app.input_mode {
+            Style::default().fg(Color::Yellow)
+        } else {
+            Style::default()
+        })
         .block(Block::default().borders(Borders::ALL).title("Input"));
     f.render_widget(input, bottom_chunks[1]);
 

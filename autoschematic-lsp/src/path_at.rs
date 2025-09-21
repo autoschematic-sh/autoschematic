@@ -91,18 +91,19 @@ fn descend_find_docident(
             let mut it = pair.clone().into_inner();
             // eprintln!("it: {}", it);
             if let Some(id_pair) = it.next()
-                && id_pair.as_rule() == Rule::ident {
-                    if covers(id_pair.as_span(), cursor) {
-                        *ident = Some(DocIdent::Struct {
-                            name: id_pair.as_str().into(),
-                        })
-                    }
-                    if covers(pair.as_span(), cursor) {
-                        *parent = Some(DocIdent::Struct {
-                            name: id_pair.as_str().into(),
-                        })
-                    }
+                && id_pair.as_rule() == Rule::ident
+            {
+                if covers(id_pair.as_span(), cursor) {
+                    *ident = Some(DocIdent::Struct {
+                        name: id_pair.as_str().into(),
+                    })
                 }
+                if covers(pair.as_span(), cursor) {
+                    *parent = Some(DocIdent::Struct {
+                        name: id_pair.as_str().into(),
+                    })
+                }
+            }
 
             // if let Some(id_pair) = it.next_if(|p| p.as_rule() == Rule::ident) {
             //     if covers(id_pair.as_span(), cursor) {
@@ -126,13 +127,14 @@ fn descend_find_docident(
             // descend(val, cursor, src, trail)?;
             if name.as_rule() == Rule::ident {
                 if covers(name.as_span(), cursor)
-                    && let Some(DocIdent::Struct { name: struct_name }) = parent {
-                        *ident = Some(DocIdent::Field {
-                            parent: struct_name.to_string(),
-                            name: name.as_str().into(),
-                        })
-                    }
-                    // trail.push(Component::Name(slice(src, id_pair.as_span())));
+                    && let Some(DocIdent::Struct { name: struct_name }) = parent
+                {
+                    *ident = Some(DocIdent::Field {
+                        parent: struct_name.to_string(),
+                        name: name.as_str().into(),
+                    })
+                }
+                // trail.push(Component::Name(slice(src, id_pair.as_span())));
 
                 for child in inner {
                     eprintln!("child: {}", child.as_str());
@@ -233,11 +235,12 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
             let mut it = pair.clone().into_inner();
             eprintln!("it: {it}");
             if let Some(id_pair) = it.next()
-                && id_pair.as_rule() == Rule::ident {
-                    // if covers(id_pair.as_span(), cursor) {
-                    trail.push(Component::Name(slice(src, id_pair.as_span())));
-                    // }
-                }
+                && id_pair.as_rule() == Rule::ident
+            {
+                // if covers(id_pair.as_span(), cursor) {
+                trail.push(Component::Name(slice(src, id_pair.as_span())));
+                // }
+            }
 
             // if let Some(id_pair) = it.next_if(|p| p.as_rule() == Rule::ident) {
             //     if covers(id_pair.as_span(), cursor) {

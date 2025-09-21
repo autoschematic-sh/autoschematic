@@ -1,17 +1,17 @@
-use std::{collections::HashMap, path::{Path, PathBuf}, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 
 use crate::{
     config::Spec,
-    connector::{handle::ConnectorHandle, Connector, ConnectorInbox},
+    connector::{Connector, ConnectorInbox, handle::ConnectorHandle},
     keystore::KeyStore,
 };
 use anyhow::{Context, bail};
-#[cfg(feature = "python")]
-use python::PythonConnector;
-use rand::{distr::Alphanumeric, Rng};
-
-#[cfg(feature = "python")]
-pub mod python;
+use rand::{Rng, distr::Alphanumeric};
 
 #[cfg(feature = "sandbox")]
 pub mod sandbox;
@@ -59,7 +59,6 @@ pub async fn wait_for_socket(socket: &Path, timeout: Duration) -> anyhow::Result
 
     Ok(())
 }
-
 
 fn random_socket_path() -> PathBuf {
     loop {

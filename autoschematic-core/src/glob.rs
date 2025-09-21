@@ -53,7 +53,6 @@ mod tests {
         assert_eq!(addr_matches_filter(addr, filter), true);
     }
 
-
     #[test]
     fn test_addr_matches_filter_no_match() {
         let addr = Path::new("aws/iam/user/jon.ron");

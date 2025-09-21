@@ -42,10 +42,10 @@ impl ConnectorTaskRegistry {
         // TODO ok so here, we'll go through every connector in the config,
         // spawn or get it,
         // and then get which ever connector returns FilterResponse::Task.
-        // Then, we'll spawn a tokio thread that will loop, 
+        // Then, we'll spawn a tokio thread that will loop,
         // and every iteration, it will run Connector::task_exec.
         // these tokio task handles will have to be stored in the registry too lol
         // kill on drop etc
-        // 
+        //
     }
 }

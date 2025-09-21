@@ -8,7 +8,7 @@ use regex::Regex;
 use secrecy::ExposeSecret;
 use sha2::Sha256;
 
-use crate::{github_cred_store::get_github_cred_store, GITHUB_CRED_STORE};
+use crate::{GITHUB_CRED_STORE, github_cred_store::get_github_cred_store};
 
 pub async fn validate_github_hmac(payload: &[u8], signature: &HeaderValue) -> anyhow::Result<()> {
     let cred = get_github_cred_store().await?.read().await;

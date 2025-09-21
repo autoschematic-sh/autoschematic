@@ -1,14 +1,14 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail};
+use anyhow::bail;
 use async_trait::async_trait;
 use regex::Regex;
 
 mod fuzz_test;
 
 use autoschematic_core::{
-    error::{AutoschematicError, AutoschematicErrorType},
     aux_task::{Task, TaskInbox, TaskOutbox, message::TaskMessage, state::TaskState, util::drain_inbox},
+    error::{AutoschematicError, AutoschematicErrorType},
 };
 
 pub enum TestType {

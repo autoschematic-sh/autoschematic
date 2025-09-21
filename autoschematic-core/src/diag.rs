@@ -32,7 +32,7 @@ pub struct DiagnosticSpan {
 pub struct Diagnostic {
     pub severity: u8,
     pub span: DiagnosticSpan,
-    pub message: String
+    pub message: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

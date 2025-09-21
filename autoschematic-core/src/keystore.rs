@@ -1,10 +1,11 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use anyhow::{bail, Result};
-use chacha20poly1305::{aead::Aead, AeadCore, KeyInit};
+use anyhow::{Result, bail};
+use chacha20poly1305::{AeadCore, KeyInit, aead::Aead};
 use ecdsa::EncodedPoint;
 use elliptic_curve::{
-    ecdh::{diffie_hellman, EphemeralSecret}, PublicKey, SecretKey,
+    PublicKey, SecretKey,
+    ecdh::{EphemeralSecret, diffie_hellman},
 };
 use k256::Secp256k1;
 use ondisk::OndiskKeyStore;
@@ -75,12 +76,9 @@ pub trait KeyStore: Send + Sync + std::fmt::Debug {
         let privkey_string_base64 = self.get_private_key(&secret.server_pubkey_id)?;
         let privkey_string = base64::decode(privkey_string_base64)?;
         let privkey = SecretKey::<Secp256k1>::from_bytes(privkey_string.as_slice().into())?;
-        let ephemeral_pubkey = PublicKey::<Secp256k1>::from_sec1_bytes(
-            base64::decode(&secret.ephemeral_pubkey)?.as_slice(),
-        )?;
+        let ephemeral_pubkey = PublicKey::<Secp256k1>::from_sec1_bytes(base64::decode(&secret.ephemeral_pubkey)?.as_slice())?;
 
-        let shared_secret =
-            diffie_hellman::<Secp256k1>(privkey.to_nonzero_scalar(), ephemeral_pubkey.as_affine());
+        let shared_secret = diffie_hellman::<Secp256k1>(privkey.to_nonzero_scalar(), ephemeral_pubkey.as_affine());
 
         let salt = base64::decode(&secret.salt)?;
 
@@ -92,16 +90,13 @@ pub trait KeyStore: Send + Sync + std::fmt::Debug {
         let nonce = base64::decode(&secret.nonce)?;
 
         let plaintext = cipher
-            .decrypt(
-                nonce.as_slice().into(),
-                base64::decode(&secret.ciphertext)?.as_slice(),
-            )
+            .decrypt(nonce.as_slice().into(), base64::decode(&secret.ciphertext)?.as_slice())
             .unwrap();
 
         Ok(String::from_utf8(plaintext)?)
     }
     /// For each entry in the hashmap,
-    /// If it matches "secret://some_path/in_the_repo", and that secret 
+    /// If it matches "secret://some_path/in_the_repo", and that secret
     /// is successfully unsealed to plaintext, insert it into the map.
     fn unseal_env_map(&self, env: &HashMap<String, String>) -> anyhow::Result<HashMap<String, String>> {
         let re = Regex::new(r"^secret://(?<path>.+)$")?;
@@ -115,7 +110,7 @@ pub trait KeyStore: Send + Sync + std::fmt::Debug {
                 //TODO more than one seal support?
                 let secret = seals.first().unwrap();
                 let plaintext = self.unseal_secret(secret)?;
-                
+
                 out_map.insert(key.clone(), plaintext);
             } else {
                 out_map.insert(key.clone(), value.clone());

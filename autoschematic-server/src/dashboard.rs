@@ -1,5 +1,5 @@
-pub mod routes;
 pub mod api_util;
+pub mod routes;
 
 use std::sync::Mutex;
 

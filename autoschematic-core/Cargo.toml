@@ -1,10 +1,17 @@
 cargo-features = ["edition2024"]
 [package]
 name = "autoschematic-core"
-description = "Core shared functionality for Autoschematic."
+description = "Core shared functionality for Autoschematic - workflow engine, state management, and Git integration"
 license = "MIT"
 version = "0.8.1"
 edition = "2024"
+authors = ["Peter Sherman <peter@autoschematic.sh>"]
+repository = "https://github.com/autoschematic-sh/autoschematic"
+homepage = "https://autoschematic.sh"
+documentation = "https://docs.autoschematic.sh"
+keywords = ["infrastructure", "devops", "automation", "git", "declarative"]
+categories = ["development-tools", "command-line-utilities"]
+readme = "../README.md"
 
 [features]
 default = ["grpc"]

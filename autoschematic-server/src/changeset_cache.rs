@@ -42,15 +42,8 @@ impl ChangeSetCache {
                     key.clone(),
                     (
                         Arc::new(Mutex::new(
-                            ChangeSet::from_pull_request(
-                                client,
-                                token,
-                                repository,
-                                pull_request,
-                                owner.clone(),
-                                repo.clone(),
-                            )
-                            .await?,
+                            ChangeSet::from_pull_request(client, token, repository, pull_request, owner.clone(), repo.clone())
+                                .await?,
                         )),
                         head_sha.clone(),
                     ),
@@ -63,15 +56,8 @@ impl ChangeSetCache {
                 key.clone(),
                 (
                     Arc::new(Mutex::new(
-                        ChangeSet::from_pull_request(
-                            client,
-                            token,
-                            repository,
-                            pull_request,
-                            owner.clone(),
-                            repo.clone(),
-                        )
-                        .await?,
+                        ChangeSet::from_pull_request(client, token, repository, pull_request, owner.clone(), repo.clone())
+                            .await?,
                     )),
                     head_sha.clone(),
                 ),
@@ -96,6 +82,4 @@ impl ChangeSetCache {
     }
 }
 
-pub static CHANGESET_CACHE: once_cell::sync::Lazy<ChangeSetCache> = Lazy::new(|| {
-    ChangeSetCache::default()
-});
+pub static CHANGESET_CACHE: once_cell::sync::Lazy<ChangeSetCache> = Lazy::new(|| ChangeSetCache::default());

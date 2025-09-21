@@ -1,7 +1,7 @@
 use crate::{
+    TRACESTORE,
     error::{AutoschematicServerError, AutoschematicServerErrorType},
     tracestore::TraceHandle,
-    TRACESTORE,
 };
 
 use super::ChangeSet;

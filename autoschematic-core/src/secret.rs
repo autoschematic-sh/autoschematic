@@ -28,7 +28,7 @@ pub struct SealedSecret {
     /// Public part of the ephemeral ECDSA keypair used in conjunction with the server key to derive
     /// the shared  used to encrypt the secret
     pub ephemeral_pubkey: String,
-    /// Salt used for symmetric key derivation 
+    /// Salt used for symmetric key derivation
     pub salt: String,
     /// Nonce used for symmetric encryption
     pub nonce: String,

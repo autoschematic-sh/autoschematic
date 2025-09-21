@@ -1,4 +1,3 @@
-
 use crate::util::extract_template_message_type;
 use anyhow::bail;
 use autoschematic_core::aux_task::{

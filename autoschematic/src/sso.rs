@@ -1,37 +1,29 @@
-
-use oauth2::url::Url;
 use oauth2::AccessToken;
+use oauth2::url::Url;
 use oauth2::{
-    basic::BasicClient, AuthUrl, ClientId, DeviceAuthorizationResponse,
-    DeviceAuthorizationUrl, EmptyExtraDeviceAuthorizationFields, Scope, TokenResponse,
-    TokenUrl,
+    AuthUrl, ClientId, DeviceAuthorizationResponse, DeviceAuthorizationUrl, EmptyExtraDeviceAuthorizationFields, Scope,
+    TokenResponse, TokenUrl, basic::BasicClient,
 };
 
-const CLIENT_ID: &str = "GITHUB_CLIENT_ID"; 
+const CLIENT_ID: &str = "GITHUB_CLIENT_ID";
 
 pub async fn login_via_github() -> anyhow::Result<AccessToken> {
     let http_client = reqwest::ClientBuilder::new()
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
-    let client = BasicClient::new(
-        ClientId::new(CLIENT_ID.to_owned()),
-    )
-    .set_auth_uri(AuthUrl::from_url(Url::parse(
-        "https://github.com/login/oauth/authorize",
-    )?))
-    .set_token_uri(TokenUrl::from_url(Url::parse(
-        "https://github.com/login/oauth/access_token",
-    )?))
-    .set_device_authorization_url(
-        DeviceAuthorizationUrl::from_url(Url::parse("https://github.com/login/device/code")?), 
-    );
+    let client = BasicClient::new(ClientId::new(CLIENT_ID.to_owned()))
+        .set_auth_uri(AuthUrl::from_url(Url::parse("https://github.com/login/oauth/authorize")?))
+        .set_token_uri(TokenUrl::from_url(Url::parse("https://github.com/login/oauth/access_token")?))
+        .set_device_authorization_url(DeviceAuthorizationUrl::from_url(Url::parse(
+            "https://github.com/login/device/code",
+        )?));
 
     let details: DeviceAuthorizationResponse<EmptyExtraDeviceAuthorizationFields> = client
         .exchange_device_code()
         .add_scope(Scope::new("repo".into()))
         .request_async(&http_client)
         .await?;
-    
+
     println!("{details:?}");
 
     let verify_url = details.verification_uri().to_string();
@@ -49,7 +41,7 @@ pub async fn login_via_github() -> anyhow::Result<AccessToken> {
         .exchange_device_access_token(&details)
         .request_async(&http_client, tokio::time::sleep, None)
         .await?;
-    
+
     println!("{token:?}");
 
     Ok(token.access_token().clone())
@@ -60,10 +52,7 @@ pub fn persist_github_token(token: &AccessToken) -> anyhow::Result<()> {
     let proj_dirs = directories::ProjectDirs::from("com", "autoschematic", "cli").unwrap();
     let path = proj_dirs.config_dir().join("github_token.json");
     std::fs::create_dir_all(path.parent().unwrap())?;
-    std::fs::write(
-        path,
-        serde_json::to_string(token)?
-    )?;
+    std::fs::write(path, serde_json::to_string(token)?)?;
     Ok(())
 }
 

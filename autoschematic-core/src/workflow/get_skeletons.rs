@@ -1,8 +1,8 @@
 use std::{path::Path, sync::Arc};
 
 use crate::{
-    config, config::AutoschematicConfig, connector::SkeletonResponse, connector_cache::ConnectorCache, error::AutoschematicError,
-    keystore::KeyStore,
+    config, config::AutoschematicConfig, connector::SkeletonResponse, connector_cache::ConnectorCache,
+    error::AutoschematicError, keystore::KeyStore,
 };
 
 pub async fn get_skeletons(
@@ -26,7 +26,7 @@ pub async fn get_skeletons(
             prefix,
             &connector_def.env,
             keystore.clone(),
-            false
+            false,
         )
         .await?;
 

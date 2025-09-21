@@ -7,4 +7,5 @@ pub mod import;
 pub mod list;
 pub mod plan;
 pub mod rename;
+pub mod task_exec;
 pub mod unbundle;

@@ -125,13 +125,7 @@ impl<'a> AutoschematicRbacConfig {
 
     /// Tests if the user is permitted to apply with this prefix and connector, given that the set of users in `approving_users` have
     /// approved the PR/changeset. Tests for each of those user's
-    pub fn allows_apply_if_approved_by(
-        &self,
-        user: &User,
-        prefix: &str,
-        connector: &str,
-        approving_users: &Vec<User>,
-    ) -> bool {
+    pub fn allows_apply_if_approved_by(&self, user: &User, prefix: &str, connector: &str, approving_users: &Vec<User>) -> bool {
         for grant in self.grants_for_prefix(user, prefix) {
             // We have a grant that allows apply, but only if approved by a user with `role`.
             if let Grant::ApplyIfApprovedBy { role } = &grant.grant {

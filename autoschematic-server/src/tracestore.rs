@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{
-    broadcast::{Receiver, Sender},
     Mutex,
+    broadcast::{Receiver, Sender},
 };
 use uuid::Uuid;
 
@@ -65,12 +65,7 @@ pub trait TraceStore: Send + Sync + std::fmt::Debug {
     async fn subscribe_runs(&self, repo_key: &RepoKey) -> anyhow::Result<Receiver<RunKey>>;
     async fn get_run(&self, repo_key: &RepoKey, run_key: &RunKey) -> anyhow::Result<RunData>;
     async fn delete_run(&self, repo_key: &RepoKey, run_key: &RunKey) -> anyhow::Result<()>;
-    async fn put_run(
-        &self,
-        repo_key: &RepoKey,
-        run_key: &RunKey,
-        value: RunData,
-    ) -> anyhow::Result<()>;
+    async fn put_run(&self, repo_key: &RepoKey, run_key: &RunKey, value: RunData) -> anyhow::Result<()>;
     async fn start_run(
         &self,
         owner: &str,
@@ -83,11 +78,7 @@ pub trait TraceStore: Send + Sync + std::fmt::Debug {
     ) -> anyhow::Result<TraceHandle>;
     async fn finish_run(&self, handle: &TraceHandle) -> anyhow::Result<()>;
     async fn append_run_log(&self, handle: &TraceHandle, value: String) -> anyhow::Result<()>;
-    async fn subscribe_run_logs(
-        &self,
-        repo_key: &RepoKey,
-        run_key: &RunKey,
-    ) -> anyhow::Result<Option<Receiver<String>>>;
+    async fn subscribe_run_logs(&self, repo_key: &RepoKey, run_key: &RunKey) -> anyhow::Result<Option<Receiver<String>>>;
 }
 
 #[async_trait]
@@ -115,11 +106,7 @@ impl TraceStore for InMemTraceStore {
             bail!("No such repo: {:?}", key);
         };
 
-        let res: Vec<RunKey> = repo
-            .runs
-            .keys()
-            .filter(|k| k.pr == pr).cloned()
-            .collect();
+        let res: Vec<RunKey> = repo.runs.keys().filter(|k| k.pr == pr).cloned().collect();
         Ok(res)
     }
 
@@ -155,12 +142,7 @@ impl TraceStore for InMemTraceStore {
         Ok(())
     }
 
-    async fn put_run(
-        &self,
-        repo_key: &RepoKey,
-        run_key: &RunKey,
-        value: RunData,
-    ) -> anyhow::Result<()> {
+    async fn put_run(&self, repo_key: &RepoKey, run_key: &RunKey, value: RunData) -> anyhow::Result<()> {
         let mut repos = self.repos.lock().await;
 
         if !repos.contains_key(repo_key) {
@@ -205,19 +187,18 @@ impl TraceStore for InMemTraceStore {
             log_sender: Some(log_sender),
             finished: false,
         };
-        
-        
+
         let reader_handle = tokio::spawn(async move {
             loop {
                 let res = dummy_receiver.recv().await;
                 match res {
-                    Ok(_) => {
+                    Ok(_) => {}
+                    Err(e) => {
+                        tracing::info!("dummy_receiver: {}", e);
                     }
-                    Err(e) => {tracing::info!("dummy_receiver: {}", e);}
                 }
             }
         });
-
 
         let repo_key = RepoKey {
             owner: String::from(owner),
@@ -282,11 +263,7 @@ impl TraceStore for InMemTraceStore {
         Ok(())
     }
 
-    async fn subscribe_run_logs(
-        &self,
-        repo_key: &RepoKey,
-        run_key: &RunKey,
-    ) -> anyhow::Result<Option<Receiver<String>>> {
+    async fn subscribe_run_logs(&self, repo_key: &RepoKey, run_key: &RunKey) -> anyhow::Result<Option<Receiver<String>>> {
         let mut repos = self.repos.lock().await;
         let Some(repo) = repos.get_mut(repo_key) else {
             bail!("No such repo: {:?}", repo_key);

@@ -18,18 +18,17 @@ use crate::{
 
 use autoschematic_core::{
     aux_task::{Task, TaskInbox, TaskOutbox, message::TaskMessage, state::TaskState, util::drain_inbox},
+    connector_cache::ConnectorCache,
     git_util::clone_repo,
 };
-
-pub enum TestType {
-    Fuzz(PathBuf),
-}
 
 pub struct PullRequestByTask {
     owner: String,
     repo: String,
     prefix: PathBuf,
     task_addr: PathBuf,
+
+    task_state: Option<Vec<u8>>,
 
     temp_dir: TempDir,
     token: SecretBox<str>,
@@ -68,6 +67,7 @@ impl Task for PullRequestByTask {
             repo: repo.into(),
             prefix: prefix.into(),
             task_addr: PathBuf::from(&caps["path"]),
+            task_state: None,
             temp_dir: TempDir::new("autoschematic_pull_request_by_task")?,
             token,
             client,
@@ -115,15 +115,19 @@ impl Task for PullRequestByTask {
         } else {
             &self.prefix
         };
-        
+
+        let connector_cache = ConnectorCache::default();
+
+        // connector_cache.get_or_spawn_connector(name, spec, prefix, env, keystore, do_init)
+
         // autoschematic_core::workflow::task_exec ???
         // TODO Now we need a plain old connector task registry.
         // Oh, maybe this is something that belongs in connector_cache?
-        // connector_cache or a separate implementation could handle coordinating the cluster (tasks and connectors, and locking...) 
+        // connector_cache or a separate implementation could handle coordinating the cluster (tasks and connectors, and locking...)
         // and already serves as the cpu/mem reporter.
         // So, here, we want to take our master cache of tasks and insert a new task into it,
         // corresponding to whatever connector returns | FilterResponse::Task to our task_addr.
-        // We want to wait until the task is done, and we want to get the results of its execution, 
+        // We want to wait until the task is done, and we want to get the results of its execution,
         // like whatever files it wants to modify or secrets it wants to seal, merged for each phase.
         // Maybe results should be stored in a least-recently-used limited size cache...
         // Then, we're going to apply the file modifications,

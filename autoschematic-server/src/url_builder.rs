@@ -157,9 +157,7 @@ mod tests {
     #[test]
     fn create_google_url() {
         let mut ub = URLBuilder::new();
-        ub.set_protocol("http")
-            .set_host("www.google.com")
-            .set_port(80);
+        ub.set_protocol("http").set_host("www.google.com").set_port(80);
         let url = ub.build();
         assert_eq!("http://www.google.com:80", url);
     }
@@ -175,9 +173,7 @@ mod tests {
     #[test]
     fn create_url_without_port_and_params() {
         let mut ub = URLBuilder::new();
-        ub.set_protocol("http")
-            .set_host("google.com")
-            .add_param("gcookie", "0xcafe");
+        ub.set_protocol("http").set_host("google.com").add_param("gcookie", "0xcafe");
         let url = ub.build();
         assert_eq!("http://google.com?gcookie=0xcafe", url)
     }
@@ -199,9 +195,7 @@ mod tests {
     #[test]
     fn create_url_with_routes() {
         let mut ub = URLBuilder::new();
-        ub.set_protocol("http")
-            .set_host("google.com")
-            .add_route("mail");
+        ub.set_protocol("http").set_host("google.com").add_route("mail");
         let url = ub.build();
         assert_eq!("http://google.com/mail", url)
     }

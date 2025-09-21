@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     RON,
-    github_util::{create_pull_request, merge_pr},
     aux_task::util::wait_for_comment_types,
+    github_util::{create_pull_request, merge_pr},
 };
 
 use autoschematic_core::{
@@ -49,13 +49,8 @@ impl TestTask {
                 .await
                 .context("Checking out branch")?;
 
-            git_commit_and_push(
-                &repo_path,
-                &branch_name,
-                &self.token,
-                &format!("Create branch {branch_name}"),
-            )
-            .context("git_commit_and_push")?;
+            git_commit_and_push(&repo_path, &branch_name, &self.token, &format!("Create branch {branch_name}"))
+                .context("git_commit_and_push")?;
 
             let issue_number = create_pull_request(&self.owner, &self.repo, &branch_name, &branch_name, "main", &self.client)
                 .await

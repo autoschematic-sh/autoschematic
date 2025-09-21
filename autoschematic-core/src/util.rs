@@ -23,7 +23,7 @@ use crate::connector::spawn::python::autoschematic_connector_hooks;
 
 use crate::{
     config::AutoschematicConfig,
-    diag::{Diagnostic, DiagnosticResponse, DiagnosticPosition, DiagnosticSeverity, DiagnosticSpan},
+    diag::{Diagnostic, DiagnosticPosition, DiagnosticResponse, DiagnosticSeverity, DiagnosticSpan},
     error::{AutoschematicError, AutoschematicErrorType},
 };
 

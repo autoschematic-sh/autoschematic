@@ -376,7 +376,6 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                             let mut overall_success = true;
                             match &changeset.last_plan {
                                 Some(_) => {
-
                                     let apply_report_set = changeset
                                         .apply(
                                             &repo,

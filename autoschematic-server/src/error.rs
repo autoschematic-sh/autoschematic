@@ -1,4 +1,4 @@
-use actix_web::{body::BodyLimitExceeded, error::PayloadError, HttpResponse, ResponseError};
+use actix_web::{HttpResponse, ResponseError, body::BodyLimitExceeded, error::PayloadError};
 use anyhow::anyhow;
 use autoschematic_core::error::AutoschematicError;
 use std::fmt::{self, Debug};
@@ -10,13 +10,13 @@ pub enum AutoschematicServerErrorType {
 
     /// Error when parsing an invalid keystore string
     InvalidKeystoreString(String),
-    
+
     /// Error when parsing an invalid lock string
     InvalidLockString(String),
 
     /// Internal service error wrapping anyhow::Error
     InternalError(anyhow::Error),
-    
+
     /// Error when service is not installed on repository
     NotInstalled,
 
@@ -25,7 +25,7 @@ pub enum AutoschematicServerErrorType {
 
     /// Error when PR is not in a mergeable state (missing e.g. CI checks)
     NotMergeable,
-    
+
     /// Error when a required HTTP header is missing
     MissingHeader(String),
 
@@ -33,7 +33,7 @@ pub enum AutoschematicServerErrorType {
     InvalidHeaderValue(String),
 
     RepoLocked(String),
-    
+
     /// Error when required configuration is missing or invalid
     ConfigurationError {
         /// Name of the configuration item

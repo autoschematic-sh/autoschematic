@@ -1,10 +1,6 @@
-
-
 use serde::{Deserialize, Serialize};
 
-
-
-// A Connector Manifest file (connector.ron) 
+// A Connector Manifest file (connector.ron)
 // defines the type of connector (binary-tarpc, binary-grpc, etc etc)
 // and specifies the executable path.
 // Connector manifests should exist at the root of a repo.

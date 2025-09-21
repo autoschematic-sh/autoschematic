@@ -1,23 +1,26 @@
 use std::path::Path;
 
 use autoschematic_core::secret::SealedSecret;
-use chacha20poly1305::{aead::Aead, AeadCore, KeyInit};
+use chacha20poly1305::{AeadCore, KeyInit, aead::Aead};
 use ecdsa::EncodedPoint;
-use elliptic_curve::{ecdh::EphemeralSecret, PublicKey};
+use elliptic_curve::{PublicKey, ecdh::EphemeralSecret};
 use k256::Secp256k1;
 use rand_core::{OsRng, RngCore};
 use sha2::Sha256;
 
 use crate::config::load_autoschematic_config;
 
-
-
-pub async fn seal(domain: &str, prefix: Option<&str>, path: &Path, in_path: Option<&Path>, key_id: Option<&str>) -> anyhow::Result<()> {
-    
+pub async fn seal(
+    domain: &str,
+    prefix: Option<&str>,
+    path: &Path,
+    in_path: Option<&Path>,
+    key_id: Option<&str>,
+) -> anyhow::Result<()> {
     let autoschematic_config = load_autoschematic_config()?;
-    
+
     // let prefix = prefix.unwrap_or("autoschematic");
-    
+
     // if !autoschematic_config.prefixes.contains_key(prefix) {
     //     bail!("Prefix {} not found in autoschematic.ron", prefix)
     // }
@@ -69,10 +72,10 @@ pub async fn seal(domain: &str, prefix: Option<&str>, path: &Path, in_path: Opti
         std::fs::read(in_path)?
     } else {
         inquire::Password::new("Secret contents:")
-        .with_display_mode(inquire::PasswordDisplayMode::Masked)
-        .without_confirmation()
-        .prompt()?
-        .into_bytes()
+            .with_display_mode(inquire::PasswordDisplayMode::Masked)
+            .without_confirmation()
+            .prompt()?
+            .into_bytes()
     };
 
     let ciphertext = cipher.encrypt(&nonce, &*secret_to_seal).unwrap();
@@ -85,7 +88,7 @@ pub async fn seal(domain: &str, prefix: Option<&str>, path: &Path, in_path: Opti
         nonce: base64::encode(nonce),
         ciphertext: base64::encode(ciphertext),
     };
-    
+
     // // form output path for sealed secret
     // let mut out_path = PathBuf::from(prefix).join(".secret").join(path);
     // if let Some(ext) = path.extension() {

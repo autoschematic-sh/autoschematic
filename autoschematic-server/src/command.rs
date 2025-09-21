@@ -1,4 +1,4 @@
-use clap::{command, ArgAction, Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand, command};
 
 #[derive(Parser, Debug)]
 #[clap(disable_help_subcommand = true)]
@@ -65,7 +65,7 @@ pub enum AutoschematicSubcommand {
         /// Optional path (can be a glob) to filter which resources are imported.
         #[arg(short, long, value_name = "subpath")]
         subpath: Option<String>,
-        
+
         /// Overwrite existing resource definitions if they are already present
         #[arg(long, action = ArgAction::SetTrue)]
         overwrite: bool,
@@ -73,7 +73,6 @@ pub enum AutoschematicSubcommand {
 
     /// Display the series of operations needed to apply the changeset.
     Plan {
-
         /// Optional path (can be a glob) to filter the changeset.
         #[arg(short, long, value_name = "prefix")]
         prefix: Option<String>,
@@ -121,7 +120,5 @@ pub enum AutoschematicSubcommand {
         delete: bool,
     },
 
-    Help {
-    }
-
+    Help {},
 }

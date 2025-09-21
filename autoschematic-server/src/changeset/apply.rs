@@ -127,7 +127,7 @@ impl ChangeSet {
                     &prefix,
                     &plan_report.connector_env,
                     Some(KEYSTORE.clone()),
-                    true
+                    true,
                 )
                 .await?;
             let sender_trace_handle = trace_handle.clone();

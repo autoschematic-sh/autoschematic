@@ -3,11 +3,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, bail};
 use regex::Regex;
 
-
 // TODO Annotate these with custom types so that accidental misuse is impossible
 // TODO Add unit tests
 
-/// From a given physical address, form the path pointing to the 
+/// From a given physical address, form the path pointing to the
 /// out.json file for that resource.
 /// For virtual addresses
 // pub fn build_out_path(prefix: &Path, addr: &Path) -> PathBuf {
@@ -93,7 +92,7 @@ use regex::Regex;
 //     let Some(virt_addr) = OutputMapFile::resolve(prefix, &PhysicalAddress(addr.to_path_buf()))? else {
 //         return Ok(None);
 //     };
-    
+
 //     return Ok(Some(A::from_path(&virt_addr.0)?));
 
 //     // let output_path = build_out_path(prefix, &addr.to_path_buf());

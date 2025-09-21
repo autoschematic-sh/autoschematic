@@ -54,7 +54,7 @@ pub async fn cargo_install_missing(config: &AutoschematicConfig) -> anyhow::Resu
             .unwrap()
             .insert(pkg_name[1].to_string(), binaries);
     }
-    
+
     for (prefix_name, prefix) in &config.prefixes {
         for connector in &prefix.connectors {
             match &connector.spec {
@@ -66,8 +66,6 @@ pub async fn cargo_install_missing(config: &AutoschematicConfig) -> anyhow::Resu
                     features,
                     protocol,
                 } => {
-                    
-                    
                     // TODO check pkg_map and skip existing with same version, features
                     println!("Installing {name}");
 

@@ -30,11 +30,7 @@ impl RepoLockStore for OnDiskLockStore {
     }
 
     fn try_lock(&self, path: &Path) -> anyhow::Result<Box<dyn super::RepoLock>> {
-        let file = OpenOptions::new()
-            
-            .create(true)
-            .append(true)
-            .open(self.dir.join(path))?;
+        let file = OpenOptions::new().create(true).append(true).open(self.dir.join(path))?;
 
         let guard = file_guard::lock(Rc::new(file), Lock::Exclusive, 0, 1)?;
 

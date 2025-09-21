@@ -37,29 +37,32 @@ pub async fn apply_connector(
         };
 
         if let Some(outputs) = &op_exec_output.outputs
-            && !outputs.is_empty() {
-                // We have changes to apply to the output file, so let's apply them and see if the output file was created/modified or deleted.
-                if let Some(virt_output_path) = OutputMapFile::apply_output_map(&plan.prefix, &plan.virt_addr, outputs)? {
-                    // Created/modified, so check for a separate physical output file, link it, and record it.
-                    if let VirtToPhyResponse::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await?
-                        && phy_addr != plan.virt_addr {
-                            let phy_output_path = OutputMapFile::write_link(&plan.prefix, &phy_addr, &plan.virt_addr)?;
-                            apply_report.wrote_files.push(phy_output_path);
-                        }
+            && !outputs.is_empty()
+        {
+            // We have changes to apply to the output file, so let's apply them and see if the output file was created/modified or deleted.
+            if let Some(virt_output_path) = OutputMapFile::apply_output_map(&plan.prefix, &plan.virt_addr, outputs)? {
+                // Created/modified, so check for a separate physical output file, link it, and record it.
+                if let VirtToPhyResponse::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await?
+                    && phy_addr != plan.virt_addr
+                {
+                    let phy_output_path = OutputMapFile::write_link(&plan.prefix, &phy_addr, &plan.virt_addr)?;
+                    apply_report.wrote_files.push(phy_output_path);
+                }
+                apply_report.wrote_files.push(virt_output_path);
+            } else if let VirtToPhyResponse::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
+                // Applying this change resulted in an empty output file, so delete it,
+                // check for a separate physical output file, and delete that too.
+                if let Some(virt_output_path) = OutputMapFile::delete(&plan.prefix, &plan.virt_addr)? {
                     apply_report.wrote_files.push(virt_output_path);
-                } else if let VirtToPhyResponse::Present(phy_addr) = connector.addr_virt_to_phy(&plan.virt_addr).await? {
-                    // Applying this change resulted in an empty output file, so delete it,
-                    // check for a separate physical output file, and delete that too.
-                    if let Some(virt_output_path) = OutputMapFile::delete(&plan.prefix, &plan.virt_addr)? {
-                        apply_report.wrote_files.push(virt_output_path);
-                    }
+                }
 
-                    if phy_addr != plan.virt_addr
-                        && let Some(phy_output_path) = OutputMapFile::delete(&plan.prefix, &phy_addr)? {
-                            apply_report.wrote_files.push(phy_output_path);
-                        }
+                if phy_addr != plan.virt_addr
+                    && let Some(phy_output_path) = OutputMapFile::delete(&plan.prefix, &phy_addr)?
+                {
+                    apply_report.wrote_files.push(phy_output_path);
                 }
             }
+        }
 
         apply_report.outputs.push(op_exec_output);
     }
@@ -84,12 +87,12 @@ pub async fn apply(
         return Ok(None);
     };
 
-
     'connector: for connector_def in &prefix_def.connectors {
         if let Some(connector_filter) = &connector_filter
-            && connector_def.shortname != *connector_filter {
-                continue 'connector;
-            }
+            && connector_def.shortname != *connector_filter
+        {
+            continue 'connector;
+        }
 
         let (connector, mut inbox) = connector_cache
             .get_or_spawn_connector(

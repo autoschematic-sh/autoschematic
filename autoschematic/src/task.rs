@@ -4,13 +4,13 @@ use std::{path::Path, sync::OnceLock};
 
 use anyhow::{Context, bail};
 use autoschematic_core::{
-    error::{AutoschematicError, AutoschematicErrorType},
     aux_task::{
         Task,
         message::TaskMessage,
         registry::{TaskRegistry, TaskRegistryEntry, TaskRegistryKey},
         state::TaskState,
     },
+    error::{AutoschematicError, AutoschematicErrorType},
 };
 use regex::Regex;
 

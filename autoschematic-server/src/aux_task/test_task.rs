@@ -17,8 +17,8 @@ use crate::{
 };
 
 use autoschematic_core::{
-    git_util::clone_repo,
     aux_task::{Task, TaskInbox, TaskOutbox, message::TaskMessage, state::TaskState, util::drain_inbox},
+    git_util::clone_repo,
 };
 
 pub enum TestType {

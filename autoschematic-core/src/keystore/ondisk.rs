@@ -1,12 +1,12 @@
 // autoschematic/src/keystore/ondisk.rs
 use anyhow::{Result, anyhow};
-use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use elliptic_curve::SecretKey;
-use k256::ecdsa::{Signature, SigningKey};
-use k256::pkcs8::der::pem;
-use k256::pkcs8::DecodePrivateKey;
 use k256::Secp256k1;
+use k256::ecdsa::{Signature, SigningKey};
+use k256::pkcs8::DecodePrivateKey;
+use k256::pkcs8::der::pem;
 use rand_core::OsRng;
 use signature::SignerMut;
 use std::fs;
@@ -35,11 +35,12 @@ impl KeyStore for OndiskKeyStore {
             return Err(anyhow!("OndiskKeystore failed to init: No key store found at {}", path));
         }
         let keystore = OndiskKeyStore { key_dir };
-        
+
         if let Ok(keys) = keystore.list()
-            && keys.is_empty() {
-                keystore.create_keypair("main")?;
-            }
+            && keys.is_empty()
+        {
+            keystore.create_keypair("main")?;
+        }
 
         Ok(keystore)
     }
@@ -49,17 +50,18 @@ impl KeyStore for OndiskKeyStore {
         for entry in fs::read_dir(&self.key_dir)? {
             let entry = entry?;
             if entry.file_type()?.is_file()
-                && let Some(file_name) = entry.file_name().to_str() {
-                    let Ok(pem) = fs::read_to_string(entry.path()) else {
-                        tracing::error!("Couldn't read key at {}", file_name);
-                        continue
-                    };
-                    let Ok(_) = SecretKey::<Secp256k1>::from_sec1_pem(&pem) else {
-                        tracing::error!("Couldn't parse key at {}", file_name);
-                        continue
-                    };
-                    key_ids.push(file_name.to_string());
-                }
+                && let Some(file_name) = entry.file_name().to_str()
+            {
+                let Ok(pem) = fs::read_to_string(entry.path()) else {
+                    tracing::error!("Couldn't read key at {}", file_name);
+                    continue;
+                };
+                let Ok(_) = SecretKey::<Secp256k1>::from_sec1_pem(&pem) else {
+                    tracing::error!("Couldn't parse key at {}", file_name);
+                    continue;
+                };
+                key_ids.push(file_name.to_string());
+            }
         }
         Ok(key_ids)
     }
@@ -87,7 +89,7 @@ impl KeyStore for OndiskKeyStore {
         let pub_bytes = secret_key.to_bytes();
         Ok(BASE64_STANDARD.encode(pub_bytes))
     }
-    
+
     fn create_keypair(&self, id: &str) -> Result<()> {
         // let mut rng = OsRng;
         let secret = SecretKey::<Secp256k1>::random(&mut OsRng);
@@ -98,7 +100,7 @@ impl KeyStore for OndiskKeyStore {
 
         Ok(())
     }
-    
+
     fn delete_keypair(&self, id: &str) -> Result<()> {
         let out_path = self.key_dir.join(format!("{id}.pem"));
         if out_path.is_file() {
