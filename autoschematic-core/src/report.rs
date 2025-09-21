@@ -106,7 +106,7 @@ pub struct UnbundleReport {
 }
 
 impl UnbundleReport {
-    pub async fn write_to_disk(&self, overbundle: bool, git_stage: bool) -> anyhow::Result<()> {
+    pub async fn write_to_disk(&self, overbundle: bool, _git_stage: bool) -> anyhow::Result<()> {
         let Some(ref elements) = self.elements else { return Ok(()) };
 
         for element in elements {

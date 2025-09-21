@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -51,7 +48,7 @@ pub struct PrefixGrant {
 impl<'a> AutoschematicRbacConfig {
     pub fn roles_for_user(&'a self, user: &User) -> Vec<&'a Role> {
         let mut res = Vec::new();
-        for (_role_name, role) in &self.roles {
+        for role in self.roles.values() {
             for role_user in &role.users {
                 if role_user == user {
                     res.push(role);
@@ -79,12 +76,11 @@ impl<'a> AutoschematicRbacConfig {
     /// Tests if the user has permission to read/plan/pull-state etc with this prefix and connector.
     pub fn allows_read(&self, user: &User, prefix: &str, connector: &str) -> bool {
         for grant in self.grants_for_prefix(user, prefix) {
-            if grant.grant >= Grant::ReadOnly {
-                if let Some(ref connectors) = grant.connectors {
-                    if connectors.contains(&connector.into()) {
-                        return true;
-                    }
-                }
+            if grant.grant >= Grant::ReadOnly
+                && let Some(ref connectors) = grant.connectors
+                && connectors.contains(&connector.into())
+            {
+                return true;
             }
         }
 
@@ -95,12 +91,11 @@ impl<'a> AutoschematicRbacConfig {
     /// another role's approval.
     pub fn allows_apply_without_approval(&self, user: &User, prefix: &str, connector: &str) -> bool {
         for grant in self.grants_for_prefix(user, prefix) {
-            if grant.grant == Grant::Apply {
-                if let Some(ref connectors) = grant.connectors {
-                    if connectors.contains(&connector.into()) {
-                        return true;
-                    }
-                }
+            if grant.grant == Grant::Apply
+                && let Some(ref connectors) = grant.connectors
+                && connectors.contains(&connector.into())
+            {
+                return true;
             }
         }
 
@@ -111,12 +106,11 @@ impl<'a> AutoschematicRbacConfig {
     /// role to do so. Does not determine if that other role has given approval or not.
     pub fn allows_apply_with_approval(&self, user: &User, prefix: &str, connector: &str) -> bool {
         for grant in self.grants_for_prefix(user, prefix) {
-            if let Grant::ApplyIfApprovedBy { .. } = &grant.grant {
-                if let Some(ref connectors) = grant.connectors {
-                    if connectors.contains(&connector.into()) {
-                        return true;
-                    }
-                }
+            if let Grant::ApplyIfApprovedBy { .. } = &grant.grant
+                && let Some(ref connectors) = grant.connectors
+                && connectors.contains(&connector.into())
+            {
+                return true;
             }
         }
 
@@ -401,8 +395,8 @@ mod tests {
     fn grants_for_prefix_multiple_roles_combined() {
         let u = user("mul");
         let mut cfg = AutoschematicRbacConfig::default();
-        let r1 = role_with_prefix(vec![u.clone()], "x", Grant::ReadOnly, Some(vec!["c"].into()));
-        let r2 = role_with_prefix(vec![u.clone()], "x", Grant::Apply, Some(vec!["c"].into()));
+        let r1 = role_with_prefix(vec![u.clone()], "x", Grant::ReadOnly, Some(vec!["c"]));
+        let r2 = role_with_prefix(vec![u.clone()], "x", Grant::Apply, Some(vec!["c"]));
         cfg.roles.insert("r1".into(), r1.clone());
         cfg.roles.insert("r2".into(), r2.clone());
 

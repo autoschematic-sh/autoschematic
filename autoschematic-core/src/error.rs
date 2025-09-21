@@ -26,8 +26,8 @@ impl<C> From<PoisonError<std::sync::RwLockReadGuard<'_, C>>> for ErrorMessage {
     }
 }
 
-impl From<PoisonError<std::sync::MutexGuard<'_, Box<(dyn Connector + 'static)>>>> for ErrorMessage {
-    fn from(value: PoisonError<std::sync::MutexGuard<'_, Box<(dyn Connector + 'static)>>>) -> Self {
+impl From<PoisonError<std::sync::MutexGuard<'_, Box<dyn Connector + 'static>>>> for ErrorMessage {
+    fn from(value: PoisonError<std::sync::MutexGuard<'_, Box<dyn Connector + 'static>>>) -> Self {
         ErrorMessage { msg: value.to_string() }
     }
 }

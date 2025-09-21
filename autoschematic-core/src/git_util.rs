@@ -268,10 +268,10 @@ pub fn get_staged_files() -> Result<Vec<PathBuf>, git2::Error> {
             staged.push(PathBuf::from(path));
         }
 
-        if s.intersects(Status::INDEX_RENAMED) {
-            if let Some(new_path) = entry.head_to_index().and_then(|d| d.new_file().path()) {
-                staged.push(PathBuf::from(new_path));
-            }
+        if s.intersects(Status::INDEX_RENAMED)
+            && let Some(new_path) = entry.head_to_index().and_then(|d| d.new_file().path())
+        {
+            staged.push(PathBuf::from(new_path));
         }
     }
     Ok(staged)

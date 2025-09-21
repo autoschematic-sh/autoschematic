@@ -4,12 +4,10 @@ use std::{
     sync::Arc,
 };
 
-use async_trait::async_trait;
-
 use crate::{
-    config::{AutoschematicConfig, Spec},
+    config::Spec,
     connector::{
-        Connector, ConnectorInbox, ConnectorOutbox, FilterResponse,
+        Connector, ConnectorInbox, FilterResponse,
         handle::{ConnectorHandle, ConnectorHandleStatus},
         spawn::spawn_connector,
     },
@@ -17,10 +15,9 @@ use crate::{
     keystore::KeyStore,
 };
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use dashmap::DashMap;
 use serde::Serialize;
-use tokio::task::{JoinHandle, JoinSet};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct ConnectorCacheKey {
@@ -28,14 +25,16 @@ pub struct ConnectorCacheKey {
     pub shortname: String,
 }
 
+pub type ConnectorCacheValue = (Arc<dyn ConnectorHandle>, ConnectorInbox);
+
 #[derive(Default)]
 pub struct ConnectorCache {
     // TODO when we run different connectors init() in parallel, we're fine. But we were to run the same init() in parallel,
     // we'd currently end up initializing two instances and only writing the second one under this scheme.
     // TODO: make this a map of <HashKey, RwLock<...>> or similar, and let consumers instead block on read() until the background init holding write() is finished!
-    config: AutoschematicConfig,
-    keystore: Option<Arc<dyn KeyStore>>,
-    cache: Arc<DashMap<ConnectorCacheKey, (Arc<dyn ConnectorHandle>, ConnectorInbox)>>,
+    // config: AutoschematicConfig,
+    // keystore: Option<Arc<dyn KeyStore>>,
+    cache: Arc<DashMap<ConnectorCacheKey, ConnectorCacheValue>>,
     /// Used to cache the results of Connector::filter(addr), which are assumed to be
     /// static. Since filter() is the most common call, this can speed up workflows by
     /// avoiding calling out to the connectors so many times.
@@ -168,7 +167,6 @@ impl ConnectorCache {
         }
     }
 
-    ///
     pub async fn clear_filter_cache(&self, name: &str, prefix: &Path) {
         let key = ConnectorCacheKey {
             shortname: name.into(),

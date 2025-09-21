@@ -6,9 +6,9 @@ use regex::Regex;
 // TODO Annotate these with custom types so that accidental misuse is impossible
 // TODO Add unit tests
 
-/// From a given physical address, form the path pointing to the
-/// out.json file for that resource.
-/// For virtual addresses
+// From a given physical address, form the path pointing to the
+// out.json file for that resource.
+// For virtual addresses
 // pub fn build_out_path(prefix: &Path, addr: &Path) -> PathBuf {
 //     // Start with prefix
 //     let mut output = prefix.to_path_buf();

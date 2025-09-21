@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use askama::Template;
 use rand::seq::IndexedRandom;
 
@@ -39,7 +37,6 @@ pub struct GreetingTemplate {}
 #[derive(Template)]
 #[template(path = "plan_error.md")]
 pub struct PlanErrorTemplate {
-    pub prefix: PathBuf,
     pub filename: String,
     pub failure_emoji: &'static str,
     pub error_message: String,
@@ -56,7 +53,7 @@ pub struct PlanOverallErrorTemplate {
 #[template(path = "plan_deferral_loop.md")]
 pub struct PlanDeferralLoopTemplate {
     pub failure_emoji: &'static str,
-    pub deferred_count: usize,
+    // pub deferred_count: usize,
     pub output_keys: Vec<String>,
 }
 
@@ -133,42 +130,11 @@ pub struct ImportSuccessTemplate {
 }
 
 #[derive(Template)]
-#[template(path = "skeleton_import_error.md")]
-pub struct SkeletonImportErrorTemplate {
-    pub error_message: String,
-    pub failure_emoji: &'static str,
-}
-
-#[derive(Template)]
-#[template(path = "skeleton_import_success.md")]
-pub struct SkeletonImportSuccessTemplate {
-    pub imported_count: usize,
-    pub success_emoji: &'static str,
-}
-
-#[derive(Template)]
-#[template(path = "migration_explain_error.md")]
-pub struct ExplainErrorTemplate {
-    pub filename: String,
-    pub statement: String,
-    pub error_message: String,
-}
-
-#[derive(Template)]
 #[template(path = "command_parse_failure.md")]
 pub struct CommandParseFailure {
     pub command: String,
     pub error_message: String,
     pub failure_emoji: &'static str,
-}
-
-#[derive(Template)]
-#[template(path = "connector_stdout.md")]
-pub struct ConnectorStdout {
-    pub prefix: String,
-    pub connector_name: String,
-    pub filename: String,
-    pub stdout: String,
 }
 
 #[derive(Template)]

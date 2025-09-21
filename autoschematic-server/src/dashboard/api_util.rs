@@ -137,6 +137,7 @@ pub struct InstallationInfo {
     pub installation_id: u64,
 }
 
+#[allow(unused)]
 pub async fn get_installations(jwt: &SecretBox<str>) -> anyhow::Result<Vec<InstallationInfo>> {
     let client = reqwest::Client::new();
 
@@ -201,7 +202,7 @@ pub async fn get_installations(jwt: &SecretBox<str>) -> anyhow::Result<Vec<Insta
                     .r#ref(default_branch)
                     .send()
                     .await
-                    .map_err(|e| {})
+                    .map_err(|_| {})
                 else {
                     continue;
                 };
@@ -213,7 +214,7 @@ pub async fn get_installations(jwt: &SecretBox<str>) -> anyhow::Result<Vec<Insta
                 let config: SpannedResult<AutoschematicConfig> = RON.from_str(&decoded_content);
 
                 match config {
-                    Ok(config) => {
+                    Ok(_config) => {
                         install_results.push(InstallationInfo {
                             owner: owner.into(),
                             repo: repo_name.into(),

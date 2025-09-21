@@ -1,4 +1,4 @@
-use std::{env, path::Path};
+use std::path::Path;
 
 use actix_web::http::header::HeaderValue;
 use anyhow::{Context, bail};
@@ -8,7 +8,7 @@ use regex::Regex;
 use secrecy::ExposeSecret;
 use sha2::Sha256;
 
-use crate::{GITHUB_CRED_STORE, github_cred_store::get_github_cred_store};
+use crate::github_cred_store::get_github_cred_store;
 
 pub async fn validate_github_hmac(payload: &[u8], signature: &HeaderValue) -> anyhow::Result<()> {
     let cred = get_github_cred_store().await?.read().await;
@@ -55,14 +55,14 @@ pub async fn validate_github_hmac(payload: &[u8], signature: &HeaderValue) -> an
 //     Ok(lock)
 // }
 
-/// Delete an entire prefix from the filesystem.
-/// Only useful in test environments!
-pub async fn clear_prefix(prefix: &Path) -> anyhow::Result<()> {
-    tracing::error!("Clearing prefix {:?}", prefix);
-    tokio::fs::create_dir_all(prefix).await.context("create_dir")?;
-    tokio::fs::remove_dir_all(prefix).await.context("remove dir")?;
-    tokio::fs::create_dir_all(prefix).await.context("create_dir")
-}
+// Delete an entire prefix from the filesystem.
+// Only useful in test environments!
+// pub async fn clear_prefix(prefix: &Path) -> anyhow::Result<()> {
+//     tracing::error!("Clearing prefix {:?}", prefix);
+//     tokio::fs::create_dir_all(prefix).await.context("create_dir")?;
+//     tokio::fs::remove_dir_all(prefix).await.context("remove dir")?;
+//     tokio::fs::create_dir_all(prefix).await.context("create_dir")
+// }
 
 /// Delete an entire prefix from the filesystem, but preserve the .outputs directory.
 /// Only useful in test environments!

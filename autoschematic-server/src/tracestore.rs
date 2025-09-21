@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::{collections::HashMap, time::Instant};
 
 use anyhow::bail;
@@ -9,10 +11,6 @@ use tokio::sync::{
     broadcast::{Receiver, Sender},
 };
 use uuid::Uuid;
-
-type Owner = String;
-type Repo = String;
-type PullRequest = u64;
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct RepoKey {
@@ -58,6 +56,7 @@ pub struct InMemTraceStore {
 }
 
 #[async_trait]
+#[allow(clippy::too_many_arguments)]
 pub trait TraceStore: Send + Sync + std::fmt::Debug {
     async fn list_repos(&self) -> anyhow::Result<Vec<RepoKey>>;
     async fn list_runs(&self, repo_key: &RepoKey) -> anyhow::Result<Vec<RunKey>>;
@@ -137,7 +136,7 @@ impl TraceStore for InMemTraceStore {
             bail!("No such repo: {:?}", repo_key);
         };
 
-        repo.runs.remove(run_key);
+        repo.runs.swap_remove(run_key);
 
         Ok(())
     }

@@ -1,4 +1,4 @@
-use std::{
+/* use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
@@ -25,7 +25,7 @@ pub struct ConnectorTaskRegistryEntry {
 
 #[derive(Default)]
 pub struct ConnectorTaskRegistry {
-    connector_cache: ConnectorCache,
+    // connector_cache: ConnectorCache,
     pub entries: DashMap<String, RwLock<ConnectorTaskRegistryEntry>>,
 }
 
@@ -49,3 +49,4 @@ impl ConnectorTaskRegistry {
         //
     }
 }
+ */

@@ -1,20 +1,17 @@
-use std::{io::Write, sync::Arc};
+use std::sync::Arc;
 
 use autoschematic_core::{
-    connector_cache::ConnectorCache, git_util::get_staged_files, report::PlanReport, workflow::unbundle::write_unbundle_element,
+    connector_cache::ConnectorCache, git_util::get_staged_files, util::load_autoschematic_config,
+    workflow::unbundle::write_unbundle_element,
 };
 use crossterm::style::Stylize;
 
-use crate::{
-    config::load_autoschematic_config,
-    spinner::spinner::show_spinner,
-    util::{colour_op_message, try_colour_op_message_diff},
-};
+use crate::spinner::show_spinner;
 
 pub async fn unbundle(
-    prefix: &Option<String>,
-    connector: &Option<String>,
-    subpath: &Option<String>,
+    _prefix_filter: &Option<String>,
+    connector_filter: &Option<String>,
+    _subpath_filter: &Option<String>,
     overbundle: bool,
     git_stage: bool,
 ) -> anyhow::Result<()> {
@@ -31,7 +28,7 @@ pub async fn unbundle(
         return Ok(());
     }
 
-    let mut have_nonempty_unbundle = false;
+    // let mut have_nonempty_unbundle = false;
     for path in staged_files {
         let spinner_stop = show_spinner().await;
 
@@ -39,7 +36,7 @@ pub async fn unbundle(
             &config,
             connector_cache.clone(),
             keystore.clone(),
-            connector,
+            connector_filter,
             &path,
         )
         .await?
@@ -50,7 +47,7 @@ pub async fn unbundle(
 
         // println!("{plan_report:#?}");
 
-        have_nonempty_unbundle = true;
+        // have_nonempty_unbundle = true;
 
         spinner_stop.send(()).unwrap();
 

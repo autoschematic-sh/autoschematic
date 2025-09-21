@@ -291,7 +291,7 @@ impl LanguageServer for Backend {
                 let mut res: HashMap<PathBuf, HashMap<String, ConnectorHandleStatus>> = HashMap::new();
 
                 for (key, value) in top_res {
-                    res.entry(key.prefix).or_insert(HashMap::new()).insert(key.shortname, value);
+                    res.entry(key.prefix).or_default().insert(key.shortname, value);
                 }
 
                 return Ok(Some(serde_json::to_value(res).unwrap()));
@@ -438,7 +438,7 @@ impl Backend {
                 let prefix_name = prefix_name.clone();
 
                 joinset.spawn(async move {
-                    let (connector, mut inbox) = connector_cache
+                    let (_connector, mut inbox) = connector_cache
                         .get_or_spawn_connector(
                             &connector_def.shortname,
                             &connector_def.spec,
@@ -473,7 +473,7 @@ impl Backend {
                 });
             }
         }
-        while let Some(_) = joinset.join_next().await {}
+        joinset.join_all().await;
         Ok(())
     }
 

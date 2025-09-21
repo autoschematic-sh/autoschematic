@@ -1,16 +1,23 @@
-use std::{io::Write, sync::Arc};
+use std::sync::Arc;
 
-use autoschematic_core::{connector_cache::ConnectorCache, git_util::get_staged_files, report::PlanReport};
+use autoschematic_core::{
+    connector_cache::ConnectorCache, git_util::get_staged_files, report::PlanReport, util::load_autoschematic_config,
+};
 use crossterm::style::Stylize;
 
 use crate::{
-    config::load_autoschematic_config,
-    spinner::spinner::show_spinner,
+    spinner::show_spinner,
     util::{colour_op_message, try_colour_op_message_diff},
 };
 
-pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: &Option<String>) -> anyhow::Result<()> {
+pub async fn plan(
+    prefix_filter: &Option<String>,
+    connector_filter: &Option<String>,
+    _subpath_filter: &Option<String>,
+) -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;
+
+    if let Some(_prefix_filter) = prefix_filter {}
 
     let staged_files = get_staged_files()?;
 
@@ -29,9 +36,14 @@ pub async fn plan(prefix: &Option<String>, connector: &Option<String>, subpath: 
     for path in staged_files {
         let spinner_stop = show_spinner().await;
 
-        let Some(plan_report) =
-            autoschematic_core::workflow::plan::plan(&config, connector_cache.clone(), keystore.clone(), connector, &path)
-                .await?
+        let Some(plan_report) = autoschematic_core::workflow::plan::plan(
+            &config,
+            connector_cache.clone(),
+            keystore.clone(),
+            connector_filter,
+            &path,
+        )
+        .await?
         else {
             spinner_stop.send(()).unwrap();
             continue;

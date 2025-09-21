@@ -19,9 +19,11 @@ pub async fn plan_connector(
     prefix: &Path,
     virt_addr: &Path,
 ) -> Result<Option<PlanReport>, anyhow::Error> {
-    let mut plan_report = PlanReport::default();
-    plan_report.prefix = prefix.into();
-    plan_report.virt_addr = virt_addr.into();
+    let mut plan_report = PlanReport {
+        prefix: prefix.into(),
+        virt_addr: virt_addr.into(),
+        ..Default::default()
+    };
 
     let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
         VirtToPhyResponse::NotPresent => None,

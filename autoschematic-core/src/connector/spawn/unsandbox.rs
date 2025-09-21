@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     io,
     path::{Path, PathBuf},
-    rc::Rc,
     sync::{Arc, Mutex},
     thread::JoinHandle,
 };
@@ -28,7 +27,7 @@ use async_trait::async_trait;
 use libc::killpg;
 use once_cell::sync::Lazy;
 use process_wrap::tokio::*;
-use sysinfo::{Pid, Process, ProcessRefreshKind, System};
+use sysinfo::{Pid, ProcessRefreshKind};
 
 /// This module handles unsandboxed execution of connector instances.
 pub struct UnsandboxConnectorHandle {
@@ -41,7 +40,7 @@ pub struct UnsandboxConnectorHandle {
 
 #[async_trait]
 impl Connector for UnsandboxConnectorHandle {
-    async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
+    async fn new(_name: &str, _prefix: &Path, _outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
         bail!("Connector::new() for UnsandboxConnectorHandle is a stub!")
         // <TarpcConnectorClient as Connector>::new(name, prefix, outbox).await
     }

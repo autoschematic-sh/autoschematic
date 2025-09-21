@@ -4,7 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use colored::Colorize;
 use crossterm::style::Stylize;
 use dialoguer::Confirm;
 use rand::Rng;
@@ -13,21 +12,20 @@ use autoschematic_core::{
     connector_cache::ConnectorCache,
     git_util::{get_staged_files, git_add},
     report::PlanReportSet,
-    util::repo_root,
+    util::{load_autoschematic_config, repo_root},
 };
 
 use crate::{
-    config::load_autoschematic_config,
     plan::{frame, print_frame_end, print_frame_start, print_plan, print_plan_addr},
     safety_lock::check_safety_lock,
-    spinner::spinner::show_spinner,
+    spinner::show_spinner,
     util::{colour_op_message, try_colour_op_message_diff},
 };
 
 pub async fn apply(
-    prefix: Option<String>,
-    connector: Option<String>,
-    subpath: Option<String>,
+    _prefix_filter: Option<String>,
+    connector_filter: Option<String>,
+    _subpath_filter: Option<String>,
     ask_confirm: bool,
     skip_commit: bool,
 ) -> anyhow::Result<()> {
@@ -91,9 +89,14 @@ pub async fn apply(
         //     // TODO track if no staged files matched FilterResponse::Resource...
         //     // autoschematic_core::workflow::filter::filter(&config, &connector_cache, keystore, prefix, addr)
 
-        let Some(plan_report) =
-            autoschematic_core::workflow::plan::plan(&config, connector_cache.clone(), keystore.clone(), &connector, &path)
-                .await?
+        let Some(plan_report) = autoschematic_core::workflow::plan::plan(
+            &config,
+            connector_cache.clone(),
+            keystore.clone(),
+            &connector_filter,
+            &path,
+        )
+        .await?
         else {
             spinner_stop.send(()).unwrap();
             continue;
@@ -176,7 +179,7 @@ pub async fn apply(
             &config,
             connector_cache.clone(),
             keystore.clone(),
-            &connector,
+            &connector_filter,
             &plan_report,
         )
         .await?

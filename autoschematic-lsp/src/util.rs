@@ -73,9 +73,7 @@ pub fn lsp_param_to_path(params: ExecuteCommandParams) -> Option<PathBuf> {
         return None;
     }
 
-    let Some(path_arg) = params.arguments.first() else {
-        return None;
-    };
+    let path_arg = params.arguments.first()?;
 
     let Ok(file_path) = serde_json::from_value::<String>(path_arg.clone()) else {
         return None;

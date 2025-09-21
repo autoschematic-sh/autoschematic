@@ -54,30 +54,28 @@ impl SandboxConnectorHandle {
     pub fn still_alive(&self) -> anyhow::Result<i32> {
         if kill(self.pid, None).is_ok() {
             Ok(self.pid.as_raw())
-        } else {
-            if self.error_dump.is_file() {
-                match std::fs::read_to_string(&self.error_dump) {
-                    Ok(dump) => Err(ErrorMessage { msg: dump }.into()),
-                    Err(e) => {
-                        bail!("Connector process exited, failed to read error dump: {}", e)
-                    }
+        } else if self.error_dump.is_file() {
+            match std::fs::read_to_string(&self.error_dump) {
+                Ok(dump) => Err(ErrorMessage { msg: dump }.into()),
+                Err(e) => {
+                    bail!("Connector process exited, failed to read error dump: {}", e)
                 }
-            } else {
-                bail!("Connector process exited without any error dump!")
             }
+        } else {
+            bail!("Connector process exited without any error dump!")
         }
     }
 }
 
 #[async_trait]
 impl Connector for SandboxConnectorHandle {
-    async fn new(name: &str, prefix: &Path, outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
+    async fn new(_name: &str, _prefix: &Path, _outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
         bail!("Connector::new() for SandboxConnectorHandle is a stub!")
     }
     async fn init(&self) -> Result<(), anyhow::Error> {
-        self.still_alive().context(format!("Before init()"))?;
+        self.still_alive().context("Before init()".to_string())?;
         let res = Connector::init(&self.client).await;
-        self.still_alive().context(format!("After init()"))?;
+        self.still_alive().context("After init()".to_string())?;
         res
     }
 
@@ -136,16 +134,16 @@ impl Connector for SandboxConnectorHandle {
     }
 
     async fn get_skeletons(&self) -> Result<Vec<SkeletonResponse>, anyhow::Error> {
-        self.still_alive().context(format!("Before get_skeletons()"))?;
+        self.still_alive().context("Before get_skeletons()".to_string())?;
         let res = Connector::get_skeletons(&self.client).await;
-        self.still_alive().context(format!("After get_skeletons()"))?;
+        self.still_alive().context("After get_skeletons()".to_string())?;
         res
     }
 
     async fn get_docstring(&self, addr: &Path, ident: DocIdent) -> Result<Option<GetDocResponse>, anyhow::Error> {
-        self.still_alive().context(format!("Before get_docstring()"))?;
+        self.still_alive().context("Before get_docstring()".to_string())?;
         let res = Connector::get_docstring(&self.client, addr, ident).await;
-        self.still_alive().context(format!("After get_docstring()"))?;
+        self.still_alive().context("After get_docstring()".to_string())?;
         res
     }
 
@@ -248,8 +246,8 @@ pub async fn launch_server_binary_sandboxed(
     let (stdout_r, stdout_w) = pipe()?;
     let (stderr_r, stderr_w) = pipe()?;
 
-    let (stdout_r, stdout_w) = (stdout_r, stdout_w);
-    let (stderr_r, stderr_w) = (stderr_r, stderr_w);
+    let (stdout_r, _stdout_w) = (stdout_r, stdout_w);
+    let (stderr_r, _stderr_w) = (stderr_r, stderr_w);
 
     tracing::info!("Launching sandboxed binary at {:?}", binary);
 
@@ -331,7 +329,7 @@ pub async fn launch_server_binary_sandboxed(
                         .expect("Failed to unseal secrets to connector mount");
                 }
 
-                setresuid(old_uid, old_uid, old_uid).expect(&format!("Couldn't setuid to {:?} in sandbox", old_uid));
+                setresuid(old_uid, old_uid, old_uid).unwrap_or_else(|_| panic!("Couldn't setuid to {:?} in sandbox", old_uid));
 
                 // close(stdout_r).ok();
                 // close(stderr_r).ok();
@@ -354,13 +352,15 @@ pub async fn launch_server_binary_sandboxed(
             flags,
             None,
         )?;
-        pid = Some(res);
+        if pid.is_none() {
+            pid = Some(res);
+        }
 
         tracing::debug!("Launched connector {:#?} at PID {:#?}", binary_c, pid);
     }
 
     let stdout_outbox = outbox.clone();
-    let stdout_thread = tokio::task::spawn_blocking(move || {
+    let _stdout_thread = tokio::task::spawn_blocking(move || {
         let mut buf = [0u8; 1024];
         loop {
             match nix::unistd::read(&stdout_r, &mut buf) {
@@ -388,7 +388,7 @@ pub async fn launch_server_binary_sandboxed(
     });
 
     let stderr_outbox = outbox.clone();
-    let stderr_thread = tokio::task::spawn_blocking(move || {
+    let _stderr_thread = tokio::task::spawn_blocking(move || {
         let mut buf = [0u8; 1024];
         loop {
             match nix::unistd::read(&stderr_r, &mut buf) {
@@ -423,13 +423,13 @@ pub async fn launch_server_binary_sandboxed(
     // launch_client(&socket).await?;
     tracing::info!("Launched client.");
 
-    return Ok(SandboxConnectorHandle {
+    Ok(SandboxConnectorHandle {
         client,
         socket: socket.to_path_buf(),
         error_dump,
         read_thread: None,
         pid: pid.unwrap(),
-    });
+    })
 }
 
 impl Drop for SandboxConnectorHandle {
@@ -444,7 +444,7 @@ impl Drop for SandboxConnectorHandle {
             Err(e) => tracing::warn!("Couldn't remove error_dump {:?}: {}", self.error_dump, e),
         }
 
-        if let Some(_) = &self.read_thread {
+        if self.read_thread.is_some() {
             // handle.
         }
 
@@ -478,6 +478,7 @@ pub fn unseal_secrets_to_folder(
     Ok(())
 }
 
+#[allow(dead_code)]
 fn seal_new_secrets_from_folder(
     keystore: impl KeyStore,
     prefix: &Path,

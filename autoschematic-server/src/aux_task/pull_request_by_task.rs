@@ -1,3 +1,4 @@
+#![allow(unused)]
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, bail};
@@ -20,6 +21,7 @@ use autoschematic_core::{
     aux_task::{Task, TaskInbox, TaskOutbox, message::TaskMessage, state::TaskState, util::drain_inbox},
     connector_cache::ConnectorCache,
     git_util::clone_repo,
+    util::load_autoschematic_config,
 };
 
 pub struct PullRequestByTask {
@@ -116,7 +118,11 @@ impl Task for PullRequestByTask {
             &self.prefix
         };
 
-        let connector_cache = ConnectorCache::default();
+        let _connector_cache = ConnectorCache::default();
+
+        let _autoschematic_config = load_autoschematic_config()?;
+
+        // autoschematic_core::workflow::task_exec::task_exec();
 
         // connector_cache.get_or_spawn_connector(name, spec, prefix, env, keystore, do_init)
 

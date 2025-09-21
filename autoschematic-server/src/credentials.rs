@@ -4,7 +4,7 @@ use anyhow::Context;
 use base64::prelude::*;
 use octocrab::Octocrab;
 use octocrab::models::InstallationId;
-use secrecy::{ExposeSecret, SecretString};
+use secrecy::SecretString;
 
 pub async fn load_github_private_key() -> Result<String, anyhow::Error> {
     let private_key_path = env::var("GITHUB_PRIVATE_KEY_PATH");

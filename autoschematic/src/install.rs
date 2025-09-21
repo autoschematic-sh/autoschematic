@@ -1,10 +1,8 @@
 use std::{collections::HashMap, path::PathBuf, process::Stdio};
 
 use anyhow::bail;
-use autoschematic_core::config::AutoschematicConfig;
+use autoschematic_core::{config::AutoschematicConfig, util::load_autoschematic_config};
 use toml::Table;
-
-use crate::config::load_autoschematic_config;
 
 pub async fn install() -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;
@@ -55,16 +53,15 @@ pub async fn cargo_install_missing(config: &AutoschematicConfig) -> anyhow::Resu
             .insert(pkg_name[1].to_string(), binaries);
     }
 
-    for (prefix_name, prefix) in &config.prefixes {
+    for prefix in config.prefixes.values() {
         for connector in &prefix.connectors {
             match &connector.spec {
                 autoschematic_core::config::Spec::Cargo {
                     name,
                     version,
-                    binary,
                     git,
                     features,
-                    protocol,
+                    ..
                 } => {
                     // TODO check pkg_map and skip existing with same version, features
                     println!("Installing {name}");
@@ -75,12 +72,10 @@ pub async fn cargo_install_missing(config: &AutoschematicConfig) -> anyhow::Resu
 
                     if let Some(git) = git {
                         command.args(["--git", git]);
+                    } else if let Some(version) = version {
+                        command.args([format!("{name}@{version}")]);
                     } else {
-                        if let Some(version) = version {
-                            command.args([format!("{name}@{version}")]);
-                        } else {
-                            command.args([name]);
-                        }
+                        command.args([name]);
                     }
 
                     if let Some(features) = features

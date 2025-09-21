@@ -4,11 +4,14 @@ use anyhow::bail;
 use dialoguer::{Confirm, Input, Select};
 use regex::Regex;
 
-use autoschematic_core::{connector::FilterResponse, connector_cache::ConnectorCache, workflow};
+use autoschematic_core::{
+    connector::FilterResponse, connector_cache::ConnectorCache, util::load_autoschematic_config, workflow,
+};
 
-use crate::{config::load_autoschematic_config, spinner::spinner::show_spinner};
+use crate::spinner::show_spinner;
 
-pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyhow::Result<()> {
+pub async fn create(_prefix_filter: &Option<String>, _connector_filter: &Option<String>) -> anyhow::Result<()> {
+    // TODO implement prefix/connector filtering here
     let config = load_autoschematic_config()?;
 
     let connector_cache = ConnectorCache::default();
@@ -41,7 +44,7 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
         .interact()
         .unwrap();
 
-    let connector_name = connector_names.get(connector_i).unwrap();
+    // let connector_name = connector_names.get(connector_i).unwrap();
 
     let connector_def = prefix_def.connectors.get(connector_i).unwrap();
 
@@ -64,11 +67,11 @@ pub async fn create(prefix: &Option<String>, connector: &Option<String>) -> anyh
 
     let mut output_addr = skeleton.addr.to_str().unwrap().to_string();
 
+    let re = Regex::new(r"\[(?<template>[^\[\]]+)\]")?;
+
     for component in skeleton.addr.components() {
         if let Component::Normal(dir) = component {
             let dir = dir.to_str().unwrap();
-
-            let re = Regex::new(r"\[(?<template>[^\[\]]+)\]")?;
 
             if let Some(caps) = re.captures(dir) {
                 let var_name = &caps["template"];

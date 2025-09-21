@@ -16,7 +16,7 @@ pub async fn rename(
     new_addr: &Path,
 ) -> anyhow::Result<()> {
     // TODO chwd to the root of the git repo
-    let root = repo_root()?;
+    let _root = repo_root()?;
 
     let Some((old_prefix, old_virt_addr)) = split_prefix_addr(autoschematic_config, old_addr) else {
         bail!("Not in any prefix: {}", old_addr.display());
@@ -34,9 +34,7 @@ pub async fn rename(
         bail!("No such prefix: {}", prefix.display());
     };
 
-    let have_filter = false;
-
-    'connector: for connector_def in &prefix_def.connectors {
+    for connector_def in &prefix_def.connectors {
         // TODO Does rename, and therefore virt_to_phy/phy_to_virt require init()? Does virt to phy mapping
         // require the connector's config files, or ought it be statically determined by outputs alone?
         // (I'm leaning towards the latter!)

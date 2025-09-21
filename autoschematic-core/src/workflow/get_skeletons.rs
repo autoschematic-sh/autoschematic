@@ -15,7 +15,8 @@ pub async fn get_skeletons(
     let Some(prefix_str) = prefix.to_str() else {
         return Ok(Vec::new());
     };
-    let Some(prefix_def) = autoschematic_config.prefixes.get(prefix_str) else {
+
+    let Some(_prefix_def) = autoschematic_config.prefixes.get(prefix_str) else {
         return Ok(Vec::new());
     };
 

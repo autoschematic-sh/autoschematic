@@ -11,6 +11,7 @@ use crate::{
     RON,
     aux_task::util::wait_for_comment_types,
     github_util::{create_pull_request, merge_pr},
+    util::clear_prefix_keep_outputs,
 };
 
 use autoschematic_core::{
@@ -90,16 +91,11 @@ impl TestTask {
                 pull_with_rebase(&repo_path, &branch_name, &self.token)?;
 
                 // // clear_prefix(&self.prefix).await?;
-                // clear_prefix_keep_outputs(&self.prefix).await?;
+                clear_prefix_keep_outputs(&self.prefix).await?;
 
-                // git_add(&repo_path, &PathBuf::from("."))?;
-                // tokio::time::sleep(Duration::from_secs(1)).await;
-                // git_commit_and_push(
-                //     &repo_path,
-                //     &branch_name,
-                //     &self.token,
-                //     &format!("Clear state"),
-                // )?;
+                git_add(&repo_path, &PathBuf::from("."))?;
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                git_commit_and_push(&repo_path, &branch_name, &self.token, "Clear state")?;
 
                 // self.plan_apply_import_complete(
                 //     issue_number,

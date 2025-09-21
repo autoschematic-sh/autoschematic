@@ -107,6 +107,7 @@ impl ChangeSet {
         Ok(false)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn import_all(
         &self,
         subpath: Option<PathBuf>,
@@ -147,7 +148,7 @@ impl ChangeSet {
                     continue;
                 }
 
-                if !rbac_config.allows_read(rbac_user, &prefix_name, &connector_shortname) {
+                if !rbac_config.allows_read(rbac_user, &prefix_name, connector_shortname) {
                     tracing::info!(
                         "RBAC denied for user {:?} in prefix {:?} with connector {}",
                         rbac_user,
@@ -182,8 +183,7 @@ impl ChangeSet {
                     loop {
                         match inbox.recv().await {
                             Ok(Some(stdout)) => {
-                                let res = append_run_log(&sender_trace_handle, stdout).await;
-                                if let Ok(_) = res {}
+                                let _ = append_run_log(&sender_trace_handle, stdout).await;
                             }
                             Err(RecvError::Closed) => break,
                             _ => {}
@@ -221,7 +221,7 @@ impl ChangeSet {
                     let res = self
                         .import_resource(
                             &repo,
-                            &connector_shortname,
+                            connector_shortname,
                             connector.clone(),
                             &prefix_name,
                             &phy_addr,

@@ -18,7 +18,6 @@ use tracing_subscriber::EnvFilter;
 use crate::{
     bundle::UnbundleResponseElement,
     connector::{ConnectorOutbox, spawn::wait_for_socket},
-    diag::DiagnosticResponse,
 };
 
 use crate::connector;

@@ -237,10 +237,14 @@ impl ChangeSet {
         let mut approved = Vec::new();
         // let mut rejected = Vec::new();
         for (login, state) in latest_reviews {
-            match state {
-                ReviewState::Approved => approved.push(config_rbac::User::GithubUser { username: login }),
-                // ReviewState::ChangesRequested => rejected.push(login),
-                _ => {} // COMMENTED / DISMISSED / PENDING don’t count
+            // match state {
+            //     ReviewState::Approved => approved.push(config_rbac::User::GithubUser { username: login }),
+            //     // ReviewState::ChangesRequested => rejected.push(login),
+            //     _ => {} // COMMENTED / DISMISSED / PENDING don’t count
+            // }
+
+            if state == ReviewState::Approved {
+                approved.push(config_rbac::User::GithubUser { username: login })
             }
         }
 
@@ -276,6 +280,7 @@ pub async fn create_comment_standalone(webhook_event: &WebhookEvent, comment: &s
     Ok(())
 }
 
+#[allow(unused)]
 pub async fn add_reaction_standalone(webhook_event: WebhookEvent, content: ReactionContent) -> anyhow::Result<()> {
     if let Some(EventInstallation::Minimal(installation_id)) = webhook_event.installation {
         let (client, _) = credentials::octocrab_installation_client(installation_id.id).await?;

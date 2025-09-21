@@ -53,10 +53,10 @@ pub async fn spawn_task(
     let (registry_outbox, task_inbox) = tokio::sync::mpsc::channel(64);
     let (task_outbox, mut registry_inbox) = tokio::sync::mpsc::channel(64);
 
-    let (dummy_send, registry_broadcast) = tokio::sync::broadcast::channel(64);
+    let (_dummy_send, registry_broadcast) = tokio::sync::broadcast::channel(64);
 
     let broadcast_registry_key = registry_key.clone();
-    let broadcast_handle: tokio::task::JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
+    let _broadcast_handle: tokio::task::JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
         loop {
             let res = registry_inbox.recv().await;
             match res {
@@ -72,7 +72,7 @@ pub async fn spawn_task(
                             }
                         }
                         TaskMessage::IssueComment(ref comment) => {
-                            println!()
+                            println!("{:?}", comment)
                         }
                         TaskMessage::LogLines(s) => {
                             println!("{s}");
@@ -107,17 +107,9 @@ pub async fn spawn_task(
 
     // TODO is this necessary??
     let mut reader_broadcast = registry_broadcast.resubscribe();
-    let reader_handle = tokio::spawn(async move {
+    let _reader_handle = tokio::spawn(async move {
         loop {
-            let res = reader_broadcast.recv().await;
-            match res {
-                Ok(msg) => {
-                    // tracing::error!("Got message {:?}", msg)
-                }
-                Err(e) => {
-                    // tracing::error!("dummy_receiver: {}", e);
-                }
-            }
+            let _res = reader_broadcast.recv().await;
         }
     });
     let registry = TASK_REGISTRY.get_or_init(TaskRegistry::default);
@@ -155,7 +147,7 @@ pub async fn spawn_task(
             .await
             .context("TestAgent::new()")?;
 
-            let error_registry_key = registry_key.clone();
+            let _error_registry_key = registry_key.clone();
             let join_handle = tokio::spawn(async move {
                 match task.run(arg).await {
                     Ok(()) => Ok(()),
@@ -185,44 +177,45 @@ pub async fn spawn_task(
             }
             Ok(())
         }
-        #[cfg(feature = "python")]
-        "op-python" => {
-            let task = PythonTask::new(
-                owner,
-                repo,
-                prefix,
-                &caps["path"],
-                task_inbox,
-                task_outbox.clone(),
-                installation_id,
-            )
-            .await?;
+        // TODO python reenablement
+        // #[cfg(feature = "python")]
+        // "op-python" => {
+        //     let task = PythonTask::new(
+        //         owner,
+        //         repo,
+        //         prefix,
+        //         &caps["path"],
+        //         task_inbox,
+        //         task_outbox.clone(),
+        //         installation_id,
+        //     )
+        //     .await?;
 
-            let error_registry_key = registry_key.clone();
-            let join_handle = tokio::spawn(async move {
-                match task.run(arg).await {
-                    Ok(()) => Ok(task_outbox.send(TaskMessage::StateChange(TaskState::Succeeded)).await?),
-                    Err(e) => {
-                        tracing::error!("Task error: {:#}", e);
-                        Ok(task_outbox
-                            .send(TaskMessage::StateChange(TaskState::Error {
-                                message: format!("{:#?}", e),
-                            }))
-                            .await?)
-                    }
-                }
-            });
-            registry.insert(
-                registry_key,
-                TaskRegistryEntry {
-                    broadcast: registry_broadcast,
-                    outbox: registry_outbox,
-                    join_handle: join_handle,
-                    state: state::TaskState::Stopped,
-                },
-            );
-            Ok(())
-        }
+        //     let error_registry_key = registry_key.clone();
+        //     let join_handle = tokio::spawn(async move {
+        //         match task.run(arg).await {
+        //             Ok(()) => Ok(task_outbox.send(TaskMessage::StateChange(TaskState::Succeeded)).await?),
+        //             Err(e) => {
+        //                 tracing::error!("Task error: {:#}", e);
+        //                 Ok(task_outbox
+        //                     .send(TaskMessage::StateChange(TaskState::Error {
+        //                         message: format!("{:#?}", e),
+        //                     }))
+        //                     .await?)
+        //             }
+        //         }
+        //     });
+        //     registry.insert(
+        //         registry_key,
+        //         TaskRegistryEntry {
+        //             broadcast: registry_broadcast,
+        //             outbox: registry_outbox,
+        //             join_handle: join_handle,
+        //             state: state::TaskState::Stopped,
+        //         },
+        //     );
+        //     Ok(())
+        // }
         _ => Err(AutoschematicError {
             kind: AutoschematicErrorType::InvalidConnectorString(name.to_string()),
         }

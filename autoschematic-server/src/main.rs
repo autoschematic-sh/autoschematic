@@ -27,15 +27,16 @@ use autoschematic_core::{
     aux_task::registry::TaskRegistry,
     keystore::{KeyStore, keystore_init},
 };
+use base64::{Engine, prelude::BASE64_STANDARD};
 use dashboard::api_util::get_self;
 use error::{AutoschematicServerError, AutoschematicServerErrorType};
-use octocrab::{Octocrab, models::webhook_events::WebhookEvent};
+use octocrab::models::webhook_events::WebhookEvent;
 use once_cell::{self, sync::OnceCell};
 use ron_pfnsec_fork as ron;
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 use serde_json::json;
-use std::{collections::HashMap, env, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, env, sync::Arc};
 use tokio::sync::RwLock;
 use tracestore::{InMemTraceStore, TraceStore};
 use tracing_subscriber::EnvFilter;
@@ -45,7 +46,6 @@ use util::validate_github_hmac;
 use actix_web::{
     App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
     cookie::{Key, SameSite},
-    dev::{ServiceRequest, ServiceResponse},
     middleware::Logger,
     web::{self},
 };
@@ -104,7 +104,7 @@ async fn async_main() -> anyhow::Result<()> {
 
     let session_key = env::var("SESSION_KEY")
         .context("Missing SESSION_KEY environment variable")
-        .map(|key| base64::decode(key).expect("Invalid SESSION_KEY format"))?;
+        .map(|key| BASE64_STANDARD.decode(key).expect("Invalid SESSION_KEY format"))?;
 
     TRACESTORE.set(Box::new(InMemTraceStore::default())).unwrap();
 
@@ -412,11 +412,12 @@ async fn oauth(query: web::Query<AuthRequest>, session: Session) -> Result<HttpR
 #[derive(Deserialize)]
 struct ManifestRequest {
     code: String,
-    state: String,
+    // TODO deny replay forgery by using state (somehow...)
+    // state: String,
 }
 
 /// Handles Manifest installation callback from GitHub
-async fn manifest(query: web::Query<ManifestRequest>, session: Session) -> Result<HttpResponse, Error> {
+async fn manifest(query: web::Query<ManifestRequest>) -> Result<HttpResponse, Error> {
     if !*GITHUB_MANIFEST_ENABLED {
         return Err(AutoschematicServerError {
             kind: AutoschematicServerErrorType::ConfigurationError {
@@ -455,14 +456,10 @@ async fn manifest(query: web::Query<ManifestRequest>, session: Session) -> Resul
 
     cred.write()
         .await
-        .from_manifest_result(&res_json)
-        .map_err(|e| AutoschematicServerError::from(e))?;
+        .set_from_manifest_result(&res_json)
+        .map_err(AutoschematicServerError::from)?;
 
-    cred.read()
-        .await
-        .save()
-        .await
-        .map_err(|e| AutoschematicServerError::from(e))?;
+    cred.read().await.save().await.map_err(AutoschematicServerError::from)?;
 
     Ok(HttpResponse::TemporaryRedirect()
         .append_header((

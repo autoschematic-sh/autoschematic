@@ -1,7 +1,6 @@
 use std::{env, path::PathBuf};
 
 use anyhow::bail;
-use cocoon::CocoonCipher;
 use once_cell::sync::OnceCell;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
@@ -17,8 +16,7 @@ pub async fn get_github_cred_store() -> Result<&'static RwLock<GithubCredStore>,
     let Some(cred_store) = GITHUB_CRED_STORE.get() else {
         return Err(error::AutoschematicServerError {
             kind: AutoschematicServerErrorType::InternalError(anyhow::anyhow!("Github Cred Store unset")),
-        }
-        .into());
+        });
     };
 
     Ok(cred_store)
@@ -49,8 +47,8 @@ impl GithubCredStore {
     pub async fn new() -> anyhow::Result<Self> {
         Ok(GithubCredStore {
             set_by_manifest: false,
-            app_name: env::var("GITHUB_APP_NAME").ok().map(|w| w.into()),
-            app_slug: env::var("GITHUB_APP_SLUG").ok().map(|w| w.into()),
+            app_name: env::var("GITHUB_APP_NAME").ok(),
+            app_slug: env::var("GITHUB_APP_SLUG").ok(),
             client_id: env::var("GITHUB_CLIENT_ID").ok().map(|w| w.into()),
             webhook_secret: env::var("WEBHOOK_SECRET").ok().map(|w| w.into()),
             client_secret: env::var("GITHUB_CLIENT_SECRET").ok().map(|w| w.into()),
@@ -58,7 +56,7 @@ impl GithubCredStore {
         })
     }
 
-    pub fn from_manifest_result(&mut self, value: &serde_json::Value) -> anyhow::Result<()> {
+    pub fn set_from_manifest_result(&mut self, value: &serde_json::Value) -> anyhow::Result<()> {
         if self.set_by_manifest {
             bail!("Github: Manifest credentials already set")
         }
@@ -88,8 +86,8 @@ impl From<GithubCredStoreFile> for GithubCredStore {
     fn from(value: GithubCredStoreFile) -> Self {
         Self {
             set_by_manifest: true,
-            app_name: Some(value.app_name.into()),
-            app_slug: Some(value.app_slug.into()),
+            app_name: Some(value.app_name),
+            app_slug: Some(value.app_slug),
             webhook_secret: Some(value.webhook_secret.into()),
             client_id: Some(value.client_id.into()),
             client_secret: Some(value.client_secret.into()),
@@ -112,7 +110,7 @@ impl From<&GithubCredStore> for GithubCredStoreFile {
     }
 }
 
-const CRED_PATH: &'static str = ".autoschematic.github.cred.json";
+const CRED_PATH: &str = ".autoschematic.github.cred.json";
 
 impl GithubCredStoreFile {
     pub async fn save(&self) -> anyhow::Result<()> {
@@ -149,7 +147,7 @@ impl GithubCredStoreFile {
         let body = tokio::fs::read(CRED_PATH).await?;
 
         match cocoon.unwrap(&body) {
-            Ok(unwrapped) => return Ok(Some(serde_json::from_slice(&unwrapped)?)),
+            Ok(unwrapped) => Ok(Some(serde_json::from_slice(&unwrapped)?)),
             Err(e) => {
                 bail!("Failed to wrap encrypted github cred store: {:#?}", e)
             }

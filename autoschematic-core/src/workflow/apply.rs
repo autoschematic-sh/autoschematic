@@ -10,11 +10,7 @@ use crate::{
     report::{ApplyReport, PlanReport},
 };
 
-pub async fn apply_connector(
-    connector_shortname: &str,
-    connector: Arc<dyn Connector>,
-    plan: &PlanReport,
-) -> anyhow::Result<Option<ApplyReport>> {
+pub async fn apply_connector(connector: Arc<dyn Connector>, plan: &PlanReport) -> anyhow::Result<Option<ApplyReport>> {
     let mut apply_report = ApplyReport::default();
 
     for op in &plan.connector_ops {
@@ -127,7 +123,7 @@ pub async fn apply(
             .await?
             == FilterResponse::Resource
         {
-            let apply_report = apply_connector(&connector_def.shortname, connector, plan_report).await?;
+            let apply_report = apply_connector(connector, plan_report).await?;
             return Ok(apply_report);
         }
     }

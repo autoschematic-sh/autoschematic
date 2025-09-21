@@ -9,11 +9,11 @@ use tokio::task::JoinSet;
 use crate::{
     bundle::{BundleMapFile, UnbundleResponseElement},
     config::AutoschematicConfig,
-    connector::{Connector, FilterResponse, VirtToPhyResponse},
+    connector::{Connector, FilterResponse},
     connector_cache::ConnectorCache,
     git_util::git_add,
     keystore::KeyStore,
-    report::{PlanReport, UnbundleReport},
+    report::UnbundleReport,
     template::template_config,
     util::split_prefix_addr,
 };
@@ -28,7 +28,7 @@ pub async fn write_unbundle_element(
     let output_path = prefix.join(element.addr.clone());
 
     if !overbundle && output_path.is_file() {
-        if let Some(bundle_map) = BundleMapFile::read(&prefix, &element.addr)? {
+        if let Some(bundle_map) = BundleMapFile::read(prefix, &element.addr)? {
             match bundle_map {
                 BundleMapFile::Bundle => {}
                 BundleMapFile::ChildOf { parent: other_parent } => {
@@ -67,9 +67,11 @@ pub async fn unbundle_connector(
     prefix: &Path,
     virt_addr: &Path,
 ) -> Result<Option<UnbundleReport>, anyhow::Error> {
-    let mut unbundle_report = UnbundleReport::default();
-    unbundle_report.prefix = prefix.into();
-    unbundle_report.addr = virt_addr.into();
+    let mut unbundle_report = UnbundleReport {
+        prefix: prefix.into(),
+        addr: virt_addr.into(),
+        ..Default::default()
+    };
 
     unbundle_report.elements = None;
 
@@ -90,12 +92,12 @@ pub async fn unbundle_connector(
                     return Ok(Some(unbundle_report));
                 } else {
                     connector
-                        .unbundle(&virt_addr, template_result.body.as_bytes())
+                        .unbundle(virt_addr, template_result.body.as_bytes())
                         .await
                         .context(format!("{}::unbundle({}, _, _)", connector_shortname, virt_addr.display()))?
                 }
             }
-            Err(_) => connector.unbundle(&virt_addr, &desired_bytes).await.context(format!(
+            Err(_) => connector.unbundle(virt_addr, &desired_bytes).await.context(format!(
                 "{}::unbundle({}, _, _)",
                 connector_shortname,
                 virt_addr.display()

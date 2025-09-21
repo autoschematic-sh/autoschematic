@@ -25,6 +25,7 @@ pub struct PullStateReport {
 }
 
 impl ChangeSet {
+    #[allow(clippy::too_many_arguments)]
     pub async fn pull_state(
         &mut self,
         repo: &Repository,
@@ -97,9 +98,8 @@ impl ChangeSet {
                     loop {
                         match inbox.recv().await {
                             Ok(Some(stdout)) => {
-                                dbg!(&stdout);
-                                let res = append_run_log(&sender_trace_handle, stdout).await;
-                                if let Ok(_) = res {}
+                                let _ = append_run_log(&sender_trace_handle, stdout).await;
+                                // if let Ok(_) = res {}
                             }
                             Ok(None) => {}
                             Err(_) => break,

@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     config::Spec,
-    connector::{Connector, ConnectorInbox, handle::ConnectorHandle},
+    connector::{ConnectorInbox, handle::ConnectorHandle},
     keystore::KeyStore,
 };
 use anyhow::{Context, bail};

@@ -85,7 +85,7 @@ impl BundleMapFile {
 
             match &bundle {
                 BundleMapFile::ChildOf { parent } => {
-                    return Self::read_recurse(prefix, &parent);
+                    return Self::read_recurse(prefix, parent);
                 }
                 BundleMapFile::Bundle => return Ok(Some(bundle)),
             }
@@ -144,6 +144,7 @@ pub trait Bundle
 where
     Self: Send + Sync,
 {
+    #[allow(clippy::new_ret_no_self)]
     async fn new(name: &str, prefix: &Path) -> Result<Arc<dyn Bundle>, anyhow::Error>
     where
         Self: Sized;
@@ -202,7 +203,7 @@ impl Bundle for Arc<dyn Bundle> {
 #[async_trait]
 impl Connector for Arc<dyn Bundle> {
     async fn new(name: &str, prefix: &Path, _outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
-        let bundle: Arc<dyn Bundle> = <Arc<(dyn Bundle + 'static)> as Bundle>::new(name, prefix).await?;
+        let bundle: Arc<dyn Bundle> = <Arc<dyn Bundle + 'static> as Bundle>::new(name, prefix).await?;
         Ok(Arc::new(bundle))
     }
 

@@ -1,7 +1,7 @@
 use std::{collections::HashSet, env, path::PathBuf};
 
 use actix_session::Session;
-use actix_web::{HttpRequest, HttpResponse, rt::task, web};
+use actix_web::{HttpRequest, HttpResponse, web};
 use actix_ws::{AggregatedMessage, Closed};
 use autoschematic_core::aux_task::{message::TaskRegistryMessage, registry::TaskRegistryKey, state::TaskState};
 use futures::StreamExt;
@@ -98,8 +98,7 @@ pub async fn dashboard(session: Session, param: web::Path<(String, String, u64)>
 }
 
 pub async fn install_list(session: Session) -> Result<HttpResponse, actix_web::Error> {
-    let Some((access_token, github_username)) = has_valid_session(&session).await? else {
-        tracing::error!("unauth!");
+    let Some((access_token, _github_username)) = has_valid_session(&session).await? else {
         return Ok(HttpResponse::Unauthorized().finish());
         // return Ok(HttpResponse::Found()
         //     .append_header(("Location", "/api/login"))
@@ -163,6 +162,7 @@ pub struct PrefixListing {
     tasks: Vec<TaskListing>,
 }
 
+#[allow(unused)]
 pub async fn repo_view(session: Session, param: web::Path<(String, String, u64)>) -> Result<HttpResponse, actix_web::Error> {
     let (owner, repo, installation_id) = param.into_inner();
 
@@ -214,6 +214,7 @@ pub async fn repo_view(session: Session, param: web::Path<(String, String, u64)>
     }
 }
 
+#[allow(unused)]
 pub async fn dashboard_list(session: Session) -> Result<HttpResponse, actix_web::Error> {
     if let Some((access_token, github_username)) = has_valid_session(&session).await? {
         let Some(trace_store) = TRACESTORE.get() else {
@@ -283,6 +284,7 @@ pub async fn dashboard_list(session: Session) -> Result<HttpResponse, actix_web:
     }
 }
 
+#[allow(unused)]
 async fn repo_runs_subscribe(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, actix_web::Error> {
     let (res, session, stream) = actix_ws::handle(&req, stream)?;
     let stream = stream
@@ -377,12 +379,12 @@ pub async fn log_subscribe(
                 // receive messages from websocket
                 while let Some(msg) = stream.next().await {
                     match msg {
-                        Ok(AggregatedMessage::Text(text)) => {
+                        Ok(AggregatedMessage::Text(_text)) => {
                             // echo text message
                             // ws_session.text(text).await.unwrap();
                         }
 
-                        Ok(AggregatedMessage::Binary(bin)) => {
+                        Ok(AggregatedMessage::Binary(_bin)) => {
                             // echo binary message
                             // ws_session.binary(bin).await.unwrap();
                         }
@@ -421,15 +423,14 @@ pub async fn spawn_aux_task(
     let mut auth = false;
 
     // TODO this needs to be MAC like the webhook signing secrets!
-    if let Ok(task_secret) = env::var("AUTOSCHEMATIC_SERVER_TASK_SECRET") {
-        if let Some(server_key) = req.headers().get("task-secret") {
-            if *server_key == task_secret {
-                auth = true;
-            }
-        }
+    if let Ok(task_secret) = env::var("AUTOSCHEMATIC_SERVER_TASK_SECRET")
+        && let Some(server_key) = req.headers().get("task-secret")
+        && *server_key == task_secret
+    {
+        auth = true;
     }
 
-    if let Some((access_token, github_username)) = has_valid_session(&session).await? {
+    if let Some((_, _)) = has_valid_session(&session).await? {
         auth = true;
     };
 
@@ -451,7 +452,6 @@ pub async fn spawn_aux_task(
 }
 
 pub async fn send_task_message(
-    req: HttpRequest,
     session: Session,
     param: web::Path<(String, String, u64, String, String)>,
     msg: web::Json<TaskRegistryMessage>,
@@ -465,11 +465,11 @@ pub async fn send_task_message(
         }
         .into());
     };
-    let Some((access_token, github_username)) = has_valid_session(&session).await? else {
+    let Some((_access_token, _github_username)) = has_valid_session(&session).await? else {
         return Ok(HttpResponse::Unauthorized().finish());
     };
 
-    let (owner, repo, installation_id, prefix, task_name) = param.into_inner();
+    let (owner, repo, _installation_id, prefix, task_name) = param.into_inner();
 
     let registry_key = TaskRegistryKey {
         owner,
@@ -487,6 +487,7 @@ pub async fn send_task_message(
     }
 }
 
+#[allow(unused)]
 pub async fn task_state_subscribe(
     req: HttpRequest,
     session: Session,

@@ -65,7 +65,7 @@ pub fn ident_at(src: &str, line: usize, col: usize) -> Result<Option<DocIdent>> 
 fn descend_find_docident(
     pair: Pair<Rule>,
     cursor: usize,
-    src: &str,
+    _src: &str,
     parent: &mut Option<DocIdent>,
     ident: &mut Option<DocIdent>,
 ) -> Result<bool> {
@@ -79,7 +79,7 @@ fn descend_find_docident(
         // -- outermost “ron” rule is ignored
         Rule::ron | Rule::value => {
             for child in pair.into_inner() {
-                if descend_find_docident(child, cursor, src, parent, ident)? {
+                if descend_find_docident(child, cursor, _src, parent, ident)? {
                     break;
                 }
             }
@@ -112,7 +112,7 @@ fn descend_find_docident(
             // }
             // continue through the rest
             for child in it {
-                if descend_find_docident(child, cursor, src, parent, ident)? {
+                if descend_find_docident(child, cursor, _src, parent, ident)? {
                     break;
                 }
             }
@@ -138,7 +138,7 @@ fn descend_find_docident(
 
                 for child in inner {
                     eprintln!("child: {}", child.as_str());
-                    if descend_find_docident(child, cursor, src, parent, ident)? {
+                    if descend_find_docident(child, cursor, _src, parent, ident)? {
                         // trail.push(Component::Index(idx));
                         break;
                     }
@@ -148,8 +148,8 @@ fn descend_find_docident(
 
         /*──────────────── lists / tuples ─────────*/
         Rule::list | Rule::tuple => {
-            for (idx, val) in pair.into_inner().filter(|p| p.as_rule() == Rule::value).enumerate() {
-                if descend_find_docident(val, cursor, src, parent, ident)? {
+            for val in pair.into_inner().filter(|p| p.as_rule() == Rule::value) {
+                if descend_find_docident(val, cursor, _src, parent, ident)? {
                     // trail.push(Component::Index(idx));
                     break;
                 }
@@ -163,16 +163,16 @@ fn descend_find_docident(
                 let mut it = entry.into_inner();
                 let key = it.next().unwrap();
                 let val = it.next().unwrap();
-                if descend_find_docident(key.clone(), cursor, src, parent, ident)? {
-                    // Cursor is inside the key itself → report previous trail
+                if descend_find_docident(key.clone(), cursor, _src, parent, ident)? {
+                    // Cursor is inside the key itself: report previous trail
                     break;
                 }
-                if descend_find_docident(val, cursor, src, parent, ident)? {
-                    // Cursor somewhere in the value → emit key string
-                    let key_str = match key.as_rule() {
-                        Rule::string_std | Rule::string_raw => unquote_string(src, key.as_span()),
-                        _ => slice(src, key.as_span()),
-                    };
+                if descend_find_docident(val, cursor, _src, parent, ident)? {
+                    // Cursor somewhere in the value: emit key string
+                    // let key_str = match key.as_rule() {
+                    //     Rule::string_std | Rule::string_raw => unquote_string(src, key.as_span()),
+                    //     _ => slice(src, key.as_span()),
+                    // };
                     // trail.push(Component::Name(key_str));
                     break;
                 }
@@ -189,7 +189,7 @@ fn descend_find_docident(
             }
             // else step into payload
             for child in it {
-                if descend_find_docident(child, cursor, src, parent, ident)? {
+                if descend_find_docident(child, cursor, _src, parent, ident)? {
                     // trail.push(Component::Name(slice(src, variant_name.as_span())));
                     break;
                 }
@@ -200,7 +200,7 @@ fn descend_find_docident(
         _ => {
             // dive blindly; if any child returns true we stop
             for child in pair.clone().into_inner() {
-                if descend_find_docident(child, cursor, src, parent, ident)? {
+                if descend_find_docident(child, cursor, _src, parent, ident)? {
                     return Ok(true);
                 }
             }
@@ -282,15 +282,15 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
                 let key = it.next().unwrap();
                 let val = it.next().unwrap();
                 if descend(key.clone(), cursor, src, trail)? {
-                    // Cursor is inside the key itself → report previous trail
+                    // Cursor is inside the key itself -> report previous trail
                     break;
                 }
                 if descend(val, cursor, src, trail)? {
-                    // Cursor somewhere in the value → emit key string
-                    let key_str = match key.as_rule() {
-                        Rule::string_std | Rule::string_raw => unquote_string(src, key.as_span()),
-                        _ => slice(src, key.as_span()),
-                    };
+                    // Cursor somewhere in the value -> emit key string
+                    // let key_str = match key.as_rule() {
+                    //     Rule::string_std | Rule::string_raw => unquote_string(src, key.as_span()),
+                    //     _ => slice(src, key.as_span()),
+                    // };
                     // trail.push(Component::Name(key_str));
                     break;
                 }
@@ -341,10 +341,10 @@ fn slice<'s>(src: &'s str, span: Span<'s>) -> String {
     src[span.start()..span.end()].to_owned()
 }
 
-/// Rudimentary `"` or `r#"..."#` stripper so map keys render nicely
-fn unquote_string(src: &str, span: Span) -> String {
-    let txt = &src[span.start()..span.end()];
-    let first_quote = txt.find('"').unwrap();
-    let last_quote = txt.rfind('"').unwrap();
-    txt[first_quote + 1..last_quote].to_owned()
-}
+// Rudimentary `"` or `r#"..."#` stripper so map keys render nicely
+// fn unquote_string(src: &str, span: Span) -> String {
+//     let txt = &src[span.start()..span.end()];
+//     let first_quote = txt.find('"').unwrap();
+//     let last_quote = txt.rfind('"').unwrap();
+//     txt[first_quote + 1..last_quote].to_owned()
+// }

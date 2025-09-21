@@ -14,6 +14,7 @@ use super::ChangeSet;
 use crate::{DOMAIN, KEYSTORE};
 
 impl ChangeSet {
+    #[allow(clippy::too_many_arguments)]
     pub async fn apply(
         &mut self,
         repo: &Repository,
@@ -52,12 +53,12 @@ impl ChangeSet {
 
             if !rbac_config.allows_apply_without_approval(
                 rbac_user,
-                &plan_report.prefix.to_string_lossy().to_string(),
+                plan_report.prefix.to_string_lossy().as_ref(),
                 &plan_report.connector_shortname,
             ) {
                 if !rbac_config.allows_apply_with_approval(
                     rbac_user,
-                    &plan_report.prefix.to_string_lossy().to_string(),
+                    plan_report.prefix.to_string_lossy().as_ref(),
                     &plan_report.connector_shortname,
                 ) {
                     continue;
@@ -70,7 +71,7 @@ impl ChangeSet {
                 if let Some(ref pr_approvals) = pr_approvals {
                     if !rbac_config.allows_apply_if_approved_by(
                         rbac_user,
-                        &plan_report.prefix.to_string_lossy().to_string(),
+                        plan_report.prefix.to_string_lossy().as_ref(),
                         &plan_report.connector_shortname,
                         pr_approvals,
                     ) {
@@ -157,7 +158,7 @@ impl ChangeSet {
                 let mut exec_error = None;
                 let report_phy_addr: Option<PathBuf> = None;
 
-                match workflow::apply::apply_connector(&plan_report.connector_shortname, connector, plan_report).await {
+                match workflow::apply::apply_connector(connector, plan_report).await {
                     Ok(Some(apply_report)) => apply_report_set.apply_reports.push(apply_report),
                     Ok(None) => continue,
                     Err(e) => exec_error = Some(e),

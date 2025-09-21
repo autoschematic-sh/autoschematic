@@ -12,10 +12,11 @@ type Repo = String;
 type PullRequest = u64;
 type HeadSha = String;
 type HashKey = (Owner, Repo, PullRequest);
+type HashValue = (Arc<Mutex<ChangeSet>>, HeadSha);
 
 #[derive(Default)]
 pub struct ChangeSetCache {
-    cache: Mutex<HashMap<HashKey, (Arc<Mutex<ChangeSet>>, HeadSha)>>,
+    cache: Mutex<HashMap<HashKey, HashValue>>,
 }
 
 impl ChangeSetCache {
@@ -76,10 +77,6 @@ impl ChangeSetCache {
 
         Ok(cached_changeset.clone())
     }
-
-    pub async fn remove(&self, owner: String, repo: String, head_sha: String) {
-        let cache = self.cache.lock().await;
-    }
 }
 
-pub static CHANGESET_CACHE: once_cell::sync::Lazy<ChangeSetCache> = Lazy::new(|| ChangeSetCache::default());
+pub static CHANGESET_CACHE: once_cell::sync::Lazy<ChangeSetCache> = Lazy::new(ChangeSetCache::default);

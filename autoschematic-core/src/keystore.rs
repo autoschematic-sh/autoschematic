@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::{Result, bail};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use chacha20poly1305::{AeadCore, KeyInit, aead::Aead};
 use ecdsa::EncodedPoint;
 use elliptic_curve::{
@@ -39,7 +40,7 @@ pub trait KeyStore: Send + Sync + std::fmt::Debug {
 
     fn seal_secret(&self, domain: &str, id: &str, payload: &str) -> Result<SealedSecret> {
         let pubkey_string_base64 = self.get_public_key(id)?;
-        let pubkey_string = base64::decode(pubkey_string_base64)?;
+        let pubkey_string = BASE64_STANDARD.decode(pubkey_string_base64)?;
         let server_pubkey: PublicKey<Secp256k1> = PublicKey::from_sec1_bytes(&pubkey_string)?;
 
         let ephemeral_secret = EphemeralSecret::<Secp256k1>::random(&mut OsRng);
@@ -64,33 +65,37 @@ pub trait KeyStore: Send + Sync + std::fmt::Debug {
         let seal = SealedSecret {
             server_domain: domain.to_string(),
             server_pubkey_id: id.to_string(),
-            ephemeral_pubkey: base64::encode(ephemeral_pubkey.as_bytes()),
-            salt: base64::encode(salt),
-            nonce: base64::encode(nonce),
-            ciphertext: base64::encode(ciphertext),
+            ephemeral_pubkey: BASE64_STANDARD.encode(ephemeral_pubkey.as_bytes()),
+            salt: BASE64_STANDARD.encode(salt),
+            nonce: BASE64_STANDARD.encode(nonce),
+            ciphertext: BASE64_STANDARD.encode(ciphertext),
         };
         Ok(seal)
     }
 
     fn unseal_secret(&self, secret: &SealedSecret) -> Result<String> {
         let privkey_string_base64 = self.get_private_key(&secret.server_pubkey_id)?;
-        let privkey_string = base64::decode(privkey_string_base64)?;
+        let privkey_string = BASE64_STANDARD.decode(privkey_string_base64)?;
         let privkey = SecretKey::<Secp256k1>::from_bytes(privkey_string.as_slice().into())?;
-        let ephemeral_pubkey = PublicKey::<Secp256k1>::from_sec1_bytes(base64::decode(&secret.ephemeral_pubkey)?.as_slice())?;
+        let ephemeral_pubkey =
+            PublicKey::<Secp256k1>::from_sec1_bytes(BASE64_STANDARD.decode(&secret.ephemeral_pubkey)?.as_slice())?;
 
         let shared_secret = diffie_hellman::<Secp256k1>(privkey.to_nonzero_scalar(), ephemeral_pubkey.as_affine());
 
-        let salt = base64::decode(&secret.salt)?;
+        let salt = BASE64_STANDARD.decode(&secret.salt)?;
 
         let mut okm = vec![0u8; 32];
         let hkdf_obj = shared_secret.extract::<Sha256>(Some(&salt));
         hkdf_obj.expand(&[], &mut okm).unwrap();
 
         let cipher = chacha20poly1305::ChaCha20Poly1305::new_from_slice(&okm)?;
-        let nonce = base64::decode(&secret.nonce)?;
+        let nonce = BASE64_STANDARD.decode(&secret.nonce)?;
 
         let plaintext = cipher
-            .decrypt(nonce.as_slice().into(), base64::decode(&secret.ciphertext)?.as_slice())
+            .decrypt(
+                nonce.as_slice().into(),
+                BASE64_STANDARD.decode(&secret.ciphertext)?.as_slice(),
+            )
             .unwrap();
 
         Ok(String::from_utf8(plaintext)?)

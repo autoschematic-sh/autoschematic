@@ -7,7 +7,7 @@ pub fn check_safety_lock() -> anyhow::Result<()> {
     if safety_lock_path.is_file() {
         bail!("The safety lock is set, preventing any operation that would modify infrastructure.");
     } else {
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -16,13 +16,13 @@ pub fn set_safety_lock() -> anyhow::Result<()> {
     let safety_lock_path = repo_root.join(".autoschematic.safety.lock");
     if safety_lock_path.is_file() {
         eprintln!("Safety lock already set.");
-        return Ok(());
+        Ok(())
     } else {
         eprintln!(
             "Safety lock set. It is now not possible to modify infrastructure with `autoschematic apply` or task execution."
         );
         std::fs::write(safety_lock_path, "LOCK")?;
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -34,9 +34,9 @@ pub fn unset_safety_lock() -> anyhow::Result<()> {
         eprintln!(
             "Safety lock unset. It is now possible to modify infrastructure with `autoschematic apply` or task execution."
         );
-        return Ok(());
+        Ok(())
     } else {
         eprintln!("Safety lock not set.");
-        return Ok(());
+        Ok(())
     }
 }

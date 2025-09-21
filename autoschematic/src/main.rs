@@ -17,7 +17,6 @@ mod seal;
 mod spinner;
 mod sso;
 mod task;
-mod ui;
 mod unbundle;
 mod util;
 mod validate;
@@ -213,12 +212,12 @@ async fn main() -> anyhow::Result<()> {
     match cmd.command {
         AutoschematicSubcommand::Seal {
             domain,
-            prefix,
             path,
             in_path,
             key_id,
+            ..
         } => {
-            seal::seal(&domain, prefix.as_deref(), &path, in_path.as_deref(), key_id.as_deref()).await?;
+            seal::seal(&domain, &path, in_path.as_deref(), key_id.as_deref()).await?;
         }
         AutoschematicSubcommand::Init { kind } => match kind {
             AutoschematicInitSubcommand::Config => init::init()?,

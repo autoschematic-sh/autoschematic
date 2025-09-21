@@ -37,7 +37,7 @@ pub async fn get(
                 crate::connector::VirtToPhyResponse::NotPresent => {
                     return Ok(None);
                 }
-                crate::connector::VirtToPhyResponse::Deferred(read_outputs) => {
+                crate::connector::VirtToPhyResponse::Deferred(_read_outputs) => {
                     return Ok(None);
                 }
                 crate::connector::VirtToPhyResponse::Present(phy_addr) => {

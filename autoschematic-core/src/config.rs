@@ -88,22 +88,10 @@ pub struct SpecCommand {
 impl Spec {
     pub fn protocol(&self) -> Protocol {
         match self {
-            Spec::Binary { path, protocol } => protocol.clone(),
-            Spec::Cargo {
-                name,
-                version,
-                binary,
-                git,
-                features,
-                protocol,
-            } => protocol.clone(),
-            Spec::CargoLocal {
-                path,
-                binary,
-                features,
-                protocol,
-            } => protocol.clone(),
-            Spec::TypescriptLocal { path } => Protocol::Grpc,
+            Spec::Binary { protocol, .. } => protocol.clone(),
+            Spec::Cargo { protocol, .. } => protocol.clone(),
+            Spec::CargoLocal { protocol, .. } => protocol.clone(),
+            Spec::TypescriptLocal { .. } => Protocol::Grpc,
         }
     }
     pub fn pre_command(&self) -> anyhow::Result<Option<SpecCommand>> {
@@ -118,7 +106,7 @@ impl Spec {
 
                 let mut args: Vec<String> = vec!["build", "--release", "--manifest-path", manifest_path.to_str().unwrap()]
                     .into_iter()
-                    .map(|s| String::from(s))
+                    .map(String::from)
                     .collect();
 
                 if let Some(binary) = binary {
@@ -140,7 +128,7 @@ impl Spec {
 
     pub fn command(&self) -> anyhow::Result<SpecCommand> {
         match self {
-            Spec::Binary { path, protocol } => {
+            Spec::Binary { path, .. } => {
                 let mut binary_path = path.clone();
                 if !binary_path.is_file() {
                     binary_path = which::which(binary_path)?;
@@ -196,7 +184,7 @@ impl Spec {
 
                 let mut args: Vec<String> = vec!["run", "--release", "--manifest-path", manifest_path.to_str().unwrap()]
                     .into_iter()
-                    .map(|s| String::from(s))
+                    .map(String::from)
                     .collect();
 
                 if let Some(binary) = binary {
@@ -251,9 +239,9 @@ pub struct Connector {
 
 // #[derive(Debug, Default, Deserialize, Serialize)]
 // #[serde(deny_unknown_fields)]
-/// Represents the on-disk format of autoschematic.ron .
-/// Variants of this may be created if the on-disk format ever needs to be modified,
-/// and tools can try each variant in sequence in order to maintain backwards-compatibility.
+// Represents the on-disk format of autoschematic.ron .
+// Variants of this may be created if the on-disk format ever needs to be modified,
+// and tools can try each variant in sequence in order to maintain backwards-compatibility.
 // pub struct AutoschematicConfigFile {
 //     pub prefixes: HashMap<String, PrefixDef>,
 // }

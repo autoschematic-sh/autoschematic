@@ -50,7 +50,7 @@ impl Object {
 /// Create/Modify always comes before Delete.
 /// Create/Modify are sorted shortest path first
 /// Delete are sorted longest path first
-pub fn sort_objects_by_apply_order(objects: &Vec<Object>) -> Vec<Object> {
+pub fn sort_objects_by_apply_order(objects: &[Object]) -> Vec<Object> {
     let created_obj = objects.iter().filter(|o| o.diff_status != DiffEntryStatus::Removed);
 
     let deleted_obj = objects.iter().filter(|o| o.diff_status == DiffEntryStatus::Removed);
@@ -60,7 +60,7 @@ pub fn sort_objects_by_apply_order(objects: &Vec<Object>) -> Vec<Object> {
         created_obj.clone().map(|o| o.filename.clone()).collect::<Vec<PathBuf>>()
     );
 
-    let mut created_obj: Vec<&Object> = created_obj
+    let created_obj: Vec<&Object> = created_obj
         .sorted_by_key(|o| o.filename.components().collect::<Vec<Component>>().len())
         .collect();
 
@@ -87,6 +87,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::needless_range_loop)]
     fn test_sort_objects_by_apply_order() {
         // Create a vector with 32+ objects with various diff statuses and filenames
         let mut objects = Vec::new();

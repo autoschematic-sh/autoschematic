@@ -400,6 +400,7 @@ pub enum VirtToPhyResponse {
 }
 
 #[async_trait]
+#[allow(clippy::new_ret_no_self)]
 pub trait Connector: Send + Sync {
     /// Attempt to create a new, uninitialized Connector mounted at `prefix`.
     /// Returns `dyn Connector` to allow implementations to dynamically select Connectors by name.
@@ -563,29 +564,25 @@ pub trait Connector: Send + Sync {
     ///
     async fn task_exec(
         &self,
-        addr: &Path,
-        body: Vec<u8>,
+        _addr: &Path,
+        _body: Vec<u8>,
 
         // `arg` sets the initial argument for the task. `arg` is set to None after the first execution.
-        arg: Option<Vec<u8>>,
+        _arg: Option<Vec<u8>>,
         // The current state of the task as returned by a previous task_exec(...) call.
         // state always starts as None when a task is first executed.
-        state: Option<Vec<u8>>,
+        _state: Option<Vec<u8>>,
     ) -> anyhow::Result<TaskExecResponse> {
         Ok(TaskExecResponse::default())
     }
 
-    ///
-    /// Maybe get_messages(&self) -> anyhow::Result<Vec<Message>>
-    /// put_message(&self, Message) -> anyhow::Result<()>
-
     /// Design: TODO: How shall we define the GetMetricResponse enum?
     /// Again, how will metrics be stored by the server and queried?
-    async fn list_metrics(&self, addr: &Path) -> anyhow::Result<Vec<String>> {
+    async fn list_metrics(&self, _addr: &Path) -> anyhow::Result<Vec<String>> {
         Ok(Vec::new())
     }
 
-    async fn read_metric(&self, addr: &Path, name: &str) -> anyhow::Result<()> {
+    async fn read_metric(&self, _addr: &Path, _name: &str) -> anyhow::Result<()> {
         Ok(())
     }
 }

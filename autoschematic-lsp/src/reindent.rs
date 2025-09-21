@@ -183,7 +183,7 @@ pub fn reindent_old(src: &str) -> anyhow::Result<String> {
                 }
                 // check if we hit the closing delimiter
                 if delim.starts_with(c)
-                    && delim.chars().all(|d| {
+                    && delim.chars().all(|_| {
                         // look-ahead to match the rest
                         let it = delim.chars().skip(1);
                         let mut ok = true;

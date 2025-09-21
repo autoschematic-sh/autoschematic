@@ -4,14 +4,17 @@ use regex::Regex;
 pub fn colour_op_message(message: &str) -> String {
     let re = Regex::new(r"(Deleted|deleted|DELETED|Delete|delete|DELETE|Destroy|destroy|DESTROY|DROPPED|DROP)").unwrap();
 
-    let message = re.replace_all(message, |captures: &regex::Captures| match &captures[0] {
-        s => s.red().bold().underline(crossterm::style::Color::DarkGrey).to_string(),
+    // let message = re.replace_all(message, |captures: &regex::Captures| match &captures[0] {
+    let message = re.replace_all(message, |captures: &regex::Captures| {
+        let s = &captures[0];
+        s.red().bold().underline(crossterm::style::Color::DarkGrey).to_string()
     });
 
     let re = Regex::new(r"(Created|created|CREATED|Create|create|CREATE)").unwrap();
 
-    re.replace_all(&message, |captures: &regex::Captures| match &captures[0] {
-        s => s.green().bold().to_string(),
+    re.replace_all(&message, |captures: &regex::Captures| {
+        let s = &captures[0];
+        s.green().bold().to_string()
     })
     .into()
 }

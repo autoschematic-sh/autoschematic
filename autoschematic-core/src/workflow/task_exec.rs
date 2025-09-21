@@ -5,127 +5,86 @@ use tokio::task::JoinSet;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{Connector, FilterResponse, VirtToPhyResponse},
+    connector::{Connector, FilterResponse, TaskExecResponse, VirtToPhyResponse},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
-    report::PlanReport,
     template::template_config,
     util::split_prefix_addr,
 };
 
-pub async fn plan_connector(
+pub async fn task_exec_connector(
     connector_shortname: &str,
     connector: Arc<dyn Connector>,
     prefix: &Path,
     virt_addr: &Path,
-) -> Result<Option<PlanReport>, anyhow::Error> {
-    let mut plan_report = PlanReport::default();
-    plan_report.prefix = prefix.into();
-    plan_report.virt_addr = virt_addr.into();
-
-    let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
+    arg: Option<Arc<Vec<u8>>>,
+    state: Option<Arc<Vec<u8>>>,
+) -> Result<Option<TaskExecResponse>, anyhow::Error> {
+    let _phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
         VirtToPhyResponse::NotPresent => None,
-        VirtToPhyResponse::Deferred(read_outputs) => {
-            for output in read_outputs {
-                plan_report.missing_outputs.push(output);
-            }
-            return Ok(Some(plan_report));
+        VirtToPhyResponse::Deferred(_read_outputs) => {
+            // TODO again, how do we encode missing outputs in TaskExecResponse? Do we?
+            return Ok(None);
         }
         VirtToPhyResponse::Present(phy_addr) => Some(phy_addr),
         VirtToPhyResponse::Null(phy_addr) => Some(phy_addr),
     };
 
-    let current = match phy_addr {
-        Some(ref phy_addr) => {
-            match connector.get(&phy_addr.clone()).await.context(format!(
-                "{}::get({})",
-                connector_shortname,
-                &phy_addr.to_str().unwrap_or_default()
-            ))? {
-                // Existing resource present for this address
-                Some(get_resource_output) => {
-                    let resource = get_resource_output.resource_definition;
-                    Some(resource)
-                }
-                // No existing resource present for this address
-                None => None,
-            }
-        }
-        None => None,
-    };
-
     let path = prefix.join(virt_addr);
 
-    let connector_ops = if path.is_file() {
-        // let desired = std::fs::read(&path)?;
-        let desired_bytes = tokio::fs::read(&path).await?;
+    if !path.is_file() {
+        return Ok(None);
+    }
 
-        match std::str::from_utf8(&desired_bytes) {
-            Ok(desired) => {
-                let template_result = template_config(prefix, desired)?;
+    let task_body_bytes = tokio::fs::read(&path).await?;
 
-                if !template_result.missing.is_empty() {
-                    for read_output in template_result.missing {
-                        plan_report.missing_outputs.push(read_output);
-                    }
+    match std::str::from_utf8(&task_body_bytes) {
+        Ok(desired) => {
+            let template_result = template_config(prefix, desired)?;
 
-                    return Ok(Some(plan_report));
-                } else {
-                    // TODO warning that this phy .unwrap_or( virt )
-                    // may be the most diabolically awful design
-                    // TODO remove awful design
-                    connector
-                        .plan(
-                            &phy_addr.clone().unwrap_or(virt_addr.into()),
-                            current,
-                            Some(template_result.body.into()),
-                        )
-                        .await
-                        .context(format!("{}::plan({}, _, _)", connector_shortname, virt_addr.display()))?
+            if !template_result.missing.is_empty() {
+                for _read_output in template_result.missing {
+                    // TODO: Will we template task bodies? (Sure, right?)
+                    // Then, how will we encode missing outputs in TaskExecResponse?
+                    // plan_report.missing_outputs.push(read_output);
+                    // Right now, we silently fail and return None!
                 }
-            }
-            Err(_) => {
-                // TODO warning that this phy .unwrap_or( virt )
-                // may be the most diabolically awful design
-                // TODO remove awful design
-                connector
-                    .plan(&phy_addr.clone().unwrap_or(virt_addr.into()), current, Some(desired_bytes))
+
+                Ok(None)
+            } else {
+                // TODO c'mon, surely we can avoid this cloned() call here...
+                let task_exec_resp = connector
+                    .task_exec(
+                        virt_addr,
+                        template_result.body.into_bytes(),
+                        arg.as_deref().cloned(),
+                        state.as_deref().cloned(),
+                    )
                     .await
-                    .context(format!("{}::plan({}, _, _)", connector_shortname, virt_addr.display()))?
+                    .context(format!("{}::task_exec({}, _, _)", connector_shortname, virt_addr.display()))?;
+                Ok(Some(task_exec_resp))
             }
         }
-    } else {
-        // The file does not exist, so `desired` is therefore None.
-        // Generally speaking, this will destroy the given resource if it currently exists.
-
-        // TODO warning that this phy .unwrap_or( virt )
-        // may be the most diabolically awful design
-        // TODO remove awful design
-        connector
-            .plan(&phy_addr.clone().unwrap_or(virt_addr.into()), current, None)
-            .await
-            .context(format!(
-                "{}::plan({}, _, _)",
-                connector_shortname,
-                virt_addr.to_str().unwrap_or_default()
-            ))?
-    };
-
-    plan_report.connector_ops = connector_ops;
-
-    Ok(Some(plan_report))
+        Err(_) => {
+            let task_exec_resp = connector
+                .task_exec(virt_addr, task_body_bytes, arg.as_deref().cloned(), state.as_deref().cloned())
+                .await
+                .context(format!("{}::task_exec({}, _, _)", connector_shortname, virt_addr.display()))?;
+            Ok(Some(task_exec_resp))
+        }
+    }
 }
 
-/// For a given path, attempt to resolve its prefix and Connector impl and return a Vec of ConnectorOps.
-/// Note that this, unlike the server implementation, does not handle setting desired = None where files do
-/// not exist - it is intended to be used from the command line or from LSPs to quickly modify resources.
-pub async fn plan(
+/// For a given path, attempt to resolve its prefix and Connector impl and carry out one iteration of task_exec.
+pub async fn task_exec(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: Arc<ConnectorCache>,
     keystore: Option<Arc<dyn KeyStore>>,
     connector_filter: &Option<String>,
     path: &Path,
-) -> Result<Option<PlanReport>, anyhow::Error> {
+    arg: Option<Vec<u8>>,
+    state: Option<Vec<u8>>,
+) -> Result<Option<TaskExecResponse>, anyhow::Error> {
     let autoschematic_config = autoschematic_config.clone();
 
     let Some((prefix, virt_addr)) = split_prefix_addr(&autoschematic_config, path) else {
@@ -139,8 +98,10 @@ pub async fn plan(
     };
 
     let prefix_def = prefix_def.clone();
+    let arg = arg.map(Arc::new);
+    let state = state.map(Arc::new);
 
-    let mut joinset: JoinSet<anyhow::Result<Option<PlanReport>>> = JoinSet::new();
+    let mut joinset: JoinSet<anyhow::Result<Option<TaskExecResponse>>> = JoinSet::new();
 
     'connector: for connector_def in prefix_def.connectors {
         if let Some(connector_filter) = &connector_filter
@@ -153,6 +114,9 @@ pub async fn plan(
         let keystore = keystore.clone();
         let prefix = prefix.clone();
         let virt_addr = virt_addr.clone();
+
+        let arg = arg.clone();
+        let state = state.clone();
         joinset.spawn(async move {
             let (connector, mut inbox) = connector_cache
                 .get_or_spawn_connector(
@@ -182,8 +146,9 @@ pub async fn plan(
                 .await?
                 == FilterResponse::Resource
             {
-                let plan_report = plan_connector(&connector_def.shortname, connector, &prefix, &virt_addr).await?;
-                return Ok(plan_report);
+                let task_exec_resp =
+                    task_exec_connector(&connector_def.shortname, connector, &prefix, &virt_addr, arg, state).await?;
+                return Ok(task_exec_resp);
             }
             Ok(None)
             // return connector;

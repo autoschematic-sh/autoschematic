@@ -25,13 +25,13 @@ pub struct TestTask {
 #[async_trait]
 impl Task for TestTask {
     async fn new(
-        owner: &str,
-        repo: &str,
+        _owner: &str,
+        _repo: &str,
         prefix: &Path,
         name: &str,
         inbox: TaskInbox,
         outbox: TaskOutbox,
-        installation_id: u64,
+        _installation_id: u64,
     ) -> Result<Box<dyn Task>, anyhow::Error>
     where
         Self: Sized,
@@ -62,6 +62,7 @@ impl Task for TestTask {
         self.outbox.send(TaskMessage::StateChange(TaskState::Running)).await?;
 
         let _ = drain_inbox(&mut self.inbox).await.map_err(async |e| {
+            eprintln!("{e}");
             let _ = self.outbox.send(TaskMessage::StateChange(TaskState::Stopped)).await;
         });
 

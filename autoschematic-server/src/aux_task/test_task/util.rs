@@ -24,7 +24,7 @@ impl TestTask {
         )
         .await?;
 
-        let (comment_type, comment) = wait_for_comment_types(
+        let (comment_type, _comment) = wait_for_comment_types(
             &self.owner,
             &self.repo,
             issue_number,
@@ -71,11 +71,11 @@ impl TestTask {
         Ok(comment_type)
     }
 
-    pub async fn apply(&mut self, issue_number: u64, prefix_filter: &str, connector_filter: &str) -> anyhow::Result<String> {
+    pub async fn apply(&mut self, issue_number: u64, _prefix_filter: &str, _connector_filter: &str) -> anyhow::Result<String> {
         tokio::time::sleep(Duration::from_secs(1)).await;
         create_comment(&mut self.outbox, &self.owner, &self.repo, issue_number, "autoschematic apply").await?;
 
-        let (comment_type, comment) = wait_for_comment_types(
+        let (comment_type, _comment) = wait_for_comment_types(
             &self.owner,
             &self.repo,
             issue_number,
@@ -86,6 +86,7 @@ impl TestTask {
         Ok(comment_type)
     }
 
+    #[allow(unused)]
     pub async fn import(&mut self, issue_number: u64, prefix_filter: &str, connector_filter: &str) -> anyhow::Result<String> {
         tokio::time::sleep(Duration::from_secs(1)).await;
         create_comment(
@@ -97,7 +98,7 @@ impl TestTask {
         )
         .await?;
 
-        let (comment_type, comment) = wait_for_comment_types(
+        let (comment_type, _comment) = wait_for_comment_types(
             &self.owner,
             &self.repo,
             issue_number,
@@ -108,6 +109,7 @@ impl TestTask {
         Ok(comment_type)
     }
 
+    #[allow(unused)]
     pub async fn import_overwrite(
         &mut self,
         issue_number: u64,
@@ -135,6 +137,7 @@ impl TestTask {
         Ok(comment_type)
     }
 
+    #[allow(unused)]
     pub async fn plan_apply_import_complete(
         &mut self,
         issue_number: u64,

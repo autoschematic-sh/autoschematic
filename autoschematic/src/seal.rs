@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use autoschematic_core::secret::SealedSecret;
+use base64::{Engine, prelude::BASE64_STANDARD};
 use chacha20poly1305::{AeadCore, KeyInit, aead::Aead};
 use ecdsa::EncodedPoint;
 use elliptic_curve::{PublicKey, ecdh::EphemeralSecret};
@@ -8,16 +9,8 @@ use k256::Secp256k1;
 use rand_core::{OsRng, RngCore};
 use sha2::Sha256;
 
-use crate::config::load_autoschematic_config;
-
-pub async fn seal(
-    domain: &str,
-    prefix: Option<&str>,
-    path: &Path,
-    in_path: Option<&Path>,
-    key_id: Option<&str>,
-) -> anyhow::Result<()> {
-    let autoschematic_config = load_autoschematic_config()?;
+pub async fn seal(domain: &str, path: &Path, in_path: Option<&Path>, key_id: Option<&str>) -> anyhow::Result<()> {
+    // let autoschematic_config = load_autoschematic_config()?;
 
     // let prefix = prefix.unwrap_or("autoschematic");
 
@@ -25,8 +18,8 @@ pub async fn seal(
     //     bail!("Prefix {} not found in autoschematic.ron", prefix)
     // }
 
-    let key_id = if key_id.is_some() {
-        key_id.unwrap().to_string()
+    let key_id = if let Some(key_id) = key_id {
+        key_id.to_string()
     } else {
         let pubkey_list_json: serde_json::Value = reqwest::Client::new()
             .get(format!("https://{domain}/api/pubkeys"))
@@ -47,7 +40,7 @@ pub async fn seal(
         .text()
         .await?;
 
-    let pubkey_string = base64::decode(pubkey_string_base64)?;
+    let pubkey_string = BASE64_STANDARD.decode(pubkey_string_base64)?;
 
     let server_pubkey: PublicKey<Secp256k1> = PublicKey::from_sec1_bytes(&pubkey_string)?;
 
@@ -83,10 +76,10 @@ pub async fn seal(
     let seal = SealedSecret {
         server_domain: domain.to_string(),
         server_pubkey_id: key_id.to_string(),
-        ephemeral_pubkey: base64::encode(ephemeral_pubkey.as_bytes()),
-        salt: base64::encode(salt),
-        nonce: base64::encode(nonce),
-        ciphertext: base64::encode(ciphertext),
+        ephemeral_pubkey: BASE64_STANDARD.encode(ephemeral_pubkey.as_bytes()),
+        salt: BASE64_STANDARD.encode(salt),
+        nonce: BASE64_STANDARD.encode(nonce),
+        ciphertext: BASE64_STANDARD.encode(ciphertext),
     };
 
     // // form output path for sealed secret

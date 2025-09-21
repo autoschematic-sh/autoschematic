@@ -16,6 +16,7 @@ pub type TaskRegistryInbox = tokio::sync::mpsc::Receiver<TaskMessage>;
 pub type TaskRegistryBroadcast = tokio::sync::broadcast::Receiver<TaskMessage>;
 
 #[async_trait]
+#[allow(clippy::new_ret_no_self)]
 pub trait Task: Send + Sync {
     async fn new(
         owner: &str,

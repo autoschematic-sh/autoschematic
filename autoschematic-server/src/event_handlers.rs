@@ -18,8 +18,7 @@ use crate::{
     template::{
         self, ApplyErrorTemplate, ApplyNoPlanTemplate, ApplySuccessTemplate, CommandParseFailure, GreetingTemplate,
         ImportErrorTemplate, ImportSuccessTemplate, MiscError, PlanErrorTemplate, PlanNoChangesTemplate,
-        PlanOverallErrorTemplate, PlanOverallSuccessTemplate, PlanSuccessTemplate, PrLockHeld, SkeletonImportErrorTemplate,
-        SkeletonImportSuccessTemplate, random_failure_emoji,
+        PlanOverallErrorTemplate, PlanOverallSuccessTemplate, PlanSuccessTemplate, PrLockHeld, random_failure_emoji,
     },
 };
 use crate::{TASK_REGISTRY, template::PullStateSuccessTemplate};
@@ -31,7 +30,6 @@ use crate::{
     },
 };
 
-///
 pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicServerError> {
     tracing::debug!("Dispatching webhook event: {:?}", webhook_event.specific);
 
@@ -40,7 +38,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
     {
         let entries = &*registry.entries.read().await;
 
-        for (key, entry) in entries.iter() {
+        for (_, entry) in entries.iter() {
             tracing::error!("webhook sending message {:?}", &task_message);
             let _ = entry.outbox.send(task_message.clone()).await;
         }
@@ -225,7 +223,6 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                 overall_success = false;
 
                                                 let plan_error_template = PlanErrorTemplate {
-                                                    prefix: plan_report.prefix.clone(),
                                                     error_message: try_unescape(&format!("{error:#}")).to_string(),
                                                     failure_emoji: template::random_failure_emoji(),
                                                     filename: plan_report.virt_addr.to_string_lossy().to_string(),
@@ -261,11 +258,11 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                 if plan_report_set.deferred_count > 0 {
                                                     let msg = PlanDeferralLoopTemplate {
                                                         failure_emoji: template::random_failure_emoji(),
-                                                        deferred_count: plan_report_set.deferred_count,
+                                                        // deferred_count: plan_report_set.deferred_count,
                                                         output_keys: plan_report_set
                                                             .deferred_pending_outputs
                                                             .iter()
-                                                            .map(|o| o.to_string())
+                                                            .map(|o| o.into_string())
                                                             .collect(),
                                                     }
                                                     .render()?;
@@ -301,7 +298,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                         output_keys: plan_report_set
                                                             .deferred_pending_outputs
                                                             .iter()
-                                                            .map(|o| o.to_string())
+                                                            .map(|o| o.into_string())
                                                             .collect(),
                                                     }
                                                     .render()?;
@@ -360,11 +357,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                 }
                             }
                         }
-                        crate::command::AutoschematicSubcommand::Apply {
-                            prefix,
-                            connector,
-                            subpath,
-                        } => {
+                        crate::command::AutoschematicSubcommand::Apply { connector, subpath, .. } => {
                             let subpath = subpath.map(PathBuf::from);
 
                             let repo = changeset.clone_repo().await?;
@@ -476,7 +469,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                             output_keys: pull_state_report
                                                 .missing_outputs
                                                 .iter()
-                                                .map(|o| o.to_string())
+                                                .map(|o| o.into_string())
                                                 .collect(),
                                         }
                                         .render()?

@@ -45,9 +45,7 @@ pub struct ChangeSet {
     pub temp_dir: TempDir,
     pub owner: String,
     pub repo: String,
-    pub base_sha: String,
     pub head_sha: String,
-    pub base_ref: String,
     pub head_ref: String,
     token: SecretBox<str>,
     issue_number: u64,
@@ -105,12 +103,12 @@ impl ChangeSet {
         owner: String,
         repo: String,
     ) -> Result<Self, AutoschematicServerError> {
-        let base_sha = pull_request.base.sha.clone();
+        // let base_sha = pull_request.base.sha.clone();
         let head_sha = pull_request.head.sha.clone();
         let issue_number = pull_request.number;
 
         let head_ref = pull_request.head.ref_field.clone();
-        let base_ref = pull_request.base.ref_field.clone();
+        // let base_ref = pull_request.base.ref_field.clone();
         let Some(ref default_branch) = repository.default_branch else {
             tracing::error!("Repo has no default branch?");
             return Err(anyhow!("The current repository has no default branch.").into());
@@ -213,9 +211,7 @@ impl ChangeSet {
             temp_dir,
             owner,
             repo,
-            base_sha,
             head_sha,
-            base_ref,
             head_ref,
             token,
             issue_number,

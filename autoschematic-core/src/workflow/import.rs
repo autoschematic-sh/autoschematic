@@ -47,33 +47,12 @@ pub async fn import_resource(
 
     let virt_addr = connector.addr_phy_to_virt(phy_addr).await?.unwrap_or(phy_addr.to_path_buf());
 
-    let phy_path = prefix.join(phy_addr);
-    let phy_out_path = OutputMapFile::path(prefix, phy_addr);
-    let virt_out_path = OutputMapFile::path(prefix, &virt_addr);
+    // let phy_path = prefix.join(phy_addr);
+    // let phy_out_path = OutputMapFile::path(prefix, phy_addr);
+    // let virt_out_path = OutputMapFile::path(prefix, &virt_addr);
     let virt_path = prefix.join(&virt_addr);
 
     if virt_path.exists() && !overwrite_existing {
-        outbox
-            .send(ImportMessage::SkipExisting {
-                prefix: prefix.to_path_buf(),
-                addr: virt_addr.to_path_buf(),
-            })
-            .await?;
-    } else if phy_path.exists() && !overwrite_existing {
-        outbox
-            .send(ImportMessage::SkipExisting {
-                prefix: prefix.to_path_buf(),
-                addr: phy_addr.to_path_buf(),
-            })
-            .await?;
-    } else if phy_out_path.exists() && !overwrite_existing {
-        outbox
-            .send(ImportMessage::SkipExisting {
-                prefix: prefix.to_path_buf(),
-                addr: phy_addr.to_path_buf(),
-            })
-            .await?;
-    } else if virt_out_path.exists() && !overwrite_existing {
         outbox
             .send(ImportMessage::SkipExisting {
                 prefix: prefix.to_path_buf(),
@@ -146,12 +125,14 @@ pub async fn import_resource(
 
 pub async fn import_complete() {}
 
+// >:(
+#[allow(clippy::too_many_arguments)]
 pub async fn import_all(
     autoschematic_config: Arc<AutoschematicConfig>,
     connector_cache: Arc<ConnectorCache>,
     keystore: Option<Arc<dyn KeyStore>>,
     outbox: ImportOutbox,
-    semaphore: Arc<Semaphore>,
+    semaphore: Option<Arc<Semaphore>>,
     subpath: Option<PathBuf>,
     prefix_filter: Option<String>,
     connector_filter: Option<String>,
@@ -185,7 +166,7 @@ pub async fn import_all(
             }
             // subcount represents the number of resources imported by this connector,
             // count represents the number of resources imported by all connectors
-            let imported_subcount: usize = 0;
+            // let imported_subcount: usize = 0;
 
             tracing::info!("connector init: {}", connector_def.shortname);
             let (connector, mut inbox) = connector_cache
@@ -234,7 +215,13 @@ pub async fn import_all(
 
                 let connector_shortname = connector_def.shortname.clone();
                 let subpath_connector = connector.clone();
+                let semaphore = semaphore.clone();
                 subpath_joinset.spawn(async move {
+                    let _semaphore_permit = match semaphore {
+                        Some(ref s) => Some(s.acquire().await?),
+                        None => None,
+                    };
+
                     subpath_connector.list(&connector_subpath).await.context(format!(
                         "{}::list({})",
                         connector_shortname,
@@ -287,11 +274,11 @@ pub async fn import_all(
                 }
             }
 
-            while let Some(res) = import_joinset.join_next().await {}
+            while import_joinset.join_next().await.is_some() {}
         }
     }
 
-    while let Some(res) = subpath_joinset.join_next().await {}
+    while subpath_joinset.join_next().await.is_some() {}
 
     Ok((imported_count, total_count))
 }

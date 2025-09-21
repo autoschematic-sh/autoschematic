@@ -16,7 +16,7 @@ pub struct ReadOutput {
 }
 
 impl ReadOutput {
-    pub fn to_string(&self) -> String {
+    pub fn into_string(&self) -> String {
         format!("out://{}[{}]", self.addr.to_string_lossy(), self.key)
     }
 }
@@ -115,7 +115,7 @@ pub fn reverse_template_config(
             continue;
         }
 
-        result = result.replace(&value, &key.to_string());
+        result = result.replace(&value, &key.into_string());
     }
 
     Ok(result)
@@ -259,7 +259,7 @@ pub fn apply_comments(mut target: String, comments: Vec<Comment>) -> String {
 }
 
 const MAX_FUZZY_DIST: usize = 6;
-fn fuzzy_find(lines: &Vec<(usize, String)>, after: &Option<String>, before: &Option<String>) -> Option<usize> {
+fn fuzzy_find(lines: &[(usize, String)], after: &Option<String>, before: &Option<String>) -> Option<usize> {
     // let candidates = before.iter().chain(after.iter());
 
     for dist in 0..=MAX_FUZZY_DIST {

@@ -1,3 +1,4 @@
+#![allow(unused)]
 use actix_web::{HttpResponse, ResponseError, body::BodyLimitExceeded, error::PayloadError};
 use anyhow::anyhow;
 use autoschematic_core::error::AutoschematicError;

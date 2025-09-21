@@ -1,11 +1,11 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use autoschematic_core::{config::Connector, connector_cache::ConnectorCache, workflow::import::ImportMessage};
+use autoschematic_core::{
+    config::Connector, connector_cache::ConnectorCache, util::load_autoschematic_config, workflow::import::ImportMessage,
+};
 use crossterm::style::Stylize;
 use dialoguer::MultiSelect;
 use tokio::{sync::Semaphore, task::JoinSet};
-
-use crate::config::load_autoschematic_config;
 
 pub async fn import(
     prefix: Option<String>,
@@ -27,8 +27,8 @@ pub async fn import(
     let mut total_connectors = 0;
 
     // If the user didn't specify a prefix, and there are multiple prefixes, present them with the selection
-    if prefix.is_some() {
-        prefix_selections.push(prefix.unwrap());
+    if let Some(prefix) = prefix {
+        prefix_selections.push(prefix);
     } else if config.prefixes.len() == 1 {
         prefix_selections.push(config.prefixes.keys().collect::<Vec<&String>>().first().unwrap().to_string());
     } else if prefix.is_none() && config.prefixes.len() > 1 {
@@ -111,7 +111,7 @@ pub async fn import(
         return Ok(());
     }
 
-    println!("{}", " Starting import. This may take a while!");
+    println!(" Starting import. This may take a while!");
 
     let mut connector_joinset: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
@@ -122,38 +122,35 @@ pub async fn import(
                 let prefix_name = prefix_name.clone();
                 let connector_name = connector_name.clone();
                 tokio::spawn(async move {
-                    loop {
-                        match receiver.recv().await {
-                            Some(msg) => match msg {
-                                ImportMessage::StartImport { subpath } => {
-                                    println!(
-                                        "{}: Starting import under {}/{}",
-                                        &connector_name,
-                                        &prefix_name.clone().dark_grey(),
-                                        subpath.display()
-                                    )
-                                }
-                                ImportMessage::SkipExisting { prefix, addr } => {
-                                    eprintln!(
-                                        " {} Skipping {}/{} (already exists)",
-                                        "∋".dark_grey(),
-                                        prefix.to_string_lossy().dark_grey(),
-                                        addr.display()
-                                    )
-                                }
-                                ImportMessage::StartGet { prefix, addr } => {}
-                                ImportMessage::GetSuccess { prefix, addr } => {
-                                    eprintln!(
-                                        " {} Imported {}/{}",
-                                        "⋉".bold(),
-                                        &prefix_name.clone().dark_grey(),
-                                        addr.display()
-                                    )
-                                }
-                                ImportMessage::WroteFile { path } => {}
-                                ImportMessage::NotFound { prefix, addr } => {}
-                            },
-                            None => break,
+                    while let Some(msg) = receiver.recv().await {
+                        match msg {
+                            ImportMessage::StartImport { subpath } => {
+                                println!(
+                                    "{}: Starting import under {}/{}",
+                                    &connector_name,
+                                    &prefix_name.clone().dark_grey(),
+                                    subpath.display()
+                                )
+                            }
+                            ImportMessage::SkipExisting { prefix, addr } => {
+                                eprintln!(
+                                    " {} Skipping {}/{} (already exists)",
+                                    "∋".dark_grey(),
+                                    prefix.to_string_lossy().dark_grey(),
+                                    addr.display()
+                                )
+                            }
+                            ImportMessage::StartGet { .. } => {}
+                            ImportMessage::GetSuccess { addr, .. } => {
+                                eprintln!(
+                                    " {} Imported {}/{}",
+                                    "⋉".bold(),
+                                    &prefix_name.clone().dark_grey(),
+                                    addr.display()
+                                )
+                            }
+                            ImportMessage::WroteFile { .. } => {}
+                            ImportMessage::NotFound { .. } => {}
                         }
                     }
                     Ok(())
@@ -167,12 +164,12 @@ pub async fn import(
             let subpath = subpath.clone();
             connector_joinset.spawn(async move {
                 let semaphore = Arc::new(Semaphore::new(10));
-                let import_counts = autoschematic_core::workflow::import::import_all(
+                let _import_counts = autoschematic_core::workflow::import::import_all(
                     config,
                     connector_cache,
                     keystore,
                     sender,
-                    semaphore,
+                    Some(semaphore),
                     subpath,
                     Some(prefix_name),
                     Some(connector_name.clone()),
