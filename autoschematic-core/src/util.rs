@@ -11,8 +11,8 @@ use std::{
 use anyhow::{Context, bail};
 use git2::Repository;
 use regex::Regex;
+use ron;
 use ron::error::SpannedResult;
-use ron_pfnsec_fork as ron;
 use serde::{Serialize, de::DeserializeOwned};
 use similar::{ChangeTag, TextDiff};
 

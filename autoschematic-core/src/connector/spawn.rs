@@ -13,10 +13,10 @@ use crate::{
 use anyhow::{Context, bail};
 use rand::{Rng, distr::Alphanumeric};
 
-#[cfg(feature = "sandbox")]
+#[cfg(target_os = "linux")]
 pub mod sandbox;
 
-#[cfg(not(feature = "sandbox"))]
+#[cfg(not(target_os = "linux"))]
 pub mod unsandbox;
 
 pub async fn spawn_connector(
@@ -31,11 +31,11 @@ pub async fn spawn_connector(
 
     Ok((
         Arc::new(
-            #[cfg(feature = "sandbox")]
+            #[cfg(target_os = "linux")]
             sandbox::launch_server_binary_sandboxed(spec, shortname, prefix, env, outbox, keystore)
                 .await
                 .context("launch_server_binary()")?,
-            #[cfg(not(feature = "sandbox"))]
+            #[cfg(not(target_os = "linux"))]
             unsandbox::launch_server_binary(spec, shortname, prefix, env, outbox, keystore)
                 .await
                 .context("launch_server_binary()")?,

@@ -8,14 +8,12 @@ edition = "2024"
 authors = ["Peter Sherman <peter@autoschematic.sh>"]
 repository = "https://github.com/autoschematic-sh/autoschematic"
 homepage = "https://autoschematic.sh"
-documentation = "https://docs.autoschematic.sh"
 keywords = ["infrastructure", "devops", "automation", "git", "declarative"]
 categories = ["development-tools", "command-line-utilities"]
 readme = "../README.md"
 
 [features]
 default = ["grpc"]
-sandbox = ["nix"]
 grpc = ["tonic-build", "tonic-prost-build", "tonic", "prost", "tonic-prost"]
 
 [dependencies]
@@ -36,7 +34,7 @@ prost = { version = "0.14.1", optional = true }
 tonic-prost = { version = "0.14.1", optional = true }
 regex = "1.11.1"
 lazy_static = "1.5.0"
-nix = { version = "0.30.1", optional = true, features = [
+nix = { version = "0.30.1", features = [
     "sched",
     "signal",
     "user",
@@ -44,8 +42,7 @@ nix = { version = "0.30.1", optional = true, features = [
     "fs",
     "mount",
 ] }
-#ron = { path = "../../ron", version = "0.10.1" }
-ron-pfnsec-fork = "0.11.0"
+ron = "0.11.0"
 walkdir = "2.5.0"
 rand = "0.9.1"
 libc = "0.2.172"
