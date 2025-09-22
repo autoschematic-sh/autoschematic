@@ -22,22 +22,24 @@ jobs:
           path: autoschematic-verification-suite
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: System deps (protoc, ssl)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler pkg-config libssl-dev
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "32.x"
+          include-pre-releases: false
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy,rustfmt
 
-      # - name: Cache Cargo
-      #   uses: Swatinem/rust-cache@v2
-      #   with:
-      #     workspaces: |
-      #       autoschematic
-      #       autoschematic-verification-suite
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            autoschematic
+            autoschematic-verification-suite
 
       # # Make the suite build against THIS checkout instead of crates.io/git
       # - name: Patch deps to local paths
