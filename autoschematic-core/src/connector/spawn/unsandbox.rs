@@ -111,7 +111,7 @@ pub async fn launch_server_binary(
     shortname: &str,
     prefix: &Path,
     env: &HashMap<String, String>,
-    outbox: ConnectorOutbox,
+    _outbox: ConnectorOutbox,
     keystore: Option<Arc<dyn KeyStore>>,
 ) -> anyhow::Result<UnsandboxConnectorHandle> {
     let mut env = env.clone();

@@ -1,5 +1,4 @@
 use anyhow::bail;
-use ron;
 use ron::ser::PrettyConfig;
 
 use autoschematic_core::{

@@ -16,7 +16,6 @@ use rand::{Rng, distr::Alphanumeric};
 #[cfg(target_os = "linux")]
 pub mod sandbox;
 
-#[cfg(not(target_os = "linux"))]
 pub mod unsandbox;
 
 pub async fn spawn_connector(
