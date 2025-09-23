@@ -1,4 +1,4 @@
-name: Verification Suite
+name: Verification Suite (MacOS)
 on:
   pull_request:
     branches: [main]
