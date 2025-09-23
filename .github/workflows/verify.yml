@@ -8,9 +8,13 @@ on:
 jobs:
   verify:
     name: Run Verification Suite
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     timeout-minutes: 60
     container:
+      image: ${{ matrix.os }}
       options: --security-opt seccomp=unconfined
 
     steps:
@@ -32,7 +36,14 @@ jobs:
       #     sudo apt install build-essential
           
       - name: Install protobuf
-        run: apt-get update && apt-get install -y protobuf-compiler build-essential
+        run: brew install protobuf
+        - if: matrix.os == 'macos-latest'
+          run: brew install protobuf
+
+      - name: Install protobuf
+        - if: matrix.os == 'ubuntu-latest'
+          run: apt-get update && apt-get install -y protobuf-compiler build-essential
+
       - name: Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         # with:
