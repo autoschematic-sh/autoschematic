@@ -3,7 +3,6 @@ use std::path::Path;
 use actix_web::http::header::HeaderValue;
 use anyhow::{Context, bail};
 use hmac::Mac;
-// use nix::fcntl::{Flock, FlockArg};
 use regex::Regex;
 use secrecy::ExposeSecret;
 use sha2::Sha256;
@@ -33,6 +32,10 @@ pub async fn validate_github_hmac(payload: &[u8], signature: &HeaderValue) -> an
     let Some(signature_hex) = sig_components.get(1) else {
         bail!("Invalid Github webhook signature");
     };
+
+    if signature_hex.len() != 64 {
+        bail!("Invalid Github webhook signature length");
+    }
 
     let signature_value = hex::decode(signature_hex)?;
 
