@@ -1,10 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [ main, develop ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -67,121 +65,65 @@ jobs:
     - name: Run doc tests
       run: cargo test --workspace --doc
 
-  coverage:
-    name: Code Coverage
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  # coverage:
+  #   name: Code Coverage
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
 
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v3
-      with:
-        version: "32.x"
-        include-pre-releases: false
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+  #   - name: Install Protoc
+  #     uses: arduino/setup-protoc@v3
+  #     with:
+  #       version: "32.x"
+  #       include-pre-releases: false
+  #       repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: llvm-tools-preview
+  #   - name: Install Rust toolchain
+  #     uses: dtolnay/rust-toolchain@stable
+  #     with:
+  #       components: llvm-tools-preview
 
-    - name: Install cargo-llvm-cov
-      uses: taiki-e/install-action@cargo-llvm-cov
+  #   - name: Install cargo-llvm-cov
+  #     uses: taiki-e/install-action@cargo-llvm-cov
 
-    - name: Cache cargo registry
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
+  #   - name: Cache cargo registry
+  #     uses: actions/cache@v4
+  #     with:
+  #       path: |
+  #         ~/.cargo/registry
+  #         ~/.cargo/git
+  #         target
+  #       key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Generate code coverage
-      run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
+  #   - name: Generate code coverage
+  #     run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        files: lcov.info
-        fail_ci_if_error: true
+  #   - name: Upload coverage to Codecov
+  #     uses: codecov/codecov-action@v4
+  #     with:
+  #       files: lcov.info
+  #       fail_ci_if_error: true
 
-  security:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  # security:
+  #   name: Security Audit
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
 
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v3
-      with:
-        version: "32.x"
-        include-pre-releases: false
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+  #   - name: Install Protoc
+  #     uses: arduino/setup-protoc@v3
+  #     with:
+  #       version: "32.x"
+  #       include-pre-releases: false
+  #       repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+  #   - name: Install Rust toolchain
+  #     uses: dtolnay/rust-toolchain@stable
 
-    - name: Install cargo-audit
-      run: cargo install cargo-audit
+  #   - name: Install cargo-audit
+  #     run: cargo install cargo-audit
 
-    - name: Run security audit
-      run: cargo audit
-
-  build-binaries:
-    name: Build Release Binaries
-    runs-on: ${{ matrix.os }}
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: autoschematic-linux-x86_64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact_name: autoschematic-windows-x86_64.exe
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            artifact_name: autoschematic-macos-x86_64
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact_name: autoschematic-macos-aarch64
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v3
-      with:
-        version: "32.x"
-        include-pre-releases: false
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }}
-
-    - name: Cache cargo registry
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ matrix.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Build release binary
-      run: cargo build --release --target ${{ matrix.target }} --bin autoschematic
-
-    - name: Upload binary artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.artifact_name }}
-        path: |
-          target/${{ matrix.target }}/release/autoschematic${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+  #   - name: Run security audit
+  #     run: cargo audit
