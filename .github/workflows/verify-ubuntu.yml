@@ -7,14 +7,11 @@ on:
 
 jobs:
   verify:
-    name: Run Verification Suite
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    name: Run Verification Suite (Ubuntu Noble)
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     container:
-      image: ${{ matrix.os }}
+      image: ubuntu:noble
       options: --security-opt seccomp=unconfined
 
     steps:
@@ -30,9 +27,6 @@ jobs:
           path: autoschematic-verification-suite
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install protobuf
-        if: matrix.os == 'macos-latest'
-        run: brew install protobuf
 
       - name: Install protobuf
         if: matrix.os == 'ubuntu-latest'
@@ -40,15 +34,6 @@ jobs:
 
       - name: Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        # with:
-        #   components: clippy,rustfmt
-
-      # - name: Cache Cargo
-      #   uses: Swatinem/rust-cache@v2
-      #   with:
-      #     workspaces: |
-      #       autoschematic
-      #       autoschematic-verification-suite
 
       - name: Install Autoschematic
         working-directory: autoschematic
@@ -60,28 +45,7 @@ jobs:
         run: |
           cargo install --path autoschematic-connector-scoreboard-dummy
 
-      # # Make the suite build against THIS checkout instead of crates.io/git
-      # - name: Patch deps to local paths
-      #   working-directory: autoschematic-verification-suite
-      #   run: |
-      #     mkdir -p .cargo
-      #     cat > .cargo/config.toml <<'EOF'
-      #     [patch.crates-io]
-      #     autoschematic-core = { path = "../autoschematic/autoschematic-core" }
-      #     EOF
-
       - name: Run verification suite
         working-directory: autoschematic-verification-suite
         run: |
           bash run_suite.sh
-
-      # - name: Upload logs (always)
-      #   if: always()
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: verification-logs
-      #     path: |
-      #       verification/target/**/*.log
-      #       verification/**/*.junit.xml
-      #       verification/**/*.json
-      #     if-no-files-found: ignore
