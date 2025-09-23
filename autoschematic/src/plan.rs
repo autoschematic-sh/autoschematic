@@ -84,7 +84,7 @@ pub async fn plan(
 }
 
 pub fn print_frame_start() {
-    let term_width = crossterm::terminal::size().unwrap().0;
+    let term_width = crossterm::terminal::size().unwrap_or((80, 0)).0;
 
     let frame_width = 80.min(term_width);
 
@@ -106,7 +106,7 @@ pub fn frame() -> String {
 }
 
 pub fn print_frame_end() {
-    let term_width = crossterm::terminal::size().unwrap().0;
+    let term_width = crossterm::terminal::size().unwrap_or((80, 0)).0;
 
     let frame_width = 80.min(term_width);
 

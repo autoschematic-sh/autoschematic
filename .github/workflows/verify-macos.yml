@@ -1,0 +1,46 @@
+name: Verification Suite
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Run Verification Suite (MacOS)
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout autoschematic
+        uses: actions/checkout@v4
+        with:
+          path: autoschematic
+
+      - name: Checkout verification suite
+        uses: actions/checkout@v4
+        with:
+          repository: autoschematic-sh/autoschematic-verification-suite
+          path: autoschematic-verification-suite
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install protobuf
+        run: brew install protobuf
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Autoschematic
+        working-directory: autoschematic
+        run: |
+          cargo install --path autoschematic
+
+      - name: Install Scoreboard Connector
+        working-directory: autoschematic-verification-suite
+        run: |
+          cargo install --path autoschematic-connector-scoreboard-dummy
+
+      - name: Run verification suite
+        working-directory: autoschematic-verification-suite
+        run: |
+          bash run_suite.sh

@@ -1,0 +1,52 @@
+name: Verification Suite
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Run Verification Suite (Ubuntu Noble)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ubuntu:noble
+      options:  >-
+        --security-opt seccomp=unconfined
+        --security-opt apparmor=unconfined
+        --cap-add SYS_ADMIN
+
+    steps:
+      - name: Install Dependencies
+        run: apt-get update && apt-get install -y protobuf-compiler build-essential curl nodejs pkg-config libssl-dev git
+
+      - name: Checkout autoschematic
+        uses: actions/checkout@v4
+        with:
+          path: autoschematic
+
+      - name: Checkout verification suite
+        uses: actions/checkout@v4
+        with:
+          repository: autoschematic-sh/autoschematic-verification-suite
+          path: autoschematic-verification-suite
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Autoschematic
+        working-directory: autoschematic
+        run: |
+          cargo install --path autoschematic
+
+      - name: Install Scoreboard Connector
+        working-directory: autoschematic-verification-suite
+        run: |
+          cargo install --path autoschematic-connector-scoreboard-dummy
+
+      - name: Run verification suite
+        working-directory: autoschematic-verification-suite
+        run: |
+          bash run_suite.sh

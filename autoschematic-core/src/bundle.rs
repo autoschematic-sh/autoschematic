@@ -8,7 +8,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use ron_pfnsec_fork::ser::PrettyConfig;
+use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::{

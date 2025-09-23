@@ -14,6 +14,9 @@ except:
     exit(1)
 
 try:
+    # Optionally strip the leading v in vX.Y.Z
+    if pkg_str[0] == "v":
+       pkg_str = pkg_str[1:]
     meta = meta_str.split(".")
     pkg = pkg_str.split(".")
     assert len(meta) == 3

@@ -19,7 +19,6 @@ use autoschematic_core::{
 };
 use lsp_types::*;
 use path_at::ident_at;
-use ron_pfnsec_fork as ron;
 use serde::de::DeserializeOwned;
 use tokio::{sync::RwLock, task::JoinSet};
 use tower_lsp_server::{Client, LanguageServer, LspService, Server, jsonrpc::Error as LspError, lsp_types};

@@ -12,8 +12,7 @@ autoschematic-core = { path = "../autoschematic-core", version = "0.8.0", featur
 ] }
 anyhow = "1.0.98"
 lsp-types = "0.97.0"
-# ron = { path = "../../ron", version = "0.10.1" }
-ron-pfnsec-fork = "0.11.0"
+ron = "0.11.0"
 serde = "1.0.219"
 serde_path_to_error = "0.1.17"
 tokio = { version = "1.43.0", features = ["full"] }
