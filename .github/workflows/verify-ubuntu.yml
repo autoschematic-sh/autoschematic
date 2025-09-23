@@ -30,7 +30,7 @@ jobs:
 
       - name: Install protobuf
         if: matrix.os == 'ubuntu-latest'
-        run: apt-get update && apt-get install -y protobuf-compiler
+        run: apt-get update && apt-get install -y protobuf-compiler curl
 
       - name: Rust toolchain
         uses: dtolnay/rust-toolchain@stable
