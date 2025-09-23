@@ -12,7 +12,9 @@ jobs:
     timeout-minutes: 60
     container:
       image: ubuntu:noble
-      options: --security-opt seccomp=unconfined
+      options: |
+        --security-opt seccomp=unconfined
+        --security-opt apparmor=unconfined
 
     steps:
       - name: Install Dependencies
