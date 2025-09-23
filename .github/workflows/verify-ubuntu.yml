@@ -15,6 +15,9 @@ jobs:
       options: --security-opt seccomp=unconfined
 
     steps:
+      - name: Install Dependencies
+        run: apt-get update && apt-get install -y protobuf-compiler build-essential curl nodejs pkg-config libssl-dev git
+
       - name: Checkout autoschematic
         uses: actions/checkout@v4
         with:
@@ -26,11 +29,6 @@ jobs:
           repository: autoschematic-sh/autoschematic-verification-suite
           path: autoschematic-verification-suite
           token: ${{ secrets.GITHUB_TOKEN }}
-
-
-      - name: Install protobuf
-        if: matrix.os == 'ubuntu-latest'
-        run: apt-get update && apt-get install -y protobuf-compiler curl
 
       - name: Rust toolchain
         uses: dtolnay/rust-toolchain@stable
