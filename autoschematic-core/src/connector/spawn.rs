@@ -41,7 +41,7 @@ pub async fn spawn_connector(
 
     #[cfg(target_os = "linux")]
     return Ok((
-        if let Ok(_) = std::env::var("AUTOSCHEMATIC_SANDBOX") {
+        if is_sandbox_enabled() {
             Arc::new(
                 sandbox::launch_server_binary_sandboxed(spec, shortname, prefix, env, outbox, keystore)
                     .await
