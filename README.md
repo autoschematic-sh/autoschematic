@@ -46,7 +46,6 @@ Feel free to raise an issue here if you'd like to request a connector implementa
 
 # Installation
 
-
 Note: you will need the protobuf compiler in order to build with `cargo install` as below.
 
 On Mac:
@@ -64,5 +63,6 @@ cargo install autoschematic
 
 Windows is not natively supported yet; you can use WSL as a workaround.
 
-# Configuration
+Now you're about ready to try out some examples!
 
+[https://autoschematic.sh/guide/getting-started/](https://autoschematic.sh/guide/getting-started/)
