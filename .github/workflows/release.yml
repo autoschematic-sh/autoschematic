@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
 
 env:
   CARGO_TERM_COLOR: always
@@ -22,6 +22,24 @@ jobs:
     - name: Get version from tag
       id: get_version
       run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
+    - name: Check version alignment
+      run: |
+        META_VERSION=$(cat VERSION)
+
+        CRATE_VERSION=$(toml get --toml-path autoschematic-core/Cargo.toml package.version)
+        python scripts/version_check.py $META_VERSION $CRATE_VERSION
+
+        CRATE_VERSION=$(toml get --toml-path autoschematic/Cargo.toml package.version)
+        python scripts/version_check.py $META_VERSION $CRATE_VERSION
+
+        CRATE_VERSION=$(toml get --toml-path autoschematic-lsp/Cargo.toml package.version)
+        python scripts/version_check.py $META_VERSION $CRATE_VERSION
+
+        CRATE_VERSION=$(toml get --toml-path autoschematic-server/Cargo.toml package.version)
+        python scripts/version_check.py $META_VERSION $CRATE_VERSION
+
+        python scripts/version_check.py $META_VERSION ${{ needs.create-release.outputs.version }}
 
     - name: Generate changelog
       id: changelog
@@ -55,9 +73,9 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             asset_name: autoschematic-${{ needs.create-release.outputs.version }}-linux-x86_64.tar.gz
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            asset_name: autoschematic-${{ needs.create-release.outputs.version }}-windows-x86_64.zip
+          # - os: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          #   asset_name: autoschematic-${{ needs.create-release.outputs.version }}-windows-x86_64.zip
           - os: macos-latest
             target: x86_64-apple-darwin
             asset_name: autoschematic-${{ needs.create-release.outputs.version }}-macos-x86_64.tar.gz
@@ -93,14 +111,12 @@ jobs:
     - name: Build release binaries
       run: |
         cargo build --release --target ${{ matrix.target }} --bin autoschematic
-        cargo build --release --target ${{ matrix.target }} --bin autoschematic-server
 
     - name: Create archive (Unix)
       if: matrix.os != 'windows-latest'
       run: |
         mkdir -p release
         cp target/${{ matrix.target }}/release/autoschematic release/
-        cp target/${{ matrix.target }}/release/autoschematic-server release/
         cp README.md LICENSE release/
         cd release
         tar -czf ../${{ matrix.asset_name }} *
@@ -110,7 +126,6 @@ jobs:
       run: |
         mkdir release
         cp target/${{ matrix.target }}/release/autoschematic.exe release/
-        cp target/${{ matrix.target }}/release/autoschematic-server.exe release/
         cp README.md,LICENSE release/
         Compress-Archive -Path release/* -DestinationPath ${{ matrix.asset_name }}
 
@@ -182,17 +197,6 @@ jobs:
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: Build and push CLI image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        push: true
-        tags: |
-          autoschematic/autoschematic:latest
-          autoschematic/autoschematic:${{ needs.create-release.outputs.version }}
-        platforms: linux/amd64,linux/arm64
 
     - name: Build and push Server image
       uses: docker/build-push-action@v5
