@@ -18,29 +18,54 @@ pub mod sandbox;
 
 pub mod unsandbox;
 
+#[cfg(target_os = "linux")]
+/// On Linux, the sandbox can be opted into by setting AUTOSCHEMATIC_SANDBOX=true
+/// See autoschematic-core/src/connector/spawn/sandbox.rs for the sandboxing implementation.
+pub fn is_sandbox_enabled() -> bool {
+    match std::env::var("AUTOSCHEMATIC_SANDBOX") {
+        Ok(s) if s == "true" => true,
+        Ok(s) if s == "false" => false,
+        Ok(_) => true,
+        Err(_) => false,
+    }
+}
+
 pub async fn spawn_connector(
     shortname: &str,
     spec: &Spec,
     prefix: &Path,
     env: &HashMap<String, String>,
-    // binary_cache: &BinaryCache,
     keystore: Option<Arc<dyn KeyStore>>,
 ) -> Result<(Arc<dyn ConnectorHandle>, ConnectorInbox), anyhow::Error> {
     let (outbox, inbox) = tokio::sync::broadcast::channel(64);
 
-    Ok((
+    #[cfg(target_os = "linux")]
+    return Ok((
+        if is_sandbox_enabled() {
+            Arc::new(
+                sandbox::launch_server_binary_sandboxed(spec, shortname, prefix, env, outbox, keystore)
+                    .await
+                    .context("launch_server_binary_sandboxed()")?,
+            ) as Arc<dyn ConnectorHandle>
+        } else {
+            Arc::new(
+                unsandbox::launch_server_binary(spec, shortname, prefix, env, outbox, keystore)
+                    .await
+                    .context("launch_server_binary()")?,
+            ) as Arc<dyn ConnectorHandle>
+        },
+        inbox,
+    ));
+
+    #[cfg(not(target_os = "linux"))]
+    return Ok((
         Arc::new(
-            #[cfg(target_os = "linux")]
-            sandbox::launch_server_binary_sandboxed(spec, shortname, prefix, env, outbox, keystore)
-                .await
-                .context("launch_server_binary()")?,
-            #[cfg(not(target_os = "linux"))]
             unsandbox::launch_server_binary(spec, shortname, prefix, env, outbox, keystore)
                 .await
                 .context("launch_server_binary()")?,
         ) as Arc<dyn ConnectorHandle>,
         inbox,
-    ))
+    ));
 }
 
 pub async fn wait_for_socket(socket: &Path, timeout: Duration) -> anyhow::Result<()> {

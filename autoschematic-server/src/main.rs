@@ -128,9 +128,6 @@ async fn async_main() -> anyhow::Result<()> {
 
     tracing::info!("Service configured with webhook URL: https://{}", webhook_domain);
     tracing::info!("Visit https://{}/create-app to create a Github App", webhook_domain);
-    // TODO Add the manifest install support here!
-    // TODO does that mean we get the secret from github... and then we have to store it?
-    // Or do we need to provide our secret value to github somehow after the manifest hook?
 
     Ok(HttpServer::new(move || {
         let cors = Cors::default()
@@ -192,16 +189,6 @@ async fn async_main() -> anyhow::Result<()> {
             )
             .route("/api/pubkeys", web::get().to(list_pubkeys))
             .route("/api/pubkey/{id}", web::get().to(get_pubkey))
-        // .service(
-        //     actix_files::Files::new("/", "./dashboard-react/dist/")
-        //         .index_file("index.html")
-        //         .default_handler(actix_web::dev::fn_service(|req: ServiceRequest| async {
-        //             let (req, _) = req.into_parts();
-        //             let file = NamedFile::open_async("./dashboard-react/dist/index.html").await?;
-        //             let res = file.into_response(&req);
-        //             Ok(ServiceResponse::new(req, res))
-        //         })),
-        // )
     })
     .bind("127.0.0.1:8086")?
     .run()
