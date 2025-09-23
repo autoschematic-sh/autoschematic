@@ -15,6 +15,7 @@ jobs:
       options:  >-
         --security-opt seccomp=unconfined
         --security-opt apparmor=unconfined
+        --cap-add SYS_ADMIN
 
     steps:
       - name: Install Dependencies
