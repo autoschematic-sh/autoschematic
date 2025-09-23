@@ -13,8 +13,7 @@ jobs:
     container:
       image: ubuntu:noble
       options: |
-        --security-opt seccomp=unconfined
-        --security-opt apparmor=unconfined
+        --security-opt seccomp=unconfined apparmor=unconfined
 
     steps:
       - name: Install Dependencies
