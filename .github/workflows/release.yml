@@ -30,6 +30,7 @@ jobs:
     - name: Check version alignment
       shell: bash
       run: |
+        set -exo pipefail
         META_VERSION=$(cat VERSION)
 
         CRATE_VERSION=$(toml get --toml-path autoschematic-core/Cargo.toml package.version)
@@ -44,7 +45,7 @@ jobs:
         CRATE_VERSION=$(toml get --toml-path autoschematic-server/Cargo.toml package.version)
         python scripts/version_check.py $META_VERSION $CRATE_VERSION
 
-        python scripts/version_check.py $META_VERSION ${{ needs.create-release.outputs.version }}
+        python scripts/version_check.py $META_VERSION ${{ steps.get_version.outputs.version }}
 
     - name: Generate changelog
       id: changelog
