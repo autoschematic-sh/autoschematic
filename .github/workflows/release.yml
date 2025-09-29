@@ -28,6 +28,7 @@ jobs:
       run: pip install toml-cli
     
     - name: Check version alignment
+      shell: bash
       run: |
         META_VERSION=$(cat VERSION)
 
