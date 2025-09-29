@@ -226,7 +226,7 @@ pub async fn apply(
                 for (key, _) in report_outputs {
                     set_outputs.insert(ReadOutput {
                         addr: plan_report.virt_addr.clone(),
-                        key: key,
+                        key,
                     });
                 }
             }
