@@ -59,7 +59,7 @@ pub async fn plan(
             for output in &plan_report.missing_outputs {
                 println!("{}    {}[{}]", frame(), output.addr.display(), output.key);
             }
-            
+
             continue;
         }
 

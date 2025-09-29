@@ -680,7 +680,6 @@ impl Connector for Arc<dyn Connector> {
         Connector::version(self.as_ref()).await
     }
 
-
     async fn filter(&self, addr: &Path) -> anyhow::Result<FilterResponse> {
         Connector::filter(self.as_ref(), addr).await
     }
