@@ -151,6 +151,8 @@ where
 
     async fn init(&self) -> Result<(), anyhow::Error>;
 
+    async fn version(&self) -> Result<String, anyhow::Error>;
+
     async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error>;
 
     async fn unbundle(&self, addr: &Path, resource: &[u8]) -> anyhow::Result<Vec<UnbundleResponseElement>>;
@@ -177,6 +179,10 @@ impl Bundle for Arc<dyn Bundle> {
 
     async fn init(&self) -> Result<(), anyhow::Error> {
         Bundle::init(self.as_ref()).await
+    }
+
+    async fn version(&self) -> Result<String, anyhow::Error> {
+        Bundle::version(self.as_ref()).await
     }
 
     async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error> {
@@ -209,6 +215,10 @@ impl Connector for Arc<dyn Bundle> {
 
     async fn init(&self) -> Result<(), anyhow::Error> {
         Bundle::init(self).await
+    }
+
+    async fn version(&self) -> Result<String, anyhow::Error> {
+        Bundle::version(self).await
     }
 
     async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error> {

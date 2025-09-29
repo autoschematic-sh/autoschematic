@@ -4,6 +4,10 @@ package connector;
 /// A generic empty message (was google.protobuf.Empty)
 message Empty {}
 
+message VersionResponse {
+  string version = 1;
+}
+
 /// --- Filter ---
 message FilterRequest  { string addr = 1; }
 enum FilterResponseType {
@@ -168,6 +172,7 @@ message UnbundleResponse {
 /// --- The Connector gRPC service ---
 service Connector {
   rpc Init            (Empty)                returns (Empty);
+  rpc Version         (Empty)                returns (VersionResponse);
   rpc Filter          (FilterRequest)        returns (FilterResponse);
   rpc List            (ListRequest)          returns (ListResponse);
   rpc Subpaths        (Empty)                returns (SubpathsResponse);

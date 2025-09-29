@@ -55,6 +55,7 @@ pub trait TarpcConnector {
     async fn eq(addr: PathBuf, a: Vec<u8>, b: Vec<u8>) -> Result<bool, ErrorMessage>;
     async fn diag(addr: PathBuf, a: Vec<u8>) -> Result<Option<DiagnosticResponse>, ErrorMessage>;
     async fn unbundle(addr: PathBuf, a: Vec<u8>) -> Result<Vec<UnbundleResponseElement>, ErrorMessage>;
+    async fn version() -> Result<String, ErrorMessage>;
 }
 
 #[derive(Clone)]
@@ -158,6 +159,10 @@ impl TarpcConnector for ConnectorServer {
     ) -> Result<Vec<UnbundleResponseElement>, ErrorMessage> {
         Ok(Connector::unbundle(&*self.connector.lock().await, &addr, &resource).await?)
     }
+
+    async fn version(self, _context: tarpc::context::Context) -> Result<String, ErrorMessage> {
+        Ok(Connector::version(&*self.connector.lock().await).await?)
+    }
 }
 
 impl<C: Connector> TarpcConnector for C {
@@ -253,6 +258,10 @@ impl<C: Connector> TarpcConnector for C {
         resource: Vec<u8>,
     ) -> Result<Vec<UnbundleResponseElement>, ErrorMessage> {
         Ok(Connector::unbundle(&self, &addr, &resource).await?)
+    }
+
+    async fn version(self, _context: tarpc::context::Context) -> Result<String, ErrorMessage> {
+        Ok(Connector::version(&self).await?)
     }
 }
 
@@ -351,6 +360,10 @@ impl Connector for TarpcConnectorClient {
         Ok(self
             .unbundle(context_1m_deadline(), addr.to_path_buf(), resource.to_owned())
             .await??)
+    }
+
+    async fn version(&self) -> Result<String, anyhow::Error> {
+        Ok(self.version(context_1m_deadline()).await??)
     }
 }
 

@@ -15,7 +15,12 @@ use autoschematic_core::{
     manifest::ConnectorManifest,
     template::{self},
     util::{RON, split_prefix_addr},
-    workflow::{filter::filter, get::get, get_docstring::get_docstring, rename},
+    workflow::{
+        filter::filter,
+        get::get,
+        get_docstring::{get_docstring, get_system_docstring},
+        rename,
+    },
 };
 use lsp_types::*;
 use path_at::ident_at;
@@ -100,21 +105,30 @@ impl LanguageServer for Backend {
             return Ok(None);
         };
 
-        // let docstring = workflow::get_docstring
         if let Some(ident) = ident {
             let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
                 return Ok(None);
             };
 
             let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &file_path) else {
-                return Ok(None);
+                if let Ok(Some(res)) = get_system_docstring(&file_path, ident) {
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: res.markdown.to_string(),
+                        }),
+                        range: None,
+                    }));
+                } else {
+                    return Ok(None);
+                }
             };
 
             if let Ok(Some(res)) = get_docstring(autoschematic_config, &self.connector_cache, None, &prefix, &addr, ident).await
             {
                 return Ok(Some(Hover {
                     contents: HoverContents::Markup(MarkupContent {
-                        kind: MarkupKind::PlainText,
+                        kind: MarkupKind::Markdown,
                         value: res.markdown.to_string(),
                     }),
                     range: None,

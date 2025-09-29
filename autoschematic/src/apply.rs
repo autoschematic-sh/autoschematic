@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     io::Write,
     process::{Command, Stdio},
     sync::Arc,
@@ -11,7 +12,8 @@ use rand::Rng;
 use autoschematic_core::{
     connector_cache::ConnectorCache,
     git_util::{get_staged_files, git_add},
-    report::PlanReportSet,
+    report::{PlanReport, PlanReportSet},
+    template::ReadOutput,
     util::{load_autoschematic_config, repo_root},
 };
 
@@ -82,6 +84,9 @@ pub async fn apply(
     //         }
     //     }
     // }
+    //
+    let mut deferred: Vec<PlanReport> = Vec::new();
+    let mut set_outputs: HashSet<ReadOutput> = HashSet::new();
 
     for path in staged_files {
         let spinner_stop = show_spinner().await;
@@ -103,6 +108,10 @@ pub async fn apply(
         };
 
         spinner_stop.send(()).unwrap();
+
+        if !plan_report.missing_outputs.is_empty() {
+            deferred.push(plan_report.clone());
+        }
 
         if plan_report.connector_ops.is_empty() {
             continue;
@@ -212,6 +221,15 @@ pub async fn apply(
                     }
                 }
             }
+
+            if let Some(report_outputs) = output.outputs {
+                for (key, _) in report_outputs {
+                    set_outputs.insert(ReadOutput {
+                        addr: plan_report.virt_addr.clone(),
+                        key: key,
+                    });
+                }
+            }
         }
 
         for path in &apply_report.wrote_files {
@@ -223,7 +241,61 @@ pub async fn apply(
         print_frame_end();
     }
 
-    if wrote_files && !skip_commit {
+    let mut did_make_output_progress = false;
+
+    if deferred.is_empty() {
+        println!(" ⊬ Some files were not applied as they were missing outputs.");
+        for plan_report in deferred {
+            print_plan_addr(&plan_report);
+            for output in &plan_report.missing_outputs {
+                if set_outputs.contains(output) {
+                    did_make_output_progress = true;
+                    println!(" {} {}[{}]  ", "[SET!]".green(), output.addr.display(), output.key);
+                } else {
+                    println!("        {}[{}]", output.addr.display(), output.key);
+                }
+            }
+        }
+
+        if did_make_output_progress {
+            let do_reapply = Confirm::new()
+                .with_prompt(" ◈ Apply succeeded! Some resources were deferred on outputs that are now available. Do you wish to continue applying?")
+                .default(true)
+                .interact()
+                .unwrap();
+
+            if do_reapply {
+                Box::pin(apply(
+                    _prefix_filter,
+                    connector_filter,
+                    _subpath_filter,
+                    ask_confirm,
+                    skip_commit,
+                ))
+                .await?;
+            }
+        } else {
+            let do_reapply = Confirm::new()
+                .with_prompt(
+                    " ◈ Apply succeeded, but some resources are still deferred. Do you wish to continue applying anyway?",
+                )
+                .default(true)
+                .interact()
+                .unwrap();
+
+            if do_reapply {
+                // apply(_prefix_filter, connector_filter, _subpath_filter, ask_confirm, skip_commit).await?;
+                Box::pin(apply(
+                    _prefix_filter,
+                    connector_filter,
+                    _subpath_filter,
+                    ask_confirm,
+                    skip_commit,
+                ))
+                .await?;
+            }
+        }
+    } else if wrote_files && !skip_commit {
         let do_commit = Confirm::new()
             .with_prompt(" ◈ Apply succeeded! Do you wish to run git commit to track the new state?")
             .default(true)

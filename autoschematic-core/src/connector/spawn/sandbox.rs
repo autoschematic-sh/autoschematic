@@ -79,6 +79,13 @@ impl Connector for SandboxConnectorHandle {
         res
     }
 
+    async fn version(&self) -> Result<String, anyhow::Error> {
+        self.still_alive().context("Before version()".to_string())?;
+        let res = Connector::version(&self.client).await;
+        self.still_alive().context("After version()".to_string())?;
+        res
+    }
+
     async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error> {
         self.still_alive().context(format!("Before filter({:?})", addr))?;
         let res = Connector::filter(&self.client, addr).await;

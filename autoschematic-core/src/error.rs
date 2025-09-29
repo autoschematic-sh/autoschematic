@@ -168,6 +168,15 @@ impl From<tokio::sync::TryLockError> for AutoschematicError {
         }
     }
 }
+
+impl From<documented::Error> for AutoschematicError {
+    fn from(err: documented::Error) -> Self {
+        AutoschematicError {
+            kind: AutoschematicErrorType::InternalError(err.into()),
+        }
+    }
+}
+
 /*
 impl<T: std::error::Error + Send + Sync + 'static> From<T> for AutoschematicError {
     fn from(err: T) -> Self {

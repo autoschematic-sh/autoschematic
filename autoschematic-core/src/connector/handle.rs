@@ -43,6 +43,10 @@ impl Connector for Arc<dyn ConnectorHandle> {
         Connector::init(self.as_ref()).await
     }
 
+    async fn version(&self) -> anyhow::Result<String> {
+        Connector::version(self.as_ref()).await
+    }
+
     async fn filter(&self, addr: &Path) -> anyhow::Result<FilterResponse> {
         Connector::filter(self.as_ref(), addr).await
     }

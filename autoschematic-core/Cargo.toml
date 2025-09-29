@@ -1,14 +1,14 @@
 cargo-features = ["edition2024"]
 [package]
 name = "autoschematic-core"
-description = "Core shared functionality for Autoschematic - workflow engine, state management, and Git integration"
-license = "MIT"
-version = "0.8.1"
+description = "Core shared functionality for Autoschematic: workflow engine, state management, and Git integrations"
+license = "AGPL-3.0"
+version = "0.8.2"
 edition = "2024"
 authors = ["Peter Sherman <peter@autoschematic.sh>"]
 repository = "https://github.com/autoschematic-sh/autoschematic"
 homepage = "https://autoschematic.sh"
-keywords = ["infrastructure", "devops", "automation", "git", "declarative"]
+keywords = ["infrastructure", "infrastructure-as-code", "devops", "git"]
 categories = ["development-tools", "command-line-utilities"]
 readme = "../README.md"
 
@@ -70,6 +70,7 @@ tokio-stream = "0.1.17"
 process-wrap = { version = "9.0.0", features = ["tokio1"] }
 sysinfo = "0.37.0"
 bitmask-enum = "2.2.5"
+documented = "0.9.2"
 
 [build-dependencies]
 tonic-build = { version = "0.14.1", optional = true }

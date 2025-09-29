@@ -1,0 +1,17 @@
+# syntax=docker/dockerfile:1.3-labs
+
+# The above line is so we can use can use heredocs in Dockerfiles. No more && and \!
+# https://www.docker.com/blog/introduction-to-heredocs-in-dockerfiles/
+
+FROM rust:1.90-trixie AS build
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    protobuf-compiler 
+
+RUN cargo install autoschematic-server
+
+EXPOSE 8080
+WORKDIR /app
+CMD ["autoschematic-server"]
