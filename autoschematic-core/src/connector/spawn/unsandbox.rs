@@ -48,6 +48,10 @@ impl Connector for UnsandboxConnectorHandle {
         Connector::init(&self.client).await
     }
 
+    async fn version(&self) -> Result<String, anyhow::Error> {
+        Connector::version(&self.client).await
+    }
+
     async fn filter(&self, addr: &Path) -> Result<FilterResponse, anyhow::Error> {
         Connector::filter(&self.client, addr).await
     }

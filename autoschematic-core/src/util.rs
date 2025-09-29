@@ -156,6 +156,23 @@ pub fn passthrough_secrets_from_env(env: &HashMap<String, String>) -> anyhow::Re
     Ok(out_map)
 }
 
+pub fn passthrough_env_from_env(env: &HashMap<String, String>) -> anyhow::Result<HashMap<String, String>> {
+    let re = Regex::new(r"^env://(?<path>.+)$")?;
+
+    let mut out_map = HashMap::new();
+
+    for (dest_key, value) in env {
+        if let Some(src_key) = re.captures(value).and_then(|c| c.name("path")) {
+            let env_value = std::env::var(src_key.as_str())?;
+            out_map.insert(dest_key.to_string(), env_value);
+        } else {
+            out_map.insert(dest_key.to_string(), value.to_string());
+        }
+    }
+
+    Ok(out_map)
+}
+
 lazy_static::lazy_static! {
     pub static ref RON: ron::options::Options = ron::Options::default()
     .with_default_extension(ron::extensions::Extensions::UNWRAP_NEWTYPES)

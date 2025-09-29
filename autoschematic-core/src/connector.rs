@@ -585,6 +585,10 @@ pub trait Connector: Send + Sync {
     async fn read_metric(&self, _addr: &Path, _name: &str) -> anyhow::Result<()> {
         Ok(())
     }
+
+    async fn version(&self) -> anyhow::Result<String> {
+        Ok(env!("CARGO_PKG_VERSION").to_string())
+    }
 }
 
 // Helper traits for defining custom internal types in Connector implementations.
@@ -670,6 +674,10 @@ impl Connector for Arc<dyn Connector> {
 
     async fn init(&self) -> anyhow::Result<()> {
         Connector::init(self.as_ref()).await
+    }
+
+    async fn version(&self) -> anyhow::Result<String> {
+        Connector::version(self.as_ref()).await
     }
 
     async fn filter(&self, addr: &Path) -> anyhow::Result<FilterResponse> {

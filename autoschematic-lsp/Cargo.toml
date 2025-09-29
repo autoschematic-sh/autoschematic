@@ -2,8 +2,8 @@ cargo-features = ["edition2024"]
 [package]
 name = "autoschematic-lsp"
 description = "Language server support for Autoschematic."
-license = "MIT"
-version = "0.8.0"
+license = "AGPL-3.0"
+version = "0.8.2"
 edition = "2024"
 
 [dependencies]

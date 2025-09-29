@@ -1,25 +1,59 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::bail;
+use documented::{Documented, DocumentedFields};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
 #[serde(deny_unknown_fields)]
+/// The root Autoschematic config. This should be in a file called "autoschematic.ron" at the root of a git repo.
 pub struct AutoschematicConfig {
+    /// Autoschematic can divide repos up into prefixes to allow multi-team and multi-account workflows.
+    /// A prefix just represents a folder, or nested folders. If you don't wish to divide your repo
+    /// up at all, you can just use the prefix "/".
+    /// For example:
+    /// ```ignore
+    /// prefixes: {
+    ///     "/": Prefix(...),
+    /// }
+    /// ```
+    /// ```ignore
+    /// prefixes: {
+    ///     "team/backend": Prefix(...),
+    ///     "team/frontend": Prefix(...),
+    /// }
+    /// ```
+    /// ```ignore
+    /// prefixes: {
+    ///     "office/taipei": Prefix(...),
+    ///     "office/london": Prefix(...),
+    ///     "office/sanfrancisco": Prefix(...),
+    /// }
+    /// ```
     pub prefixes: HashMap<String, Prefix>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields)]
 #[serde(deny_unknown_fields)]
+/// A Prefix object defines the set of connectors that are installed in that prefix, as well as task definitions, common environment variables,
+/// and metadata.
 pub struct Prefix {
+    /// A list of Connector(...) definitions. See the [Connector Catalogue](https://autoschematic.sh/catalogue/) for
+    /// the set of connectors that you can install and use, along with the syntax to include them here.
     pub connectors: Vec<Connector>,
     #[serde(default)]
+    /// [Optional] A human-readable description of the prefix.
     pub description: Option<String>,
     #[serde(default)]
+    /// When resource_group is set, and two prefixes share the same resource_group name, `autoschematic import` will
+    /// not import resources in prefix A that already exist in prefix B. This is useful for
+    /// having two prefixes that share the same AWS account, for example.
     pub resource_group: Option<String>,
+
     #[serde(default)]
+    /// [Optional] A list of Task(...) definitions. Note: the task API is currently under review and is less stable than the rest of the core API.
     pub tasks: Vec<Task>,
-    // TODO merge this with the rest of the connector env!
+    /// [Optional] A map of common environment variables shared between all connectors in this prefix.
     #[serde(default)]
     pub env: HashMap<String, String>,
 }
@@ -36,7 +70,9 @@ pub struct Task {
     pub read_secrets: Vec<String>,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq, Documented)]
+/// Defines what protocol the connector will run under. Connectors will break if set
+/// to the wrong protocol; you shouldn't normally need to set this.
 pub enum Protocol {
     #[default]
     Tarpc,
@@ -226,14 +262,29 @@ impl Spec {
 // TODO we'll also define ConnectorSet, a standalone file with a set of Connectors,
 // to allow prefixes to share common sets of connectors.
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields)]
 #[serde(deny_unknown_fields)]
+/// Connectors are responsible for managing different kinds of resources as code. Connectors run as a lightweight
+/// server process over tarpc or grpc.
 pub struct Connector {
+    /// The shortname is used to refer to the connector in the command line
     pub shortname: String,
+    /// The spec should be taken from the [Connector Catalogue](https://autoschematic.sh/catalogue/).
     pub spec: Spec,
     #[serde(default)]
+    /// A map of environment variables to set. Note that
+    /// environment variables from the host are not passed through unless explicitly
+    /// set here like so:
+    /// ```ignore
+    /// env: {
+    ///    ...
+    ///   "GITHUB_TOKEN": "env://GITHUB_TOKEN",
+    ///   ...
+    /// }
+    /// ```
     pub env: HashMap<String, String>,
     #[serde(default)]
+    /// The set of secrets that this connector is allowed to unseal at runtime.
     pub read_secrets: Vec<String>,
 }
 

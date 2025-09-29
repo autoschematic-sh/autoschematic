@@ -2,8 +2,8 @@ cargo-features = ["edition2024"]
 [package]
 name = "autoschematic"
 description = "Command-line tools for Autoschematic"
-license = "MIT"
-version = "0.8.1"
+license = "AGPL-3.0"
+version = "0.8.2"
 edition = "2024"
 
 [[bin]]

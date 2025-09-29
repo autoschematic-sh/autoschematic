@@ -46,6 +46,13 @@ impl GrpcConnector for GrpcConnectorServer {
         Ok(Response::new(Empty {}))
     }
 
+    async fn version(&self, _req: Request<Empty>) -> Result<Response<VersionResponse>, Status> {
+        let version = Connector::version(&*self.inner.lock().await)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+        Ok(Response::new(VersionResponse { version }))
+    }
+
     async fn filter(&self, req: Request<FilterRequest>) -> Result<Response<proto::FilterResponse>, Status> {
         let addr = PathBuf::from(req.into_inner().addr);
         let out = Connector::filter(&*self.inner.lock().await, &addr)
@@ -325,6 +332,11 @@ impl Connector for GrpcConnectorClient {
     async fn init(&self) -> Result<()> {
         self.inner.lock().await.init(Request::new(Empty {})).await?;
         Ok(())
+    }
+
+    async fn version(&self) -> Result<String> {
+        let res = self.inner.lock().await.version(Request::new(Empty {})).await?;
+        Ok(res.into_inner().version)
     }
 
     async fn filter(&self, addr: &Path) -> Result<connector::FilterResponse> {

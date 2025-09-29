@@ -51,13 +51,23 @@ pub async fn plan(
 
         // println!("{plan_report:#?}");
 
-        have_nonempty_plan = true;
-
         spinner_stop.send(()).unwrap();
+
+        if !plan_report.missing_outputs.is_empty() {
+            print_plan_addr(&plan_report);
+            println!("{}  ⊬ Missing outputs: ", frame());
+            for output in &plan_report.missing_outputs {
+                println!("{}    {}[{}]", frame(), output.addr.display(), output.key);
+            }
+
+            continue;
+        }
 
         if plan_report.connector_ops.is_empty() {
             continue;
         }
+
+        have_nonempty_plan = true;
 
         if need_print_frame_start {
             need_print_frame_start = false;

@@ -23,11 +23,11 @@ who had little time or budget to replatform, and who found themselves unable to 
 The results have been extremely promising. With a push-pull state model, Autoschematic can automatically resolve state drift in either direction,
 and automatically import your existing manually-created infrastructure into an IaC codebase. (In other words, something like [Terraformer](https://github.com/GoogleCloudPlatform/terraformer) is built-in by design!)
 
-Autoschematic is still in beta; it shouldn't yet be relied on as "Rust's answer to Terraform". It only features a limited number of "connectors" (our analogue to Terraform's "providers"). Moreover, there are a few cool design aspects that distinguish it strongly from current frameworks like Pulumi, Crossplane, and Terraform.
+Autoschematic is still in beta; it shouldn't yet be relied on as "Rust's answer to Terraform". It only features a limited number of "connectors" (our analogue to Terraform's "providers"). However, there are a few cool design aspects that distinguish it strongly from current frameworks. 
 
 ### A Push-Pull State Model
 To mitigate state-drift, Autoschematic is designed around a state model that's **bidirectional**. In other words, you can push _and_ pull, just like git.
-There's a vscode extension that exposes that state in an IDE-friendly fashion, along with the CLI tooling.
+The [vscode extension](https://marketplace.visualstudio.com/items?itemName=Autoschematic.autoschematic) is designed to make this more intuitive, as well as providing language server support. This model is also what allows you to scan and import existing resources into IaC automatically.
 
 ### Connectors That Speak Their Own Language
 You could say Terraform is built around HCL; what language is Autoschematic built around?
@@ -37,8 +37,8 @@ The answer is actually that Autoschematic leaves Connectors to handle their own 
 Autoschematic is actually two implementations, with a shared library (`autoschematic-core`) for common code.
 `autoschematic` is the command line program, for local use, and `autoschematic-server` forms a rich Github integration. 
 Unlike `atlantis`, Autoschematic works with deleted files in the PR, supports richer formatting and RBAC functionality, and can horizontally scale.
-The docs on hosting this server implementation are not yet complete, but if this is of interest, DM me and I could spin you up an instance or
-walk you through setting it up.
+
+(Note: the docs on hosting this server implementation are not yet complete. )
 
 ### So, What Connectors Are There?
 Check the [Connector Catalogue](https://autoschematic.sh/catalogue) for the full list.

@@ -2,6 +2,11 @@
 /// / A generic empty message (was google.protobuf.Empty)
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Empty {}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VersionResponse {
+    #[prost(string, tag = "1")]
+    pub version: ::prost::alloc::string::String,
+}
 /// / --- Filter ---
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct FilterRequest {
@@ -398,6 +403,20 @@ pub mod connector_client {
             req.extensions_mut().insert(GrpcMethod::new("connector.Connector", "Init"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn version(
+            &mut self,
+            request: impl tonic::IntoRequest<super::Empty>,
+        ) -> std::result::Result<tonic::Response<super::VersionResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| tonic::Status::unknown(format!("Service was not ready: {}", e.into())))?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/connector.Connector/Version");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("connector.Connector", "Version"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn filter(
             &mut self,
             request: impl tonic::IntoRequest<super::FilterRequest>,
@@ -599,6 +618,10 @@ pub mod connector_server {
             &self,
             request: tonic::Request<super::Empty>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn version(
+            &self,
+            request: tonic::Request<super::Empty>,
+        ) -> std::result::Result<tonic::Response<super::VersionResponse>, tonic::Status>;
         async fn filter(
             &self,
             request: tonic::Request<super::FilterRequest>,
@@ -742,6 +765,34 @@ pub mod connector_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = InitSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(accept_compression_encodings, send_compression_encodings)
+                            .apply_max_message_size_config(max_decoding_message_size, max_encoding_message_size);
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/connector.Connector/Version" => {
+                    #[allow(non_camel_case_types)]
+                    struct VersionSvc<T: Connector>(pub Arc<T>);
+                    impl<T: Connector> tonic::server::UnaryService<super::Empty> for VersionSvc<T> {
+                        type Response = super::VersionResponse;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(&mut self, request: tonic::Request<super::Empty>) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move { <T as Connector>::version(&inner, request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = VersionSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(accept_compression_encodings, send_compression_encodings)

@@ -1,13 +1,44 @@
 use std::{path::Path, sync::Arc};
 
+use documented::{Documented, DocumentedFields};
+
 use crate::{
-    config::AutoschematicConfig,
+    config::{AutoschematicConfig, Connector, Prefix},
     connector::{DocIdent, FilterResponse, GetDocResponse},
     connector_cache::ConnectorCache,
     error::AutoschematicError,
     keystore::KeyStore,
 };
 
+pub fn get_system_docstring(path: &Path, ident: DocIdent) -> Result<Option<GetDocResponse>, AutoschematicError> {
+    let Some(path) = path.to_str() else {
+        return Ok(None);
+    };
+
+    match path {
+        "autoschematic.ron" => match ident {
+            DocIdent::Struct { name } => match name.as_str() {
+                "AutoschematicConfig" => Ok(Some(AutoschematicConfig::DOCS.into())),
+                "Prefix" => Ok(Some(Prefix::DOCS.into())),
+                "Connector" => Ok(Some(Connector::DOCS.into())),
+                _ => Ok(None),
+            },
+            DocIdent::Field { parent, name } => match parent.as_str() {
+                "AutoschematicConfig" => Ok(Some(AutoschematicConfig::get_field_docs(name)?.into())),
+                "Prefix" => Ok(Some(Prefix::get_field_docs(name)?.into())),
+                "Connector" => Ok(Some(Connector::get_field_docs(name)?.into())),
+                _ => Ok(None),
+            },
+        },
+        // "autoschematic.rbac.ron" => match ident {
+        //     DocIdent::Struct { name } => todo!(),
+        //     DocIdent::Field { parent, name } => todo!(),
+        // },
+        _ => Ok(None),
+    }
+}
+
+// TODO This is trivially cacheable!
 pub async fn get_docstring(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: &ConnectorCache,
