@@ -8,7 +8,7 @@ edition = "2024"
 authors = ["Peter Sherman <peter@autoschematic.sh>"]
 repository = "https://github.com/autoschematic-sh/autoschematic"
 homepage = "https://autoschematic.sh"
-keywords = ["infrastructure", "infrastructure-as-code", "devops", "git"]
+keywords = ["infrastructure", "devops", "git"]
 categories = ["development-tools", "command-line-utilities"]
 readme = "../README.md"
 

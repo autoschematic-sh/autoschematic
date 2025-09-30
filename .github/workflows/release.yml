@@ -1,5 +1,8 @@
 name: Release
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
@@ -22,9 +25,15 @@ jobs:
     - name: Get version from tag
       id: get_version
       run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Install TOML CLI
+      id: install_toml
+      run: pip install toml-cli
     
     - name: Check version alignment
+      shell: bash
       run: |
+        set -exo pipefail
         META_VERSION=$(cat VERSION)
 
         CRATE_VERSION=$(toml get --toml-path autoschematic-core/Cargo.toml package.version)
@@ -39,7 +48,7 @@ jobs:
         CRATE_VERSION=$(toml get --toml-path autoschematic-server/Cargo.toml package.version)
         python scripts/version_check.py $META_VERSION $CRATE_VERSION
 
-        python scripts/version_check.py $META_VERSION ${{ needs.create-release.outputs.version }}
+        python scripts/version_check.py $META_VERSION ${{ steps.get_version.outputs.version }}
 
     - name: Generate changelog
       id: changelog
@@ -76,9 +85,9 @@ jobs:
           # - os: windows-latest
           #   target: x86_64-pc-windows-msvc
           #   asset_name: autoschematic-${{ needs.create-release.outputs.version }}-windows-x86_64.zip
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            asset_name: autoschematic-${{ needs.create-release.outputs.version }}-macos-x86_64.tar.gz
+          # - os: macos-latest
+          #   target: x86_64-apple-darwin
+          #   asset_name: autoschematic-${{ needs.create-release.outputs.version }}-macos-x86_64.tar.gz
           - os: macos-latest
             target: aarch64-apple-darwin
             asset_name: autoschematic-${{ needs.create-release.outputs.version }}-macos-aarch64.tar.gz
@@ -181,30 +190,30 @@ jobs:
     - name: Publish autoschematic-lsp
       run: cargo publish --package autoschematic-lsp --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
-  build-docker:
-    name: Build and Push Docker Images
-    needs: create-release
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  # build-docker:
+  #   name: Build and Push Docker Images
+  #   needs: create-release
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+  #   - name: Set up Docker Buildx
+  #     uses: docker/setup-buildx-action@v3
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+  #   - name: Login to Docker Hub
+  #     uses: docker/login-action@v3
+  #     with:
+  #       username: ${{ secrets.DOCKER_USERNAME }}
+  #       password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Build and push Server image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./autoschematic-server
-        file: ./autoschematic-server/Dockerfile
-        push: true
-        tags: |
-          autoschematic/autoschematic-server:latest
-          autoschematic/autoschematic-server:${{ needs.create-release.outputs.version }}
-        platforms: linux/amd64,linux/arm64
+  #   - name: Build and push Server image
+  #     uses: docker/build-push-action@v5
+  #     with:
+  #       context: ./autoschematic-server
+  #       file: ./autoschematic-server/Dockerfile
+  #       push: true
+  #       tags: |
+  #         autoschematic/autoschematic-server:latest
+  #         autoschematic/autoschematic-server:${{ needs.create-release.outputs.version }}
+  #       platforms: linux/amd64,linux/arm64

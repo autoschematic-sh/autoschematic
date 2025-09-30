@@ -4,7 +4,7 @@ name = "autoschematic-server"
 description = "A platform for declarative Ops systems, built around Git."
 repository = "https://github.com/autoschematic-sh/autoschematic"
 license = "AGPL-3.0"
-version = "0.8.0"
+version = "0.8.2"
 edition = "2024"
 
 [features]

@@ -24,7 +24,7 @@ use crate::connector;
 use crate::connector::Connector;
 
 pub mod proto {
-    include!("./grpc_generated/connector.rs");
+    include!(concat!(env!("OUT_DIR"), "/connector.rs"));
 }
 use proto::{
     connector_client::ConnectorClient as GrpcClient,
