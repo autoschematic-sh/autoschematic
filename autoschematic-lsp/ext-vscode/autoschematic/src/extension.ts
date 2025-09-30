@@ -117,7 +117,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			terminal.sendText('cargo install --locked autoschematic-lsp');
 			terminal.show();
 			vscode.window.showInformationMessage(
-				"Installing autoschematic-lsp. The extension will be ready after installation completes."
+				"Installing autoschematic-lsp. After installation completes, restart the extension with Ctrl-P or close and re-open the window."
 			);
 			return;
 		} else {

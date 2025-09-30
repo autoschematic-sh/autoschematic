@@ -508,7 +508,7 @@ checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
 name = "autoschematic"
-version = "0.8.2"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -546,7 +546,7 @@ dependencies = [
 
 [[package]]
 name = "autoschematic-core"
-version = "0.8.2"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -597,7 +597,7 @@ dependencies = [
 
 [[package]]
 name = "autoschematic-lsp"
-version = "0.8.2"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "autoschematic-core",
@@ -617,7 +617,7 @@ dependencies = [
 
 [[package]]
 name = "autoschematic-server"
-version = "0.8.2"
+version = "0.9.0"
 dependencies = [
  "actix-cors",
  "actix-session",

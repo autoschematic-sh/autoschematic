@@ -47,7 +47,7 @@ pub enum AutoschematicSubcommand {
     /// Create an Autoschematic config if not already present.
     Init {
         #[command(subcommand)]
-        kind: AutoschematicInitSubcommand,
+        kind: Option<AutoschematicInitSubcommand>,
     },
     /// Set or unset the safety lock file. When set, the safety lock prevents any operations that would modify
     /// infrastructure (Executing ConnectorOps or Tasks).
@@ -220,8 +220,9 @@ async fn main() -> anyhow::Result<()> {
             seal::seal(&domain, &path, in_path.as_deref(), key_id.as_deref()).await?;
         }
         AutoschematicSubcommand::Init { kind } => match kind {
-            AutoschematicInitSubcommand::Config => init::init()?,
-            AutoschematicInitSubcommand::Rbac => init::init_rbac()?,
+            None => init::init()?,
+            Some(AutoschematicInitSubcommand::Config) => init::init()?,
+            Some(AutoschematicInitSubcommand::Rbac) => init::init_rbac()?,
         },
         AutoschematicSubcommand::Validate {} => {
             validate::validate()?;

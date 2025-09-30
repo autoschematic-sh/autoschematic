@@ -243,7 +243,7 @@ pub async fn apply(
 
     let mut did_make_output_progress = false;
 
-    if deferred.is_empty() {
+    if !deferred.is_empty() {
         println!(" ⊬ Some files were not applied as they were missing outputs.");
         for plan_report in deferred {
             print_plan_addr(&plan_report);

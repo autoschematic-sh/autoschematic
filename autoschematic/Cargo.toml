@@ -3,7 +3,7 @@ cargo-features = ["edition2024"]
 name = "autoschematic"
 description = "Command-line tools for Autoschematic"
 license = "AGPL-3.0"
-version = "0.8.2"
+version = "0.9.0"
 edition = "2024"
 
 [[bin]]
@@ -11,7 +11,7 @@ name = "autoschematic"
 path = "src/main.rs"
 
 [dependencies]
-autoschematic-core = { path = "../autoschematic-core", version = "0.8.1", features = [
+autoschematic-core = { path = "../autoschematic-core", version = "0.9.0", features = [
     "grpc",
 ] }
 ecdsa = "0.16.8"

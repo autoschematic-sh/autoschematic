@@ -84,10 +84,17 @@ pub async fn cargo_install_missing(config: &AutoschematicConfig) -> anyhow::Resu
                         command.args(["--features", &features.join(",")]);
                     }
 
-                    let output = command.stdin(Stdio::inherit()).stdout(Stdio::inherit()).output().await?;
+                    let status = command
+                        .stdin(Stdio::inherit())
+                        .stdout(Stdio::inherit())
+                        .stderr(Stdio::inherit())
+                        .kill_on_drop(true)
+                        .spawn()?
+                        .wait()
+                        .await?;
 
-                    if !output.status.success() {
-                        bail!("Pre-command failed: {:?}: {}", command, output.status)
+                    if !status.success() {
+                        bail!("Pre-command failed: {:?}: {}", command, status)
                     }
                 }
                 _ => continue,

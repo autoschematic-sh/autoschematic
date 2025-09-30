@@ -4,7 +4,7 @@
   "publisher": "Autoschematic",
   "description": "Language Server support and Ctrl-P shortcuts for Autoschematic.",
   "repository": "https://github.com/autoschematic-sh/autoschematic",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "icon": "resources/logo.png",
   "engines": {
     "vscode": "^1.99.0"
