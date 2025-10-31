@@ -1,11 +1,11 @@
 use std::{path::Path, sync::Arc};
 
-use documented::{Documented, DocumentedFields};
-
 use crate::{
-    config::{AutoschematicConfig, Connector, Prefix},
+    config::{AutoschematicConfig, Connector, Prefix, Task},
+    config_rbac,
     connector::{DocIdent, FilterResponse, GetDocResponse},
     connector_cache::ConnectorCache,
+    doc_dispatch,
     error::AutoschematicError,
     keystore::KeyStore,
 };
@@ -16,24 +16,11 @@ pub fn get_system_docstring(path: &Path, ident: DocIdent) -> Result<Option<GetDo
     };
 
     match path {
-        "autoschematic.ron" => match ident {
-            DocIdent::Struct { name } => match name.as_str() {
-                "AutoschematicConfig" => Ok(Some(AutoschematicConfig::DOCS.into())),
-                "Prefix" => Ok(Some(Prefix::DOCS.into())),
-                "Connector" => Ok(Some(Connector::DOCS.into())),
-                _ => Ok(None),
-            },
-            DocIdent::Field { parent, name } => match parent.as_str() {
-                "AutoschematicConfig" => Ok(Some(AutoschematicConfig::get_field_docs(name)?.into())),
-                "Prefix" => Ok(Some(Prefix::get_field_docs(name)?.into())),
-                "Connector" => Ok(Some(Connector::get_field_docs(name)?.into())),
-                _ => Ok(None),
-            },
-        },
-        // "autoschematic.rbac.ron" => match ident {
-        //     DocIdent::Struct { name } => todo!(),
-        //     DocIdent::Field { parent, name } => todo!(),
-        // },
+        "autoschematic.ron" => doc_dispatch!(ident, [AutoschematicConfig, Prefix, Connector, Task]),
+        "autoschematic.rbac.ron" => doc_dispatch!(
+            ident,
+            [config_rbac::AutoschematicRbacConfig, config_rbac::Role, config_rbac::User]
+        ),
         _ => Ok(None),
     }
 }

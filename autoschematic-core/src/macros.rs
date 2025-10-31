@@ -96,3 +96,30 @@ macro_rules! virt_to_phy {
         }
     };
 }
+
+#[macro_export]
+macro_rules! doc_dispatch {
+    // call like: doc_dispatch!(ident, GetDocResponse, [GitHubConnectorConfig, GitHubRepository, ...]);
+    ($ident:expr, [ $( $ty:path ),+ $(,)? ]) => {{
+        match $ident {
+            DocIdent::Struct { name } => {
+                use crate::connector::GetDocResponse;
+                match name.as_str() {
+                    $(
+                        stringify!($ty) => Ok(Some(GetDocResponse::from_documented::<$ty>())),
+                    )+
+                    _ => Ok(None),
+                }
+            }
+            DocIdent::Field { parent, name } => {
+                use documented::DocumentedFields;
+                match parent.as_str() {
+                    $(
+                        stringify!($ty) => Ok(Some(<$ty>::get_field_docs(name)?.into())),
+                    )+
+                    _ => Ok(None),
+                }
+            }
+        }
+    }};
+}
