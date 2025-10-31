@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    config::Spec,
+    config::{self, AutoschematicConfig},
     connector::{
         Connector, ConnectorInbox, FilterResponse,
         handle::{ConnectorHandle, ConnectorHandleStatus},
@@ -13,9 +13,10 @@ use crate::{
     },
     error::AutoschematicError,
     keystore::KeyStore,
+    util::parse_env_file,
 };
 
-use anyhow::Context;
+use anyhow::{Context};
 use dashmap::DashMap;
 use serde::Serialize;
 
@@ -76,17 +77,46 @@ impl ConnectorCache {
 
     pub async fn get_or_spawn_connector(
         &self,
-        name: &str,
-        spec: &Spec,
-        prefix: &Path,
-        env: &HashMap<String, String>,
+        config: &AutoschematicConfig,
+        prefix: &str,
+        connector_def: &config::Connector,
         keystore: Option<Arc<dyn KeyStore>>,
         do_init: bool,
     ) -> Result<(Arc<dyn Connector>, ConnectorInbox), AutoschematicError> {
         let key = ConnectorCacheKey {
-            shortname: name.into(),
+            shortname: connector_def.shortname.clone(),
             prefix: prefix.into(),
         };
+
+        let Some(prefix_def) = config.prefixes.get(prefix) else {
+            return Err(anyhow::anyhow!(format!("No such prefix {}", prefix)).into());
+        };
+
+        let spec = &connector_def.spec;
+
+        let mut env = HashMap::new();
+
+        if let Some(ref env_file) = prefix_def.env_file {
+            for (k, v) in parse_env_file(&std::fs::read_to_string(env_file).context(format!("Reading env file {}", env_file))?)
+            {
+                env.insert(k, v);
+            }
+        }
+
+        for (k, v) in &prefix_def.env {
+            env.insert(k.into(), v.into());
+        }
+
+        if let Some(ref env_file) = connector_def.env_file {
+            for (k, v) in parse_env_file(&std::fs::read_to_string(env_file).context(format!("Reading env file {}", env_file))?)
+            {
+                env.insert(k, v);
+            }
+        }
+
+        for (k, v) in &connector_def.env {
+            env.insert(k.into(), v.into());
+        }
 
         if !self.cache.contains_key(&key) {
             // let connector_type = parse_connector_name(name)?;
@@ -94,13 +124,18 @@ impl ConnectorCache {
             //  we need to pass the original inbox, and not the resubscribed copy.
             // Hence the song and dance below with the Arc and resubscribe().
             // let (connector, inbox) = spawn_connector(&connector_type, prefix, env, &self.binary_cache, keystore)
-            let (connector, inbox) = spawn_connector(name, spec, prefix, env, keystore)
+            let (connector, inbox) = spawn_connector(&connector_def.shortname, spec, &PathBuf::from(prefix), &env, keystore)
                 .await
                 .context("spawn_connector()")?;
 
             if do_init {
                 if let Err(e) = connector.init().await {
-                    tracing::error!("In prefix {}: failed to init connector {}: {:#?}", prefix.display(), name, e);
+                    tracing::error!(
+                        "In prefix {}: failed to init connector {}: {:#?}",
+                        prefix,
+                        connector_def.shortname,
+                        e
+                    );
                 };
                 self.init_status.insert(key.clone(), true);
             }
@@ -112,13 +147,23 @@ impl ConnectorCache {
             Ok((connector_arc, inbox))
         } else {
             let Some(entry) = self.cache.get(&key) else {
-                return Err(anyhow::anyhow!("Failed to get connector from cache: name {}, prefix {:?}", name, prefix).into());
+                return Err(anyhow::anyhow!(
+                    "Failed to get connector from cache: name {}, prefix {:?}",
+                    connector_def.shortname,
+                    prefix
+                )
+                .into());
             };
             let (connector, inbox) = &*entry;
 
             if do_init && self.init_status.get(&key).is_none() {
                 if let Err(e) = connector.init().await {
-                    tracing::error!("In prefix {}: failed to init connector {}: {:#?}", prefix.display(), name, e);
+                    tracing::error!(
+                        "In prefix {}: failed to init connector {}: {:#?}",
+                        prefix,
+                        connector_def.shortname,
+                        e
+                    );
                 };
                 self.init_status.insert(key.clone(), true);
             }

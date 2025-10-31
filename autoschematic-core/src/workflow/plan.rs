@@ -4,7 +4,7 @@ use anyhow::Context;
 use tokio::task::JoinSet;
 
 use crate::{
-    config::AutoschematicConfig,
+    config::{self, AutoschematicConfig},
     connector::{Connector, FilterResponse, VirtToPhyResponse},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
@@ -14,13 +14,14 @@ use crate::{
 };
 
 pub async fn plan_connector(
-    connector_shortname: &str,
+    connector_def: config::Connector,
     connector: Arc<dyn Connector>,
     prefix: &Path,
     virt_addr: &Path,
 ) -> Result<Option<PlanReport>, anyhow::Error> {
     let mut plan_report = PlanReport {
         prefix: prefix.into(),
+        connector_def: Some(connector_def.clone()),
         virt_addr: virt_addr.into(),
         ..Default::default()
     };
@@ -41,7 +42,7 @@ pub async fn plan_connector(
         Some(ref phy_addr) => {
             match connector.get(&phy_addr.clone()).await.context(format!(
                 "{}::get({})",
-                connector_shortname,
+                connector_def.shortname,
                 &phy_addr.to_str().unwrap_or_default()
             ))? {
                 // Existing resource present for this address
@@ -83,7 +84,7 @@ pub async fn plan_connector(
                             Some(template_result.body.into()),
                         )
                         .await
-                        .context(format!("{}::plan({}, _, _)", connector_shortname, virt_addr.display()))?
+                        .context(format!("{}::plan({}, _, _)", connector_def.shortname, virt_addr.display()))?
                 }
             }
             Err(_) => {
@@ -93,7 +94,7 @@ pub async fn plan_connector(
                 connector
                     .plan(&phy_addr.clone().unwrap_or(virt_addr.into()), current, Some(desired_bytes))
                     .await
-                    .context(format!("{}::plan({}, _, _)", connector_shortname, virt_addr.display()))?
+                    .context(format!("{}::plan({}, _, _)", connector_def.shortname, virt_addr.display()))?
             }
         }
     } else {
@@ -108,7 +109,7 @@ pub async fn plan_connector(
             .await
             .context(format!(
                 "{}::plan({}, _, _)",
-                connector_shortname,
+                connector_def.shortname,
                 virt_addr.to_str().unwrap_or_default()
             ))?
     };
@@ -128,12 +129,14 @@ pub async fn plan(
     connector_filter: &Option<String>,
     path: &Path,
 ) -> Result<Option<PlanReport>, anyhow::Error> {
-    let autoschematic_config = autoschematic_config.clone();
+    let autoschematic_config = Arc::new(autoschematic_config.clone());
 
     let Some((prefix, virt_addr)) = split_prefix_addr(&autoschematic_config, path) else {
         // eprintln!("split_prefix_addr None!");
         return Ok(None);
     };
+
+    // let prefix_name = prefix_name.clone();
 
     let Some(prefix_def) = autoschematic_config.prefixes.get(prefix.to_str().unwrap_or_default()) else {
         // eprintln!("prefix None!");
@@ -151,20 +154,18 @@ pub async fn plan(
             continue 'connector;
         }
 
+        let autoschematic_config = autoschematic_config.clone();
         let connector_cache = connector_cache.clone();
         let keystore = keystore.clone();
+        // let prefix_name = prefix_name.clone();
         let prefix = prefix.clone();
         let virt_addr = virt_addr.clone();
         joinset.spawn(async move {
+            let Some(prefix_name) = prefix.to_str() else {
+                return Ok(None);
+            };
             let (connector, mut inbox) = connector_cache
-                .get_or_spawn_connector(
-                    &connector_def.shortname,
-                    &connector_def.spec,
-                    &prefix,
-                    &connector_def.env,
-                    keystore,
-                    true,
-                )
+                .get_or_spawn_connector(&autoschematic_config, &prefix_name, &connector_def, keystore, true)
                 .await?;
 
             let _reader_handle = tokio::spawn(async move {
@@ -184,7 +185,7 @@ pub async fn plan(
                 .await?
                 == FilterResponse::Resource
             {
-                let plan_report = plan_connector(&connector_def.shortname, connector, &prefix, &virt_addr).await?;
+                let plan_report = plan_connector(connector_def, connector, &prefix, &virt_addr).await?;
                 return Ok(plan_report);
             }
             Ok(None)

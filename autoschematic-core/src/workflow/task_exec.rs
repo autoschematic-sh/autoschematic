@@ -85,7 +85,7 @@ pub async fn task_exec(
     arg: Option<Vec<u8>>,
     state: Option<Vec<u8>>,
 ) -> Result<Option<TaskExecResponse>, anyhow::Error> {
-    let autoschematic_config = autoschematic_config.clone();
+    let autoschematic_config = Arc::new(autoschematic_config.clone());
 
     let Some((prefix, virt_addr)) = split_prefix_addr(&autoschematic_config, path) else {
         // eprintln!("split_prefix_addr None!");
@@ -97,6 +97,7 @@ pub async fn task_exec(
         return Ok(None);
     };
 
+    let autoschematic_config = autoschematic_config.clone();
     let prefix_def = prefix_def.clone();
     let arg = arg.map(Arc::new);
     let state = state.map(Arc::new);
@@ -110,6 +111,7 @@ pub async fn task_exec(
             continue 'connector;
         }
 
+        let autoschematic_config = autoschematic_config.clone();
         let connector_cache = connector_cache.clone();
         let keystore = keystore.clone();
         let prefix = prefix.clone();
@@ -118,15 +120,12 @@ pub async fn task_exec(
         let arg = arg.clone();
         let state = state.clone();
         joinset.spawn(async move {
+            let Some(prefix_name) = prefix.to_str() else {
+                return Ok(None);
+            };
+
             let (connector, mut inbox) = connector_cache
-                .get_or_spawn_connector(
-                    &connector_def.shortname,
-                    &connector_def.spec,
-                    &prefix,
-                    &connector_def.env,
-                    keystore,
-                    true,
-                )
+                .get_or_spawn_connector(&autoschematic_config, &prefix_name, &connector_def, keystore, true)
                 .await?;
 
             let _reader_handle = tokio::spawn(async move {

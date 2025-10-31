@@ -439,27 +439,27 @@ impl Backend {
             return Ok(());
         };
 
-        let autoschematic_config = autoschematic_config.clone();
+        let autoschematic_config = Arc::new(autoschematic_config.clone());
         // let mut handles = Vec::new();
         let mut joinset: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
-        for (prefix_name, prefix) in autoschematic_config.prefixes {
-            for connector_def in prefix.connectors {
+        let autoschematic_config = autoschematic_config.clone();
+        for (prefix_name, prefix_def) in &autoschematic_config.prefixes {
+            let autoschematic_config = autoschematic_config.clone();
+            let prefix_def = prefix_def.clone();
+
+            for connector_def in prefix_def.connectors {
                 eprintln!("launching connector, {}", connector_def.shortname);
 
                 let connector_cache = self.connector_cache.clone();
+
+                let autoschematic_config = autoschematic_config.clone();
+
                 let prefix_name = prefix_name.clone();
 
                 joinset.spawn(async move {
                     let (_connector, mut inbox) = connector_cache
-                        .get_or_spawn_connector(
-                            &connector_def.shortname,
-                            &connector_def.spec,
-                            &PathBuf::from(prefix_name),
-                            &connector_def.env,
-                            None,
-                            false,
-                        )
+                        .get_or_spawn_connector(&autoschematic_config, &prefix_name, &connector_def, None, false)
                         .await?;
 
                     // let sender_trace_handle = trace_handle.clone();

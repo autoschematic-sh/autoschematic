@@ -122,7 +122,7 @@ pub async fn unbundle(
     connector_filter: &Option<String>,
     path: &Path,
 ) -> Result<Option<UnbundleReport>, anyhow::Error> {
-    let autoschematic_config = autoschematic_config.clone();
+    let autoschematic_config = Arc::new(autoschematic_config.clone());
 
     let Some((prefix, virt_addr)) = split_prefix_addr(&autoschematic_config, path) else {
         return Ok(None);
@@ -143,20 +143,18 @@ pub async fn unbundle(
             continue 'connector;
         }
 
+        let autoschematic_config = autoschematic_config.clone();
         let connector_cache = connector_cache.clone();
         let keystore = keystore.clone();
         let prefix = prefix.clone();
         let virt_addr = virt_addr.clone();
         joinset.spawn(async move {
+            let Some(prefix_name) = prefix.to_str() else {
+                return Ok(None);
+            };
+
             let (connector, mut inbox) = connector_cache
-                .get_or_spawn_connector(
-                    &connector_def.shortname,
-                    &connector_def.spec,
-                    &prefix,
-                    &connector_def.env,
-                    keystore,
-                    true,
-                )
+                .get_or_spawn_connector(&autoschematic_config, &prefix_name, &connector_def, keystore, true)
                 .await?;
 
             let _reader_handle = tokio::spawn(async move {

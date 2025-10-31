@@ -10,6 +10,7 @@ pub mod diag;
 pub mod error;
 pub mod error_util;
 pub mod flock;
+pub mod fuzz;
 pub mod git_util;
 pub mod glob;
 pub mod grpc_bridge;

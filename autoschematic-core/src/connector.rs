@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::bail;
+use documented::{Documented, DocumentedFields};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
@@ -42,9 +43,10 @@ pub enum OutputMapFile {
 
 impl OutputMapFile {
     pub fn path(prefix: &Path, addr: &Path) -> PathBuf {
-        let mut output = prefix.to_path_buf();
+        let mut output = PathBuf::from(".autoschematic");
+        // let mut output = prefix.to_path_buf();
 
-        output.push(".outputs");
+        output.push(prefix);
 
         // Join the parent portion of `addr`, if it exists
         if let Some(parent) = addr.parent() {
@@ -62,7 +64,7 @@ impl OutputMapFile {
             new_filename.push(fname);
         } else {
             // If there's no file name at all, we'll just use ".out.ron"
-            // so `new_filename` right now is just "." — that's fine.
+            // so `new_filename` right now is just "." - that's fine.
             // We'll end up producing something like "./office/east/ec2/us-east-1/.out.ron"
         }
         new_filename.push(".out.ron");
@@ -228,7 +230,6 @@ pub mod handle;
 pub mod spawn;
 pub mod task_registry;
 
-// #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Copy, Clone)]
 #[bitmask_enum::bitmask(u32)]
 #[derive(Serialize, Deserialize)]
 pub enum FilterResponse {
@@ -308,12 +309,30 @@ pub enum DocIdent {
 /// to help users write resource bodies manually.
 pub struct GetDocResponse {
     pub markdown: String,
+    pub fields: Vec<String>,
+}
+
+impl GetDocResponse {
+    pub fn from_documented<T: Documented + DocumentedFields>() -> Self {
+        Self {
+            markdown: T::DOCS.to_string(),
+            fields: T::FIELD_NAMES.iter().map(|s| String::from(*s)).collect(),
+        }
+    }
+
+    pub fn from_documented_field<T: DocumentedFields>(field: &str) -> Result<Self, documented::Error> {
+        Ok(Self {
+            markdown: T::get_field_docs(field)?.to_string(),
+            fields: Vec::new(),
+        })
+    }
 }
 
 impl From<&'static str> for GetDocResponse {
     fn from(value: &'static str) -> Self {
         Self {
             markdown: value.to_string(),
+            fields: Vec::new(),
         }
     }
 }

@@ -53,7 +53,10 @@ pub struct Prefix {
     #[serde(default)]
     /// [Optional] A list of Task(...) definitions. Note: the task API is currently under review and is less stable than the rest of the core API.
     pub tasks: Vec<Task>,
-    /// [Optional] A map of common environment variables shared between all connectors in this prefix.
+    /// [Optional] An env file path (like ".env") to read environment variables from.
+    #[serde(default)]
+    pub env_file: Option<String>,
+    /// [Optional] A map of common environment variables shared between all connectors in this prefix. Takes precedence over env_file.
     #[serde(default)]
     pub env: HashMap<String, String>,
 }
@@ -64,8 +67,13 @@ pub struct Task {
     pub name: String,
     #[serde(default)]
     pub description: Option<String>,
+    /// [Optional] A map of environment variables for this connector. Takes precedence over env_file and Prefix.env on a per-variable basis.
     #[serde(default)]
     pub env: HashMap<String, String>,
+    /// [Optional] An env file path (like ".env") to read environment variables from.
+    /// Takes precedence over Prefix.env and Prefix.env_file on a per-variable basis.
+    #[serde(default)]
+    pub env_file: Option<String>,
     #[serde(default)]
     pub read_secrets: Vec<String>,
 }
@@ -283,6 +291,9 @@ pub struct Connector {
     /// }
     /// ```
     pub env: HashMap<String, String>,
+    /// [Optional] An env file path (like ".env") to read environment variables from.
+    #[serde(default)]
+    pub env_file: Option<String>,
     #[serde(default)]
     /// The set of secrets that this connector is allowed to unseal at runtime.
     pub read_secrets: Vec<String>,

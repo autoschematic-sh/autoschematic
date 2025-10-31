@@ -30,6 +30,10 @@ pub async fn rename(
         bail!("Can't modify prefix during a rename");
     }
 
+    let Some(prefix_name) = prefix.to_str() else {
+        bail!("No such prefix: {}", prefix.display());
+    };
+
     let Some(prefix_def) = autoschematic_config.prefixes.get(prefix.to_str().unwrap()) else {
         bail!("No such prefix: {}", prefix.display());
     };
@@ -39,14 +43,7 @@ pub async fn rename(
         // require the connector's config files, or ought it be statically determined by outputs alone?
         // (I'm leaning towards the latter!)
         let (connector, mut inbox) = connector_cache
-            .get_or_spawn_connector(
-                &connector_def.shortname,
-                &connector_def.spec,
-                &prefix,
-                &connector_def.env,
-                keystore.clone(),
-                false,
-            )
+            .get_or_spawn_connector(&autoschematic_config, &prefix_name, &connector_def, keystore.clone(), false)
             .await?;
 
         let _reader_handle = tokio::spawn(async move {

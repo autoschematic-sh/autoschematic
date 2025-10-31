@@ -47,24 +47,17 @@ pub async fn get_docstring(
     addr: &Path,
     ident: DocIdent,
 ) -> Result<Option<GetDocResponse>, AutoschematicError> {
-    let Some(prefix_str) = prefix.to_str() else {
+    let Some(prefix_name) = prefix.to_str() else {
         return Ok(None);
     };
 
-    let Some(prefix_def) = autoschematic_config.prefixes.get(prefix_str) else {
+    let Some(prefix_def) = autoschematic_config.prefixes.get(prefix_name) else {
         return Ok(None);
     };
 
     for connector_def in &prefix_def.connectors {
         let (connector, _inbox) = connector_cache
-            .get_or_spawn_connector(
-                &connector_def.shortname,
-                &connector_def.spec,
-                prefix,
-                &connector_def.env,
-                keystore.clone(),
-                false,
-            )
+            .get_or_spawn_connector(&autoschematic_config, prefix_name, &connector_def, keystore.clone(), false)
             .await?;
 
         if connector.filter(addr).await?.intersects(FilterResponse::none())

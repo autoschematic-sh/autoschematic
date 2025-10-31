@@ -137,7 +137,7 @@ fn descend_find_docident(
                 // trail.push(Component::Name(slice(src, id_pair.as_span())));
 
                 for child in inner {
-                    eprintln!("child: {}", child.as_str());
+                    // eprintln!("child: {}", child.as_str());
                     if descend_find_docident(child, cursor, _src, parent, ident)? {
                         // trail.push(Component::Index(idx));
                         break;

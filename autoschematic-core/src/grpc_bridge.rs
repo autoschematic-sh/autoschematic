@@ -223,11 +223,13 @@ impl GrpcConnector for GrpcConnectorServer {
             Ok(Response::new(GetDocResponse {
                 has_doc: true,
                 markdown: resp.markdown,
+                fields: resp.fields,
             }))
         } else {
             Ok(Response::new(GetDocResponse {
                 has_doc: false,
                 markdown: String::new(),
+                fields: Vec::new(),
             }))
         }
     }
@@ -508,7 +510,10 @@ impl Connector for GrpcConnectorClient {
         let resp = self.inner.lock().await.get_docstring(Request::new(req)).await?.into_inner();
 
         if resp.has_doc {
-            Ok(Some(connector::GetDocResponse { markdown: resp.markdown }))
+            Ok(Some(connector::GetDocResponse {
+                markdown: resp.markdown,
+                fields: resp.fields,
+            }))
         } else {
             Ok(None)
         }

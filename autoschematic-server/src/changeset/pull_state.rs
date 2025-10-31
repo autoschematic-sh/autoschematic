@@ -47,9 +47,9 @@ impl ChangeSet {
         let _chwd = self.chwd_to_repo();
         let subpath = subpath.unwrap_or(PathBuf::from("./"));
 
-        'prefix: for (prefix_name, prefix) in autoschematic_config.prefixes {
+        'prefix: for (prefix_name, prefix) in &autoschematic_config.prefixes {
             if let Some(prefix_filter) = &prefix_filter
-                && prefix_name != *prefix_filter
+                && *prefix_name != *prefix_filter
             {
                 continue;
             }
@@ -74,7 +74,7 @@ impl ChangeSet {
                 continue 'prefix;
             }
 
-            'connector: for connector_def in prefix.connectors {
+            'connector: for connector_def in &prefix.connectors {
                 if let Some(connector_filter) = &connector_filter
                     && connector_def.shortname != *connector_filter
                 {
@@ -84,10 +84,9 @@ impl ChangeSet {
                 let (connector, mut inbox) = self
                     .connector_cache
                     .get_or_spawn_connector(
-                        &connector_def.shortname,
-                        &connector_def.spec,
-                        &PathBuf::from(&prefix_name),
-                        &connector_def.env,
+                        &autoschematic_config,
+                        &prefix_name,
+                        &connector_def,
                         Some(KEYSTORE.clone()),
                         true,
                     )

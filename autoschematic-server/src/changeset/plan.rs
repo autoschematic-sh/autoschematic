@@ -55,9 +55,9 @@ impl ChangeSet {
             deferred_pending_outputs: HashSet::new(),
         };
 
-        'prefix: for (prefix_name, prefix) in autoschematic_config.prefixes {
+        'prefix: for (prefix_name, prefix) in &autoschematic_config.prefixes {
             if let Some(prefix_filter) = &prefix_filter
-                && prefix_name != *prefix_filter
+                && *prefix_name != *prefix_filter
             {
                 continue;
             }
@@ -82,7 +82,7 @@ impl ChangeSet {
                 continue 'prefix;
             }
 
-            'connector: for connector_def in prefix.connectors {
+            'connector: for connector_def in &prefix.connectors {
                 if let Some(connector_filter) = &connector_filter
                     && connector_def.shortname != *connector_filter
                 {
@@ -102,10 +102,9 @@ impl ChangeSet {
                 let (connector, mut inbox) = self
                     .connector_cache
                     .get_or_spawn_connector(
-                        &connector_def.shortname,
-                        &connector_def.spec,
-                        &PathBuf::from(&prefix_name),
-                        &connector_def.env,
+                        &autoschematic_config,
+                        &prefix_name,
+                        &connector_def,
                         Some(KEYSTORE.clone()),
                         true,
                     )
@@ -247,9 +246,7 @@ impl ChangeSet {
                                 .await?;
 
                                 plan_report_set.plan_reports.push(PlanReport {
-                                    connector_shortname: connector_def.shortname.clone(),
-                                    connector_spec: Some(connector_def.spec.clone()),
-                                    connector_env: connector_def.env.clone(),
+                                    connector_def: Some(connector_def.clone()),
                                     prefix: PathBuf::from(&prefix_name),
                                     virt_addr: virt_addr.to_path_buf(),
                                     phy_addr: phy_addr.clone(),
@@ -272,9 +269,7 @@ impl ChangeSet {
 
                                 plan_report_set.overall_success = false;
                                 plan_report_set.plan_reports.push(PlanReport {
-                                    connector_shortname: connector_def.shortname.clone(),
-                                    connector_spec: Some(connector_def.spec.clone()),
-                                    connector_env: connector_def.env.clone(),
+                                    connector_def: Some(connector_def.clone()),
                                     prefix: PathBuf::from(&prefix_name),
                                     virt_addr: virt_addr.to_path_buf(),
                                     phy_addr,
