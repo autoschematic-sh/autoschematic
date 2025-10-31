@@ -1,21 +1,28 @@
 use std::collections::HashMap;
 
+use documented::{Documented, DocumentedFields};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, Documented, DocumentedFields)]
+///
 pub struct AutoschematicRbacConfig {
+    ///
     pub roles: HashMap<String, Role>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
+///
 pub struct Role {
     /// These users may assume this role and take any action granted to it.
     pub users: Vec<User>,
+    ///
     pub prefixes: HashMap<String, PrefixGrant>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
+///
 pub enum User {
+    ///
     GithubUser { username: String },
     // GithubOrganizationUser { organization: String, username: String },
 }
@@ -36,8 +43,10 @@ pub enum Grant {
     Apply,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
+///
 pub struct PrefixGrant {
+    ///
     pub grant: Grant,
 
     #[serde(default)]

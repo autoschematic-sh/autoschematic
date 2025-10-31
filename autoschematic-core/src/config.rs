@@ -61,10 +61,13 @@ pub struct Prefix {
     pub env: HashMap<String, String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields)]
 #[serde(deny_unknown_fields)]
+///
 pub struct Task {
+    ///
     pub name: String,
+    ///
     #[serde(default)]
     pub description: Option<String>,
     /// [Optional] A map of environment variables for this connector. Takes precedence over env_file and Prefix.env on a per-variable basis.
@@ -74,6 +77,7 @@ pub struct Task {
     /// Takes precedence over Prefix.env and Prefix.env_file on a per-variable basis.
     #[serde(default)]
     pub env_file: Option<String>,
+    ///
     #[serde(default)]
     pub read_secrets: Vec<String>,
 }
