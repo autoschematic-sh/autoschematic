@@ -45,7 +45,7 @@ pub struct Prefix {
     /// [Optional] A human-readable description of the prefix.
     pub description: Option<String>,
     #[serde(default)]
-    /// When resource_group is set, and two prefixes share the same resource_group name, `autoschematic import` will
+    /// When two prefixes A and B have the same resource_group string, `autoschematic import` will
     /// not import resources in prefix A that already exist in prefix B. This is useful for
     /// having two prefixes that share the same AWS account, for example.
     pub resource_group: Option<String>,
@@ -65,9 +65,9 @@ pub struct Prefix {
 #[serde(deny_unknown_fields)]
 ///
 pub struct Task {
-    ///
+    /// A free-form, human-readable name for this task. 
     pub name: String,
-    ///
+    /// A free-form, human-readable description of this task. 
     #[serde(default)]
     pub description: Option<String>,
     /// [Optional] A map of environment variables for this connector. Takes precedence over env_file and Prefix.env on a per-variable basis.
