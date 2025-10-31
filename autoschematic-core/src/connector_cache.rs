@@ -16,9 +16,17 @@ use crate::{
     util::parse_env_file,
 };
 
-use anyhow::{Context};
+use anyhow::Context;
 use dashmap::DashMap;
 use serde::Serialize;
+use tokio::sync::RwLock;
+
+pub enum InitStatus {
+    Offline,
+    Spawning,
+    Initializing,
+    Running,
+}
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct ConnectorCacheKey {
@@ -36,11 +44,13 @@ pub struct ConnectorCache {
     // config: AutoschematicConfig,
     // keystore: Option<Arc<dyn KeyStore>>,
     cache: Arc<DashMap<ConnectorCacheKey, ConnectorCacheValue>>,
+    init_lock: Arc<DashMap<ConnectorCacheKey, RwLock<()>>>,
+    init_status: Arc<DashMap<ConnectorCacheKey, InitStatus>>,
     /// Used to cache the results of Connector::filter(addr), which are assumed to be
     /// static. Since filter() is the most common call, this can speed up workflows by
     /// avoiding calling out to the connectors so many times.
-    init_status: Arc<DashMap<ConnectorCacheKey, bool>>,
     filter_cache: Arc<DashMap<ConnectorCacheKey, HashMap<PathBuf, FilterResponse>>>,
+    // TODO add doc_cache
     // binary_cache: BinaryCache,
 }
 
@@ -118,58 +128,124 @@ impl ConnectorCache {
             env.insert(k.into(), v.into());
         }
 
-        if !self.cache.contains_key(&key) {
-            // let connector_type = parse_connector_name(name)?;
-            // In order for the first process that invokes connector_init to receive the earliest messages from the inbox,
-            //  we need to pass the original inbox, and not the resubscribed copy.
-            // Hence the song and dance below with the Arc and resubscribe().
-            // let (connector, inbox) = spawn_connector(&connector_type, prefix, env, &self.binary_cache, keystore)
-            let (connector, inbox) = spawn_connector(&connector_def.shortname, spec, &PathBuf::from(prefix), &env, keystore)
-                .await
-                .context("spawn_connector()")?;
+        // let init_lock = match self.init_lock.entry(key.clone()) {
+        //     dashmap::Entry::Occupied(occupied_entry) => *occupied_entry.get().write().await,
+        //     dashmap::Entry::Vacant(vacant_entry) => {
+        //         let lock = RwLock::new(());
+        //         vacant_entry.insert(lock);
+        //         // *vacant_entry..write().await
+        //     }
+        // };
 
-            if do_init {
-                if let Err(e) = connector.init().await {
-                    tracing::error!(
-                        "In prefix {}: failed to init connector {}: {:#?}",
-                        prefix,
-                        connector_def.shortname,
-                        e
-                    );
-                };
-                self.init_status.insert(key.clone(), true);
+        self.init_status.insert(key.clone(), InitStatus::Offline);
+
+        match self.cache.entry(key.clone()) {
+            dashmap::Entry::Occupied(occupied_entry) => {
+                let (connector, inbox) = occupied_entry.get();
+
+
+                if do_init && self.init_status.get(&key).is_none() {
+                    self.init_status.insert(key.clone(), InitStatus::Initializing);
+                    if let Err(e) = connector.init().await {
+                        tracing::error!(
+                            "In prefix {}: failed to init connector {}: {:#?}",
+                            prefix,
+                            connector_def.shortname,
+                            e
+                        );
+                    };
+                    self.init_status.insert(key.clone(), InitStatus::Running);
+                }
+
+                Ok((connector.clone(), inbox.resubscribe()))
             }
+            dashmap::Entry::Vacant(vacant_entry) => {
+                self.init_status.insert(key.clone(), InitStatus::Spawning);
+                // let connector_type = parse_connector_name(name)?;
+                // In order for the first process that invokes connector_init to receive the earliest messages from the inbox,
+                //  we need to pass the original inbox, and not the resubscribed copy.
+                // Hence the song and dance below with the Arc and resubscribe().
+                // let (connector, inbox) = spawn_connector(&connector_type, prefix, env, &self.binary_cache, keystore)
+                let (connector, inbox) =
+                    spawn_connector(&connector_def.shortname, spec, &PathBuf::from(prefix), &env, keystore)
+                        .await
+                        .context("spawn_connector()")?;
 
-            let connector_arc = Arc::new(connector);
+                if do_init {
+                    self.init_status.insert(key.clone(), InitStatus::Initializing);
+                    if let Err(e) = connector.init().await {
+                        tracing::error!(
+                            "In prefix {}: failed to init connector {}: {:#?}",
+                            prefix,
+                            connector_def.shortname,
+                            e
+                        );
+                    };
+                }
+                self.init_status.insert(key.clone(), InitStatus::Running);
 
-            self.cache.insert(key.clone(), (connector_arc.clone(), inbox.resubscribe()));
+                let connector_arc = Arc::new(connector);
 
-            Ok((connector_arc, inbox))
-        } else {
-            let Some(entry) = self.cache.get(&key) else {
-                return Err(anyhow::anyhow!(
-                    "Failed to get connector from cache: name {}, prefix {:?}",
-                    connector_def.shortname,
-                    prefix
-                )
-                .into());
-            };
-            let (connector, inbox) = &*entry;
+                // self.cache.insert(key.clone(), (connector_arc.clone(), inbox.resubscribe()));
 
-            if do_init && self.init_status.get(&key).is_none() {
-                if let Err(e) = connector.init().await {
-                    tracing::error!(
-                        "In prefix {}: failed to init connector {}: {:#?}",
-                        prefix,
-                        connector_def.shortname,
-                        e
-                    );
-                };
-                self.init_status.insert(key.clone(), true);
+                vacant_entry.insert((connector_arc.clone(), inbox.resubscribe()));
+
+                Ok((connector_arc, inbox))
             }
-
-            Ok((connector.clone(), inbox.resubscribe()))
         }
+
+        // if !self.cache.contains_key(&key) {
+        //     // let connector_type = parse_connector_name(name)?;
+        //     // In order for the first process that invokes connector_init to receive the earliest messages from the inbox,
+        //     //  we need to pass the original inbox, and not the resubscribed copy.
+        //     // Hence the song and dance below with the Arc and resubscribe().
+        //     // let (connector, inbox) = spawn_connector(&connector_type, prefix, env, &self.binary_cache, keystore)
+        //     let (connector, inbox) = spawn_connector(&connector_def.shortname, spec, &PathBuf::from(prefix), &env, keystore)
+        //         .await
+        //         .context("spawn_connector()")?;
+
+        //     if do_init {
+        //         if let Err(e) = connector.init().await {
+        //             tracing::error!(
+        //                 "In prefix {}: failed to init connector {}: {:#?}",
+        //                 prefix,
+        //                 connector_def.shortname,
+        //                 e
+        //             );
+        //         };
+        //         self.init_status.insert(key.clone(), true);
+        //     }
+
+        //     let connector_arc = Arc::new(connector);
+
+        //     self.cache.insert(key.clone(), (connector_arc.clone(), inbox.resubscribe()));
+
+        //     Ok((connector_arc, inbox))
+        // } else {
+        //     let Some(entry) = self.cache.get(&key) else {
+        //         return Err(anyhow::anyhow!(
+        //             "Failed to get connector from cache: name {}, prefix {:?}",
+        //             connector_def.shortname,
+        //             prefix
+        //         )
+        //         .into());
+        //     };
+        //     let (connector, inbox) = &*entry;
+
+        //     if do_init && self.init_status.get(&key).is_none() {
+        //         if let Err(e) = connector.init().await {
+        //             tracing::error!(
+        //                 "In prefix {}: failed to init connector {}: {:#?}",
+        //                 prefix,
+        //                 connector_def.shortname,
+        //                 e
+        //             );
+        //         };
+        //         self.init_status.insert(key.clone(), true);
+        //     }
+
+        // Ok((connector.clone(), inbox.resubscribe()))
+        // }
     }
 
     pub async fn init_connector(&self, name: &str, prefix: &Path) -> Option<anyhow::Result<()>> {
