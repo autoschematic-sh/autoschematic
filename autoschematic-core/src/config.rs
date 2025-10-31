@@ -77,9 +77,9 @@ pub struct Task {
     /// Takes precedence over Prefix.env and Prefix.env_file on a per-variable basis.
     #[serde(default)]
     pub env_file: Option<String>,
-    ///
-    #[serde(default)]
-    pub read_secrets: Vec<String>,
+    // TODO where do we plug this in now?
+    // #[serde(default)]
+    // pub read_secrets: Vec<String>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq, Documented)]
@@ -298,9 +298,10 @@ pub struct Connector {
     /// [Optional] An env file path (like ".env") to read environment variables from.
     #[serde(default)]
     pub env_file: Option<String>,
-    #[serde(default)]
-    /// The set of secrets that this connector is allowed to unseal at runtime.
-    pub read_secrets: Vec<String>,
+    // #[serde(default)]
+    // The set of secrets that this connector is allowed to unseal at runtime.
+    // TODO where do we plug this in now?
+    // pub read_secrets: Vec<String>,
 }
 
 // #[derive(Debug, Default, Deserialize, Serialize)]
