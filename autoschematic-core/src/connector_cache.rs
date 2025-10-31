@@ -143,7 +143,6 @@ impl ConnectorCache {
             dashmap::Entry::Occupied(occupied_entry) => {
                 let (connector, inbox) = occupied_entry.get();
 
-
                 if do_init && self.init_status.get(&key).is_none() {
                     self.init_status.insert(key.clone(), InitStatus::Initializing);
                     if let Err(e) = connector.init().await {

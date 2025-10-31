@@ -199,7 +199,7 @@ impl LanguageServer for Backend {
         if let Ok(Some(res)) = get_docstring(autoschematic_config, &self.connector_cache, None, &prefix, &addr, ident).await {
             let mut items = Vec::new();
             if res.fields.is_empty() {
-                return Ok(None)
+                return Ok(None);
             }
             for field in res.fields {
                 let detail = if let Ok(Some(field_doc)) = get_docstring(

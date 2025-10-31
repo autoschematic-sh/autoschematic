@@ -22,13 +22,7 @@ pub async fn get(
 
     for connector_def in &prefix_def.connectors {
         let (connector, _inbox) = connector_cache
-            .get_or_spawn_connector(
-                autoschematic_config,
-                prefix_name,
-                &connector_def,
-                keystore.clone(),
-                true,
-            )
+            .get_or_spawn_connector(autoschematic_config, prefix_name, &connector_def, keystore.clone(), true)
             .await?;
 
         if connector.filter(virt_addr).await? == FilterResponse::Resource {
