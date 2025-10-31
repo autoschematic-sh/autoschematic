@@ -4,25 +4,28 @@ use documented::{Documented, DocumentedFields};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Deserialize, Serialize, Documented, DocumentedFields)]
-///
+/// The primary RBAC configuration for Autoschematic.
+/// This config is used to determine access rights when running an Autoschematic
+/// cluster
 pub struct AutoschematicRbacConfig {
-    ///
+    /// A map of role names and definitions.
     pub roles: HashMap<String, Role>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
-///
+/// A role definition that certain users may assume.
 pub struct Role {
     /// These users may assume this role and take any action granted to it.
     pub users: Vec<User>,
-    ///
+    /// In the following prefixes, define the level of access to grant this user in the form of
+    /// a PrefixGrant.
     pub prefixes: HashMap<String, PrefixGrant>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
-///
+/// A user definition, identifying a particular user.
 pub enum User {
-    ///
+    /// A GitHub user with username `username`.
     GithubUser { username: String },
     // GithubOrganizationUser { organization: String, username: String },
 }
@@ -30,6 +33,7 @@ pub enum User {
 #[derive(Clone, Default, Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
 /// Defines the actions permissible in the prefix.
 pub enum Grant {
+    /// Users may not do anything.
     #[default]
     None,
     /// Users may only plan, import, pull-state, etc, and not apply or take any other
@@ -44,9 +48,10 @@ pub enum Grant {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
-///
+/// A PrefixGrant defines the level of access that this role can operate with
+/// on the prefix
 pub struct PrefixGrant {
-    ///
+    /// The level of access to grant in this prefix.
     pub grant: Grant,
 
     #[serde(default)]
