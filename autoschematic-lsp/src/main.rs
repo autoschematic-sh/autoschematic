@@ -10,7 +10,7 @@ use anyhow::{Result, bail};
 use autoschematic_core::{
     config::AutoschematicConfig,
     config_rbac::AutoschematicRbacConfig,
-    connector::{FilterResponse, handle::ConnectorHandleStatus},
+    connector::{DocIdent, FilterResponse, handle::ConnectorHandleStatus},
     connector_cache::ConnectorCache,
     manifest::ConnectorManifest,
     template::{self},
@@ -30,6 +30,7 @@ use tower_lsp_server::{Client, LanguageServer, LspService, Server, jsonrpc::Erro
 use util::{diag_to_lsp, lsp_error, lsp_param_to_path};
 
 use crate::{
+    path_at::Component,
     reindent::reindent,
     util::{lsp_param_to_rename_path, map_lsp_error},
 };
@@ -57,6 +58,11 @@ impl LanguageServer for Backend {
 
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+                completion_provider: Some(CompletionOptions {
+                    resolve_provider: Some(false),
+                    trigger_characters: Some(vec![".".to_string(), ":".to_string()]),
+                    ..Default::default()
+                }),
                 ..Default::default()
             },
             ..Default::default()
@@ -134,6 +140,93 @@ impl LanguageServer for Backend {
                     range: None,
                 }));
             }
+        }
+
+        Ok(None)
+    }
+
+    async fn completion(&self, params: CompletionParams) -> tower_lsp_server::jsonrpc::Result<Option<CompletionResponse>> {
+        let file_contents = self
+            .load_file_uri(&params.text_document_position.text_document.uri)
+            .await
+            .unwrap();
+
+        let line = params.text_document_position.position.line + 1;
+        let col = params.text_document_position.position.character + 1;
+
+        let Ok(Some(path)) = path_at::path_at(&file_contents, line as usize, col as usize) else {
+            return Ok(None);
+        };
+
+        if path.len() < 2 {
+            return Ok(None);
+        }
+
+        let Some(Component::Name(name)) = path.get(path.len() - 2) else {
+            return Ok(None);
+        };
+
+        let ident = DocIdent::Struct { name: name.to_string() };
+
+        let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+            return Ok(None);
+        };
+
+        let Ok(file_path) = self.uri_to_local_path(&params.text_document_position.text_document.uri) else {
+            return Ok(None);
+        };
+
+        // If it's not under a prefix, try it against the system docstring lookup...
+        let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &file_path) else {
+            if let Ok(Some(res)) = get_system_docstring(&file_path, ident) {
+                return Ok(Some(CompletionResponse::Array(
+                    res.fields
+                        .iter()
+                        .map(|f| CompletionItem {
+                            label: f.to_string(),
+                            kind: Some(CompletionItemKind::FIELD),
+                            detail: Some("A mild swear word".to_string()),
+                            ..Default::default()
+                        })
+                        .collect(),
+                )));
+            } else {
+                return Ok(None);
+            }
+        };
+
+        // ...otherwise, just get a regular resource docstring in that prefix.
+        if let Ok(Some(res)) = get_docstring(autoschematic_config, &self.connector_cache, None, &prefix, &addr, ident).await {
+            let mut items = Vec::new();
+            if res.fields.is_empty() {
+                return Ok(None)
+            }
+            for field in res.fields {
+                let detail = if let Ok(Some(field_doc)) = get_docstring(
+                    autoschematic_config,
+                    &self.connector_cache,
+                    None,
+                    &prefix,
+                    &addr,
+                    DocIdent::Field {
+                        parent: name.to_string(),
+                        name: field.clone(),
+                    },
+                )
+                .await
+                {
+                    Some(field_doc.markdown)
+                } else {
+                    None
+                };
+                items.push(CompletionItem {
+                    label: field,
+                    kind: Some(CompletionItemKind::FIELD),
+                    detail: detail,
+                    ..Default::default()
+                });
+            }
+            return Ok(Some(CompletionResponse::Array(items)));
         }
 
         Ok(None)
