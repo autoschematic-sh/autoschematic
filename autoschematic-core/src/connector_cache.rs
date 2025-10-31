@@ -19,7 +19,6 @@ use crate::{
 use anyhow::Context;
 use dashmap::DashMap;
 use serde::Serialize;
-use tokio::sync::RwLock;
 
 pub enum InitStatus {
     Offline,
@@ -44,7 +43,6 @@ pub struct ConnectorCache {
     // config: AutoschematicConfig,
     // keystore: Option<Arc<dyn KeyStore>>,
     cache: Arc<DashMap<ConnectorCacheKey, ConnectorCacheValue>>,
-    init_lock: Arc<DashMap<ConnectorCacheKey, RwLock<()>>>,
     init_status: Arc<DashMap<ConnectorCacheKey, InitStatus>>,
     /// Used to cache the results of Connector::filter(addr), which are assumed to be
     /// static. Since filter() is the most common call, this can speed up workflows by
