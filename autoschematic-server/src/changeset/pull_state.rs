@@ -60,8 +60,8 @@ impl ChangeSet {
                 .iter()
                 .filter(|object| {
                     let global_addr = &object.filename;
-                    if global_addr.starts_with(&prefix_name)
-                        && let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name)
+                    if global_addr.starts_with(prefix_name)
+                        && let Ok(virt_addr) = global_addr.strip_prefix(prefix_name)
                     {
                         // If this address is not under `subpath`, skip it.
                         return addr_matches_filter(virt_addr, &subpath);
@@ -85,8 +85,8 @@ impl ChangeSet {
                     .connector_cache
                     .get_or_spawn_connector(
                         &autoschematic_config,
-                        &prefix_name,
-                        &connector_def,
+                        prefix_name,
+                        connector_def,
                         Some(KEYSTORE.clone()),
                         true,
                     )
@@ -108,7 +108,7 @@ impl ChangeSet {
 
                 // let mut connector_import_count = 0;
                 'object: for object in &filtered_objects {
-                    let Ok(virt_addr) = object.filename.strip_prefix(&prefix_name) else {
+                    let Ok(virt_addr) = object.filename.strip_prefix(prefix_name) else {
                         continue 'object;
                     };
                     tracing::info!("Pull State: {:?}", object.filename.clone());

@@ -43,7 +43,7 @@ pub async fn rename(
         // require the connector's config files, or ought it be statically determined by outputs alone?
         // (I'm leaning towards the latter!)
         let (connector, mut inbox) = connector_cache
-            .get_or_spawn_connector(&autoschematic_config, &prefix_name, &connector_def, keystore.clone(), false)
+            .get_or_spawn_connector(autoschematic_config, prefix_name, connector_def, keystore.clone(), false)
             .await?;
 
         let _reader_handle = tokio::spawn(async move {

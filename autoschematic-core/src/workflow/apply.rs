@@ -93,7 +93,7 @@ pub async fn apply(
         }
 
         let (connector, mut inbox) = connector_cache
-            .get_or_spawn_connector(&autoschematic_config, &prefix_name, &connector_def, keystore.clone(), true)
+            .get_or_spawn_connector(autoschematic_config, prefix_name, connector_def, keystore.clone(), true)
             .await?;
 
         let _reader_handle = tokio::spawn(async move {

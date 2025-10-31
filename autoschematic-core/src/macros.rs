@@ -103,7 +103,7 @@ macro_rules! doc_dispatch {
     ($ident:expr, [ $( $ty:path ),+ $(,)? ]) => {{
         match $ident {
             DocIdent::Struct { name } => {
-                use crate::connector::GetDocResponse;
+                use $crate::connector::GetDocResponse;
                 match name.as_str() {
                     $(
                         stringify!($ty) => Ok(Some(GetDocResponse::from_documented::<$ty>())),

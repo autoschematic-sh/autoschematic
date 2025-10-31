@@ -222,7 +222,7 @@ impl LanguageServer for Backend {
                 items.push(CompletionItem {
                     label: field,
                     kind: Some(CompletionItemKind::FIELD),
-                    detail: detail,
+                    detail,
                     ..Default::default()
                 });
             }

@@ -27,7 +27,7 @@ pub async fn list(
         }
 
         let (connector, _inbox) = connector_cache
-            .get_or_spawn_connector(&autoschematic_config, &prefix_name, &connector_def, keystore, true)
+            .get_or_spawn_connector(autoschematic_config, prefix_name, connector_def, keystore, true)
             .await?;
 
         let res = connector.list(subpath).await?;

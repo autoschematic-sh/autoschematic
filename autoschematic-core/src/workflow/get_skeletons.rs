@@ -21,7 +21,7 @@ pub async fn get_skeletons(
     };
 
     let (connector, _inbox) = connector_cache
-        .get_or_spawn_connector(&autoschematic_config, prefix_name, &connector_def, keystore.clone(), false)
+        .get_or_spawn_connector(autoschematic_config, prefix_name, connector_def, keystore.clone(), false)
         .await?;
 
     let skeletons = connector.get_skeletons().await?;
