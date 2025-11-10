@@ -4,3 +4,4 @@ target/
 *.coz
 **/*/node_modules/
 *.cred.json
+scripts/build_docker_test.sh
