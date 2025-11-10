@@ -167,7 +167,7 @@ impl LanguageServer for Backend {
             return Ok(None);
         };
 
-        let Some(Component::Name(_name)) = path.get(path.len() - 1) else {
+        let Some(Component::Name(_name)) = path.last() else {
             return Ok(None);
         };
 
@@ -272,7 +272,7 @@ impl LanguageServer for Backend {
                 items.push(CompletionItem {
                     label: field,
                     kind: Some(CompletionItemKind::FIELD),
-                    detail: detail,
+                    detail,
                     documentation: field_doc,
                     ..Default::default()
                 });
