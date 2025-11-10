@@ -149,7 +149,6 @@ impl ConnectorCache {
         //     }
         // };
 
-
         match self.cache.entry(key.clone()) {
             dashmap::Entry::Occupied(occupied_entry) => {
                 let (connector, inbox) = occupied_entry.get();
@@ -216,7 +215,6 @@ impl ConnectorCache {
                 }
 
                 let connector_arc = Arc::new(connector);
-
 
                 vacant_entry.insert((connector_arc.clone(), inbox.resubscribe()));
 
