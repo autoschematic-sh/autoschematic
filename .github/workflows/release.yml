@@ -39,6 +39,9 @@ jobs:
         CRATE_VERSION=$(toml get --toml-path autoschematic-core/Cargo.toml package.version)
         python scripts/version_check.py $META_VERSION $CRATE_VERSION
 
+        CRATE_VERSION=$(toml get --toml-path autoschematic-macros/Cargo.toml package.version)
+        python scripts/version_check.py $META_VERSION $CRATE_VERSION
+
         CRATE_VERSION=$(toml get --toml-path autoschematic/Cargo.toml package.version)
         python scripts/version_check.py $META_VERSION $CRATE_VERSION
 
@@ -174,6 +177,9 @@ jobs:
           ~/.cargo/git
           target
         key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Publish autoschematic-macros
+      run: cargo publish --package autoschematic-macros --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
     - name: Publish autoschematic-core
       run: cargo publish --package autoschematic-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}

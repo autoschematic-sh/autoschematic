@@ -1,10 +1,13 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::bail;
+use autoschematic_macros::FieldTypes;
 use documented::{Documented, DocumentedFields};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
+use crate::macros::FieldTypes;
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Documented, DocumentedFields, FieldTypes)]
 #[serde(deny_unknown_fields)]
 /// The root Autoschematic config. This should be in a file called "autoschematic.ron" at the root of a git repo.
 pub struct AutoschematicConfig {
@@ -33,7 +36,7 @@ pub struct AutoschematicConfig {
     pub prefixes: HashMap<String, Prefix>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields, FieldTypes)]
 #[serde(deny_unknown_fields)]
 /// A Prefix object defines the set of connectors that are installed in that prefix, as well as task definitions, common environment variables,
 /// and metadata.
@@ -52,7 +55,7 @@ pub struct Prefix {
 
     #[serde(default)]
     /// [Optional] A list of Task(...) definitions. Note: the task API is currently under review and is less stable than the rest of the core API.
-    pub tasks: Vec<Task>,
+    pub tasks: Vec<AuxTask>,
     /// [Optional] An env file path (like ".env") to read environment variables from.
     #[serde(default)]
     pub env_file: Option<String>,
@@ -61,13 +64,13 @@ pub struct Prefix {
     pub env: HashMap<String, String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields, FieldTypes)]
 #[serde(deny_unknown_fields)]
-///
-pub struct Task {
-    /// A free-form, human-readable name for this task. 
+/// An auxilary task definition.
+pub struct AuxTask {
+    /// The identifier of the aux task to enable.
     pub name: String,
-    /// A free-form, human-readable description of this task. 
+    /// A free-form, human-readable description of this task.
     #[serde(default)]
     pub description: Option<String>,
     /// [Optional] A map of environment variables for this connector. Takes precedence over env_file and Prefix.env on a per-variable basis.
@@ -274,7 +277,7 @@ impl Spec {
 // TODO we'll also define ConnectorSet, a standalone file with a set of Connectors,
 // to allow prefixes to share common sets of connectors.
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields, FieldTypes)]
 #[serde(deny_unknown_fields)]
 /// Connectors are responsible for managing different kinds of resources as code. Connectors run as a lightweight
 /// server process over tarpc or grpc.

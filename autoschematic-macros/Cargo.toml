@@ -1,0 +1,11 @@
+[package]
+name = "autoschematic-macros"
+version = "0.10.0"
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.41"
+syn = "2.0.108"

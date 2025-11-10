@@ -42,7 +42,6 @@ pub struct UnsandboxConnectorHandle {
 impl Connector for UnsandboxConnectorHandle {
     async fn new(_name: &str, _prefix: &Path, _outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
         bail!("Connector::new() for UnsandboxConnectorHandle is a stub!")
-        // <TarpcConnectorClient as Connector>::new(name, prefix, outbox).await
     }
     async fn init(&self) -> Result<(), anyhow::Error> {
         Connector::init(&self.client).await

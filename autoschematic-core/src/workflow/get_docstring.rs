@@ -1,8 +1,8 @@
 use std::{path::Path, sync::Arc};
 
 use crate::{
-    config::{AutoschematicConfig, Connector, Prefix, Task},
-    config_rbac,
+    config::{AutoschematicConfig, AuxTask, Connector, Prefix},
+    config_rbac::{self},
     connector::{DocIdent, FilterResponse, GetDocResponse},
     connector_cache::ConnectorCache,
     doc_dispatch,
@@ -16,10 +16,15 @@ pub fn get_system_docstring(path: &Path, ident: DocIdent) -> Result<Option<GetDo
     };
 
     match path {
-        "autoschematic.ron" => doc_dispatch!(ident, [AutoschematicConfig, Prefix, Connector, Task]),
+        "autoschematic.ron" => doc_dispatch!(ident, [AutoschematicConfig, Prefix, Connector, AuxTask], [Spec]),
         "autoschematic.rbac.ron" => doc_dispatch!(
             ident,
-            [config_rbac::AutoschematicRbacConfig, config_rbac::Role, config_rbac::User]
+            [
+                config_rbac::AutoschematicRbacConfig,
+                config_rbac::Role,
+                config_rbac::PrefixGrant
+            ],
+            [config_rbac::User, config_rbac::Grant]
         ),
         _ => Ok(None),
     }

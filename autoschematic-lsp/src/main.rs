@@ -10,8 +10,8 @@ use anyhow::{Result, bail};
 use autoschematic_core::{
     config::AutoschematicConfig,
     config_rbac::AutoschematicRbacConfig,
-    connector::{DocIdent, FilterResponse, handle::ConnectorHandleStatus},
-    connector_cache::ConnectorCache,
+    connector::{DocIdent, FilterResponse},
+    connector_cache::{ConnectorCache, TopResponse},
     manifest::ConnectorManifest,
     template::{self},
     util::{RON, split_prefix_addr},
@@ -146,6 +146,7 @@ impl LanguageServer for Backend {
     }
 
     async fn completion(&self, params: CompletionParams) -> tower_lsp_server::jsonrpc::Result<Option<CompletionResponse>> {
+        eprintln!("completion {:?}", params);
         let file_contents = self
             .load_file_uri(&params.text_document_position.text_document.uri)
             .await
@@ -162,11 +163,17 @@ impl LanguageServer for Backend {
             return Ok(None);
         }
 
-        let Some(Component::Name(name)) = path.get(path.len() - 2) else {
+        let Some(Component::Name(parent)) = path.get(path.len() - 2) else {
             return Ok(None);
         };
 
-        let ident = DocIdent::Struct { name: name.to_string() };
+        let Some(Component::Name(_name)) = path.get(path.len() - 1) else {
+            return Ok(None);
+        };
+
+        let ident = DocIdent::Struct {
+            name: parent.to_string(),
+        };
 
         let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
             return Ok(None);
@@ -182,11 +189,43 @@ impl LanguageServer for Backend {
                 return Ok(Some(CompletionResponse::Array(
                     res.fields
                         .iter()
-                        .map(|f| CompletionItem {
-                            label: f.to_string(),
-                            kind: Some(CompletionItemKind::FIELD),
-                            detail: Some("A mild swear word".to_string()),
-                            ..Default::default()
+                        .map(|f| {
+                            let ident = DocIdent::Field {
+                                parent: parent.to_string(),
+                                name: f.to_owned(),
+                            };
+
+                            if let Ok(Some(field_res)) = get_system_docstring(&file_path, ident) {
+                                eprintln!("Got field docs {:?} ", field_res);
+                                CompletionItem {
+                                    label: f.to_string(),
+                                    label_details: Some(CompletionItemLabelDetails {
+                                        detail: Some(field_res.r#type.clone()),
+                                        ..Default::default()
+                                    }),
+                                    kind: Some(CompletionItemKind::FIELD),
+                                    documentation: Some(lsp_types::Documentation::MarkupContent(MarkupContent {
+                                        kind: MarkupKind::Markdown,
+                                        value: field_res.markdown.clone(),
+                                    })),
+                                    ..Default::default()
+                                }
+                            } else {
+                                eprintln!("Got no field docs");
+                                CompletionItem {
+                                    label: f.to_string(),
+                                    // label_details: Some(CompletionItemLabelDetails {
+                                    //     detail: Some(res.r#type.clone()),
+                                    //     ..Default::default()
+                                    // }),
+                                    kind: Some(CompletionItemKind::FIELD),
+                                    // documentation: Some(lsp_types::Documentation::MarkupContent(MarkupContent {
+                                    //     kind: MarkupKind::Markdown,
+                                    //     value: res.markdown.clone(),
+                                    // })),
+                                    ..Default::default()
+                                }
+                            }
                         })
                         .collect(),
                 )));
@@ -202,27 +241,39 @@ impl LanguageServer for Backend {
                 return Ok(None);
             }
             for field in res.fields {
-                let detail = if let Ok(Some(field_doc)) = get_docstring(
+                let field_doc = if let Ok(Some(field_doc)) = get_docstring(
                     autoschematic_config,
                     &self.connector_cache,
                     None,
                     &prefix,
                     &addr,
                     DocIdent::Field {
-                        parent: name.to_string(),
+                        parent: parent.to_string(),
                         name: field.clone(),
                     },
                 )
                 .await
                 {
-                    Some(field_doc.markdown)
+                    Some(field_doc)
                 } else {
                     None
                 };
+
+                eprintln!("{:?}", field_doc);
+
+                let detail = field_doc.as_ref().map(|f| f.r#type.clone());
+                let field_doc = field_doc.map(|f| {
+                    lsp_types::Documentation::MarkupContent(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: f.markdown.clone(),
+                    })
+                });
+
                 items.push(CompletionItem {
                     label: field,
                     kind: Some(CompletionItemKind::FIELD),
-                    detail,
+                    detail: detail,
+                    documentation: field_doc,
                     ..Default::default()
                 });
             }
@@ -394,7 +445,7 @@ impl LanguageServer for Backend {
             "top" => {
                 let top_res = self.connector_cache.top().await;
 
-                let mut res: HashMap<PathBuf, HashMap<String, ConnectorHandleStatus>> = HashMap::new();
+                let mut res: HashMap<PathBuf, HashMap<String, TopResponse>> = HashMap::new();
 
                 for (key, value) in top_res {
                     res.entry(key.prefix).or_default().insert(key.shortname, value);

@@ -125,52 +125,75 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
-	vscode.commands.registerCommand('autoschematic.rename', async (fileUri) => {
+	// vscode.commands.registerCommand('autoschematic.rename', async (fileUri) => {
+	// 	if (!fileUri) {
+	// 		vscode.window.showErrorMessage('No file selected for rename');
+	// 		return;
+	// 	}
+
+	// 	const currentPath = fileUri.path;
+
+	// 	const newPath = await vscode.window.showInputBox({
+	// 		title: 'Rename Resource',
+	// 		prompt: 'Enter the new resource path',
+	// 		value: currentPath,
+	// 		valueSelection: [currentPath.lastIndexOf('/') + 1, currentPath.lastIndexOf('.')],
+	// 		validateInput: (value: string) => {
+	// 			if (!value || value.trim() === '') {
+	// 				return 'Path cannot be empty';
+	// 			}
+	// 			if (value === currentPath) {
+	// 				return 'New path must be different from current path';
+	// 			}
+	// 			return null;
+	// 		}
+	// 	});
+
+	// 	if (newPath === undefined) {
+	// 		// User cancelled
+	// 		return;
+	// 	}
+
+	// 	try {
+	// 		const action = await vscode.window.showInformationMessage(
+	// 			`Rename resource \n   "${currentPath}"\nto "${newPath}"?`,
+	// 			{ modal: true },
+	// 			'Confirm',
+	// 			'Cancel'
+	// 		);
+
+	// 		if (action === 'Confirm') {
+	// 			await handleRenameConfirm(currentPath, newPath, client);
+	// 		}
+	// 	} catch (error) {
+	// 		console.log(error)
+	// 		vscode.window.showErrorMessage(`Error during rename: ${error}`);
+	// 	}
+	// });
+
+	vscode.commands.registerCommand('autoschematic.editOutputs', async (fileUri) => {
 		if (!fileUri) {
-			vscode.window.showErrorMessage('No file selected for rename');
+			vscode.window.showErrorMessage('No file selected for edit');
 			return;
 		}
 
-		const currentPath = fileUri.path;
-
-		const newPath = await vscode.window.showInputBox({
-			title: 'Rename Resource',
-			prompt: 'Enter the new resource path',
-			value: currentPath,
-			valueSelection: [currentPath.lastIndexOf('/') + 1, currentPath.lastIndexOf('.')],
-			validateInput: (value: string) => {
-				if (!value || value.trim() === '') {
-					return 'Path cannot be empty';
-				}
-				if (value === currentPath) {
-					return 'New path must be different from current path';
-				}
-				return null;
-			}
-		});
-
-		if (newPath === undefined) {
-			// User cancelled
+		const wsFolder = vscode.workspace.getWorkspaceFolder(fileUri);
+		if (!wsFolder) {
+			vscode.window.showErrorMessage('File is not inside a workspace folder.');
 			return;
 		}
 
-		try {
-			const action = await vscode.window.showInformationMessage(
-				`Rename resource \n   "${currentPath}"\nto "${newPath}"?`,
-				{ modal: true },
-				'Confirm',
-				'Cancel'
-			);
+		const rel = vscode.workspace.asRelativePath(fileUri, false);
 
-			if (action === 'Confirm') {
-				await handleRenameConfirm(currentPath, newPath, client);
-			}
-		} catch (error) {
-			console.log(error)
-			vscode.window.showErrorMessage(`Error during rename: ${error}`);
-		}
+		const targetUri = vscode.Uri.joinPath(
+			wsFolder.uri,
+			'.autoschematic',
+			rel + '.out.ron'
+		);
+
+		const doc = await vscode.workspace.openTextDocument(targetUri);
+		await vscode.window.showTextDocument(doc);
 	});
-
 
 	vscode.commands.registerCommand('autoschematic.compareWithRemote', async (fileUri) => {
 		if (!fileUri) {
@@ -285,88 +308,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		return filterResult;
 	}));
 
-	// context.subscriptions.push(vscode.commands.registerCommand('autoschematic.plan', async () => {
-	// 	const fileUri = vscode.window.activeTextEditor?.document.uri;
-
-	// 	if (!fileUri) {
-	// 		vscode.window.showErrorMessage('No file selected for plan');
-	// 		return;
-	// 	}
-
-	// 	try {
-	// 		const plan_report = await client.sendRequest(ExecuteCommandRequest.type, {
-	// 			command: "plan",
-	// 			arguments: [vscode.window.activeTextEditor?.document.fileName]
-	// 		}).then(undefined, (error) => {
-	// 			vscode.window.showErrorMessage(`Error executing plan command: ${error}`);
-	// 		});
-
-	// 		const remoteUri = fileUri.with({ scheme: 'autoschematic-plan', path: fileUri.path + '.json' });
-
-	// 		const diffTitle = `Autoschematic plan: ${fileUri.path.split('/').pop()}`;
-
-	// 		const provider = await vscode.workspace.registerTextDocumentContentProvider('autoschematic-plan', {
-	// 			provideTextDocumentContent(uri: vscode.Uri): string {
-	// 				// vscode.window.showErrorMessage("plan: " + plan);
-	// 				return JSON.stringify(plan_report, null, 2);
-	// 			}
-	// 		});
-
-	// 		context.subscriptions.push(provider);
-
-	// 		// Open the diff editor
-	// 		await vscode.window.showTextDocument(
-	// 			remoteUri,
-	// 		);
-	// 	} catch (error) {
-	// 		vscode.window.showErrorMessage(`Error comparing with remote: ${error}`);
-	// 	}
-	// }));
-
-	// context.subscriptions.push(vscode.commands.registerCommand('autoschematic.apply', async () => {
-	// 	const fileUri = vscode.window.activeTextEditor?.document.uri;
-
-	// 	if (!fileUri) {
-	// 		vscode.window.showErrorMessage('No file selected for apply');
-	// 		return;
-	// 	}
-
-	// 	try {
-	// 		const apply_report = await client.sendRequest(ExecuteCommandRequest.type, {
-	// 			command: "apply",
-	// 			arguments: [vscode.window.activeTextEditor?.document.fileName]
-	// 		}).then(undefined, (error) => {
-	// 			vscode.window.showErrorMessage(`Error executing apply command: ${error}`);
-	// 		});
-
-	// 		const remoteUri = fileUri.with({ scheme: 'autoschematic-remote', path: fileUri.path });
-
-	// 		const diffTitle = `Autoschematic apply: ${fileUri.path.split('/').pop()}`;
-
-	// 		const provider = vscode.workspace.registerTextDocumentContentProvider('autoschematic-remote', {
-	// 			provideTextDocumentContent(uri: vscode.Uri): string {
-	// 				return JSON.stringify(apply_report, null, 2);
-	// 				// return plan;
-	// 			}
-	// 		});
-
-	// 		context.subscriptions.push(provider);
-
-	// 		vscode.window.showTextDocument(
-	// 			remoteUri,
-	// 		);
-	// 		// // Open the diff editor
-	// 		// vscode.commands.executeCommand('vscode.diff',
-	// 		// 	fileUri, // Original file URI
-	// 		// 	remoteUri, // Modified file URI (virtual)
-	// 		// 	diffTitle, // Title for the diff editor
-	// 		// 	{ preview: true } // Options
-	// 		// );
-	// 	} catch (error) {
-	// 		vscode.window.showErrorMessage(`Error comparing with remote: ${error}`);
-	// 	}
-	// }));
-
 	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.pullRemoteState', async (uri) => {
 		// Extract the file path from the URI
 		// The URI will be the autoschematic-remote URI, but we need the original file path
@@ -394,17 +335,20 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.import', () => {
-		client.sendRequest(ExecuteCommandRequest.type, {
-			command: "import",
-			arguments: []
-		}).then(undefined, (error) => {
-			vscode.window.showErrorMessage(`Error executing import command: ${error}`);
-		});
-	}));
-
 	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.relaunch', async () => {
-		client.restart()
+		await client.stop()
+			.then(undefined, (error) => {
+				vscode.window.showErrorMessage(`Error stopping Autoschematic Language Server: ${error}`);
+			});
+
+		client = new LanguageClient(
+			'autoschematicLsp',
+			'Autoschematic Language Server',
+			serverOptions,
+			clientOptions
+		);
+
+		client.start()
 			.then(undefined, (error) => {
 				vscode.window.showErrorMessage(`Error restarting Autoschematic Language Server: ${error}`);
 			});

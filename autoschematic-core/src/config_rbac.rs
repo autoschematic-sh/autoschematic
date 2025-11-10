@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use documented::{Documented, DocumentedFields};
+use crate::macros::FieldTypes;
+use autoschematic_macros::FieldTypes;
+use documented::{Documented, DocumentedFields, DocumentedVariants};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Deserialize, Serialize, Documented, DocumentedFields)]
@@ -12,7 +14,7 @@ pub struct AutoschematicRbacConfig {
     pub roles: HashMap<String, Role>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Documented, DocumentedFields, FieldTypes)]
 /// A role definition that certain users may assume.
 pub struct Role {
     /// These users may assume this role and take any action granted to it.
@@ -22,7 +24,7 @@ pub struct Role {
     pub prefixes: HashMap<String, PrefixGrant>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Documented, DocumentedVariants)]
 /// A user definition, identifying a particular user.
 pub enum User {
     /// A GitHub user with username `username`.
@@ -30,7 +32,7 @@ pub enum User {
     // GithubOrganizationUser { organization: String, username: String },
 }
 
-#[derive(Clone, Default, Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
+#[derive(Clone, Default, Debug, Deserialize, Serialize, PartialEq, PartialOrd, DocumentedVariants)]
 /// Defines the actions permissible in the prefix.
 pub enum Grant {
     /// Users may not do anything.
@@ -47,7 +49,7 @@ pub enum Grant {
     Apply,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Documented, DocumentedFields, FieldTypes)]
 /// A PrefixGrant defines the level of access that this role can operate with
 /// on the prefix
 pub struct PrefixGrant {

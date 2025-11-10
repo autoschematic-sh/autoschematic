@@ -550,6 +550,7 @@ version = "0.10.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "autoschematic-macros",
  "base64 0.22.1",
  "bitmask-enum",
  "chacha20poly1305",
@@ -613,6 +614,14 @@ dependencies = [
  "strsim",
  "tokio",
  "tower-lsp-server",
+]
+
+[[package]]
+name = "autoschematic-macros"
+version = "0.10.0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -3700,9 +3709,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.40"
+version = "1.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1885c039570dc00dcb4ff087a89e185fd56bae234ddc7f056a945bf36467248d"
+checksum = "ce25767e7b499d1b604768e7cde645d14cc8584231ea6b295e9c9eb22c02e1d1"
 dependencies = [
  "proc-macro2",
 ]
@@ -4585,9 +4594,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
-version = "2.0.106"
+version = "2.0.108"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ede7c438028d4436d71104916910f5bb611972c5cfd7f89b8300a8186e6fada6"
+checksum = "da58917d35242480a05c2897064da0a80589a2a0476c9a3f2fdc83b53502e917"
 dependencies = [
  "proc-macro2",
  "quote",

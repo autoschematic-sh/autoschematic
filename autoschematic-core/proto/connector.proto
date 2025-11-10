@@ -109,10 +109,12 @@ message GetSkeletonsResponse {
 /// Connector::get_docstring
 message StructIdent { string name = 1; }
 message FieldIdent  { string parent = 1; string name = 2; }
+message EnumVariantIdent  { string parent = 1; string name = 2; }
 message DocIdent {
   oneof ident {
     StructIdent struct = 1;
     FieldIdent  field  = 2;
+    EnumVariantIdent  enum_variant  = 3;
   }
 }
 message GetDocRequest {
@@ -121,8 +123,9 @@ message GetDocRequest {
 }
 message GetDocResponse {
   bool   has_doc = 1;
-  string markdown = 2;
-  repeated string fields = 3;
+  string type = 2;
+  string markdown = 3;
+  repeated string fields = 4;
 }
 
 /// Connector::eq

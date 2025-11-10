@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
 
-use crate::{bundle::UnbundleResponseElement, template::ReadOutput};
+use crate::{bundle::UnbundleResponseElement, macros::FieldTypes, template::ReadOutput};
 
 pub use crate::diag::DiagnosticResponse;
 
@@ -297,7 +297,7 @@ impl GetResourceResponse {
 pub enum DocIdent {
     Struct { name: String },
     // Enum { name: String },
-    // EnumVariant { parent: String, name: String },
+    EnumVariant { parent: String, name: String },
     Field { parent: String, name: String },
 }
 
@@ -308,6 +308,7 @@ pub enum DocIdent {
 /// Just like Connector::diag(), it is intended for use with autoschematic-lsp
 /// to help users write resource bodies manually.
 pub struct GetDocResponse {
+    pub r#type: String,
     pub markdown: String,
     pub fields: Vec<String>,
 }
@@ -315,13 +316,15 @@ pub struct GetDocResponse {
 impl GetDocResponse {
     pub fn from_documented<T: Documented + DocumentedFields>() -> Self {
         Self {
+            r#type: std::any::type_name::<T>().into(),
             markdown: T::DOCS.to_string(),
             fields: T::FIELD_NAMES.iter().map(|s| String::from(*s)).collect(),
         }
     }
 
-    pub fn from_documented_field<T: DocumentedFields>(field: &str) -> Result<Self, documented::Error> {
+    pub fn from_documented_field<T: FieldTypes + DocumentedFields>(field: &str) -> Result<Self, documented::Error> {
         Ok(Self {
+            r#type: T::field_type(field).unwrap_or_default().to_string(),
             markdown: T::get_field_docs(field)?.to_string(),
             fields: Vec::new(),
         })
@@ -331,6 +334,7 @@ impl GetDocResponse {
 impl From<&'static str> for GetDocResponse {
     fn from(value: &'static str) -> Self {
         Self {
+            r#type: String::new(),
             markdown: value.to_string(),
             fields: Vec::new(),
         }

@@ -4,7 +4,7 @@
   "publisher": "Autoschematic",
   "description": "Language Server support and Ctrl-P shortcuts for Autoschematic.",
   "repository": "https://github.com/autoschematic-sh/autoschematic",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "icon": "resources/logo.png",
   "engines": {
     "vscode": "^1.99.0"
@@ -33,6 +33,10 @@
         "title": "Autoschematic: Compare with remote"
       },
       {
+        "command": "autoschematic.editOutputs",
+        "title": "Autoschematic: View & Edit Outputs"
+      },
+      {
         "command": "autoschematic.rename",
         "title": "Autoschematic: Rename"
       },
@@ -52,7 +56,7 @@
           "group": "navigation@98"
         },
         {
-          "command": "autoschematic.rename",
+          "command": "autoschematic.editOutputs",
           "group": "navigation@99"
         }
       ],

@@ -1,3 +1,8 @@
+pub trait FieldTypes {
+    /// Get a field's type using its name.
+    fn field_type<T: AsRef<str>>(field_name: T) -> Option<&'static str>;
+}
+
 #[macro_export]
 macro_rules! get_resource_response {
     ($resource:expr) => {{
@@ -100,13 +105,35 @@ macro_rules! virt_to_phy {
 #[macro_export]
 macro_rules! doc_dispatch {
     // call like: doc_dispatch!(ident, GetDocResponse, [GitHubConnectorConfig, GitHubRepository, ...]);
-    ($ident:expr, [ $( $ty:path ),+ $(,)? ]) => {{
+    ($ident:expr, [ $( $struct_ty:path ),+ $(,)? ] $(,)?) => {{
         match $ident {
             DocIdent::Struct { name } => {
                 use $crate::connector::GetDocResponse;
                 match name.as_str() {
                     $(
-                        stringify!($ty) => Ok(Some(GetDocResponse::from_documented::<$ty>())),
+                        stringify!($struct_ty) => Ok(Some(GetDocResponse::from_documented::<$struct_ty>())),
+                    )+
+                    _ => Ok(None),
+                }
+            }
+            DocIdent::Field { parent, name } => {
+                match parent.as_str() {
+                    $(
+                        stringify!($struct_ty) => Ok(Some(GetDocResponse::from_documented_field::<$struct_ty>(&name)?.into())),
+                    )+
+                    _ => Ok(None),
+                }
+            }
+            _ => Ok(None),
+        }
+    }};
+    ($ident:expr, [ $( $struct_ty:path ),+ $(,)? ], [ $( $enum_ty:expr ),+ $(,)? ]) => {{
+        match $ident {
+            DocIdent::Struct { name } => {
+                use $crate::connector::GetDocResponse;
+                match name.as_str() {
+                    $(
+                        stringify!($struct_ty) => Ok(Some(GetDocResponse::from_documented::<$struct_ty>())),
                     )+
                     _ => Ok(None),
                 }
@@ -115,10 +142,26 @@ macro_rules! doc_dispatch {
                 use documented::DocumentedFields;
                 match parent.as_str() {
                     $(
-                        stringify!($ty) => Ok(Some(<$ty>::get_field_docs(name)?.into())),
+                        stringify!($struct_ty) => Ok(Some(<$struct_ty>::get_field_docs(name)?.into())),
                     )+
                     _ => Ok(None),
                 }
+            }
+            DocIdent::EnumVariant { parent, name } => {
+                use documented::DocumentedFields;
+                match parent.as_str() {
+                    $(
+                        stringify!($struct_ty) => Ok(Some(<$struct_ty>::get_field_docs(name)?.into())),
+                    )+
+                    _ => Ok(None),
+                }
+                // use documented::DocumentedVariants;
+                // match parent.as_str() {
+                //     $(
+                //         stringify!($enum_ty) => Ok(Some(<$enum_ty>::get_variant_docs(&$enum_ty).into())),
+                //     )+
+                //     _ => Ok(None),
+                // }
             }
         }
     }};

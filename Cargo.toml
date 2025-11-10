@@ -5,6 +5,7 @@ members = [
     "autoschematic-server",
     "autoschematic-core",
     "autoschematic-lsp",
+    "autoschematic-macros",
     #"connectors/autoschematic-connector-python-host",
 ]
 

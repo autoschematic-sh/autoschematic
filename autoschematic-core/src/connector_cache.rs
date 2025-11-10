@@ -20,11 +20,19 @@ use anyhow::Context;
 use dashmap::DashMap;
 use serde::Serialize;
 
+#[derive(Debug, Clone, Serialize)]
 pub enum InitStatus {
     Offline,
     Spawning,
     Initializing,
+    Error(String),
     Running,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TopResponse {
+    handle_status: ConnectorHandleStatus,
+    init_status: InitStatus,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize)]
@@ -37,11 +45,6 @@ pub type ConnectorCacheValue = (Arc<dyn ConnectorHandle>, ConnectorInbox);
 
 #[derive(Default)]
 pub struct ConnectorCache {
-    // TODO when we run different connectors init() in parallel, we're fine. But we were to run the same init() in parallel,
-    // we'd currently end up initializing two instances and only writing the second one under this scheme.
-    // TODO: make this a map of <HashKey, RwLock<...>> or similar, and let consumers instead block on read() until the background init holding write() is finished!
-    // config: AutoschematicConfig,
-    // keystore: Option<Arc<dyn KeyStore>>,
     cache: Arc<DashMap<ConnectorCacheKey, ConnectorCacheValue>>,
     init_status: Arc<DashMap<ConnectorCacheKey, InitStatus>>,
     /// Used to cache the results of Connector::filter(addr), which are assumed to be
@@ -55,14 +58,25 @@ pub struct ConnectorCache {
 /// A ConnectorCache represents a handle to multiple Connector instances. The server, CLI, and LSP
 /// implementations all use a ConnectorCache to initialize connectors on-demand.
 impl ConnectorCache {
-    pub async fn top(&self) -> HashMap<ConnectorCacheKey, ConnectorHandleStatus> {
+    pub async fn top(&self) -> HashMap<ConnectorCacheKey, TopResponse> {
         let mut res = HashMap::new();
 
         let keys: Vec<ConnectorCacheKey> = self.cache.iter().map(|kv| kv.key().clone()).collect();
 
         for key in keys {
             if let Some(kv) = self.cache.get(&key) {
-                res.insert(key, kv.0.status().await);
+                let init_status = match self.init_status.get(&key) {
+                    Some(init_status) => init_status.value().clone(),
+                    None => InitStatus::Initializing,
+                };
+
+                res.insert(
+                    key,
+                    TopResponse {
+                        handle_status: kv.0.status().await,
+                        init_status,
+                    },
+                );
             }
         }
 
@@ -135,14 +149,29 @@ impl ConnectorCache {
         //     }
         // };
 
-        self.init_status.insert(key.clone(), InitStatus::Offline);
 
         match self.cache.entry(key.clone()) {
             dashmap::Entry::Occupied(occupied_entry) => {
                 let (connector, inbox) = occupied_entry.get();
 
-                if do_init && self.init_status.get(&key).is_none() {
+                let need_init = match self.init_status.entry(key.clone()) {
+                    dashmap::Entry::Occupied(status_ref) => match status_ref.get() {
+                        InitStatus::Offline => do_init,
+                        InitStatus::Spawning => do_init,
+                        InitStatus::Initializing => false,
+                        InitStatus::Error(_) => do_init,
+                        InitStatus::Running => false,
+                    },
+                    dashmap::Entry::Vacant(vacant_entry) => {
+                        vacant_entry.insert(InitStatus::Offline);
+                        do_init
+                    }
+                };
+
+                if need_init {
                     self.init_status.insert(key.clone(), InitStatus::Initializing);
+                    // TODO there's a subtle race condition here - does it affect real usage?
+                    // The init status is set, but the connector is yet to be initialized.
                     if let Err(e) = connector.init().await {
                         tracing::error!(
                             "In prefix {}: failed to init connector {}: {:#?}",
@@ -150,8 +179,11 @@ impl ConnectorCache {
                             connector_def.shortname,
                             e
                         );
-                    };
-                    self.init_status.insert(key.clone(), InitStatus::Running);
+
+                        self.init_status.insert(key.clone(), InitStatus::Error(format!("{:#?}", e)));
+                    } else {
+                        self.init_status.insert(key.clone(), InitStatus::Running);
+                    }
                 }
 
                 Ok((connector.clone(), inbox.resubscribe()))
@@ -177,13 +209,14 @@ impl ConnectorCache {
                             connector_def.shortname,
                             e
                         );
-                    };
+                        self.init_status.insert(key.clone(), InitStatus::Error(format!("{:#?}", e)));
+                    } else {
+                        self.init_status.insert(key.clone(), InitStatus::Running);
+                    }
                 }
-                self.init_status.insert(key.clone(), InitStatus::Running);
 
                 let connector_arc = Arc::new(connector);
 
-                // self.cache.insert(key.clone(), (connector_arc.clone(), inbox.resubscribe()));
 
                 vacant_entry.insert((connector_arc.clone(), inbox.resubscribe()));
 

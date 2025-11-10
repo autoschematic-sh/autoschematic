@@ -17,6 +17,9 @@ default = ["grpc"]
 grpc = ["tonic-build", "tonic-prost-build", "tonic", "prost", "tonic-prost"]
 
 [dependencies]
+autoschematic-macros = { path = "../autoschematic-macros", version = "0.10.0", features = [
+] }
+
 anyhow = "1.0.95"
 async-trait = "0.1.86"
 serde = { version = "1.0.217", features = ["derive"] }
