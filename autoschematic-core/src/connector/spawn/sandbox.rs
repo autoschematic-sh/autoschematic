@@ -210,6 +210,7 @@ impl ConnectorHandle for SandboxConnectorHandle {
     }
 }
 
+#[allow(unreachable_code)]
 pub async fn launch_server_binary_sandboxed(
     spec: &Spec,
     shortname: &str,
