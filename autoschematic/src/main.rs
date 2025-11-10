@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand, command};
+use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 
 use crate::safety_lock::{set_safety_lock, unset_safety_lock};

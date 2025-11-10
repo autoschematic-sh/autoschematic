@@ -1,4 +1,4 @@
-use clap::{ArgAction, Parser, Subcommand, command};
+use clap::{ArgAction, Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[clap(disable_help_subcommand = true)]
