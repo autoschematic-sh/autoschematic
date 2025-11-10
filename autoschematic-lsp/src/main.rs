@@ -284,7 +284,6 @@ impl LanguageServer for Backend {
     }
 
     async fn formatting(&self, params: DocumentFormattingParams) -> tower_lsp_server::jsonrpc::Result<Option<Vec<TextEdit>>> {
-        eprintln!("formatting: {:#?}", params.text_document.uri);
         if !params.text_document.uri.as_str().ends_with(".ron") {
             return Ok(None);
         }
@@ -491,7 +490,6 @@ impl Backend {
         Ok(())
     }
     async fn try_reload_config(&self) -> anyhow::Result<()> {
-        eprintln!("try_reload_config");
         let config: Option<AutoschematicConfig> = if PathBuf::from("autoschematic.ron").is_file() {
             match tokio::fs::read_to_string("autoschematic.ron").await {
                 Ok(config_body) => match RON.from_str(&config_body) {
@@ -593,7 +591,6 @@ impl Backend {
             let prefix_def = prefix_def.clone();
 
             for connector_def in prefix_def.connectors {
-                eprintln!("launching connector, {}", connector_def.shortname);
 
                 let connector_cache = self.connector_cache.clone();
 

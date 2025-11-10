@@ -88,15 +88,18 @@ class StatusProvider implements vscode.TreeDataProvider<Prefix | Connector> {
             let connectors: Connector[] = [];
 
             for (const connector in top[prefix]) {
-                if ('Alive' in top[prefix][connector]) {
+                let status = top[prefix][connector];
+                let handle_status = status['handle_status'];
+
+                if ('Alive' in handle_status) {
                     connectors.push(new Connector(
                         connector,
-                        `${top[prefix][connector]['Alive']['cpu_usage'].toFixed(2)}%`,
-                        formatBytes(top[prefix][connector]['Alive']['memory']),
+                        `${handle_status['Alive']['cpu_usage'].toFixed(2)}%`,
+                        formatBytes(handle_status['Alive']['memory']),
                         'ok',
                         []
                     ));
-                } else if ('Dead' in top[prefix][connector]) {
+                } else if ('Dead' in handle_status) {
                     connectors.push(new Connector(
                         connector,
                         "~",
