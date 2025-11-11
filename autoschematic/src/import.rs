@@ -1,4 +1,9 @@
-use std::{collections::HashMap, path::PathBuf, process::{Command, Stdio}, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    process::{Command, Stdio},
+    sync::Arc,
+};
 
 use autoschematic_core::{
     config::Connector,
