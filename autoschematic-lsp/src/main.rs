@@ -591,7 +591,6 @@ impl Backend {
             let prefix_def = prefix_def.clone();
 
             for connector_def in prefix_def.connectors {
-
                 let connector_cache = self.connector_cache.clone();
 
                 let autoschematic_config = autoschematic_config.clone();
