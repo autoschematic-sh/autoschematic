@@ -191,6 +191,10 @@ pub enum AutoschematicSubcommand {
         /// If set, overwrite existing files with their remote state.
         #[arg(long, value_name = "overwrite", default_value_t = false)]
         overwrite: bool,
+
+        /// If set, overwrite existing files with their remote state.
+        #[arg(long, value_name = "commit")]
+        commit: Option<bool>,
     },
     /// Scaffold new resource definitions from templates.
     Create {
@@ -275,7 +279,8 @@ async fn main() -> anyhow::Result<()> {
             connector,
             subpath,
             overwrite,
-        } => import::import(prefix, connector, subpath, overwrite).await,
+            commit,
+        } => import::import(prefix, connector, subpath, overwrite, commit).await,
         AutoschematicSubcommand::RunTask { name, prefix } => {
             task::spawn_task("", "", &PathBuf::from(prefix), &name, 0, serde_json::Value::Null, true).await
         }

@@ -22,6 +22,7 @@ pub async fn import(
     connector: Option<String>,
     subpath: Option<String>,
     overwrite: bool,
+    commit: Option<bool>,
 ) -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;
     let config = Arc::new(config);
@@ -209,11 +210,14 @@ pub async fn import(
     println!("{}", " Success!".dark_green());
 
     if wrote_files {
-        let do_commit = Confirm::new()
-            .with_prompt(" ◈ Import succeeded! Do you wish to run git commit to track the imported files?")
-            .default(true)
-            .interact()
-            .unwrap();
+        let do_commit = match commit {
+            Some(commit) => commit,
+            None => Confirm::new()
+                .with_prompt(" ◈ Import succeeded! Do you wish to run git commit to track the imported files?")
+                .default(true)
+                .interact()
+                .unwrap(),
+        };
 
         if do_commit {
             Command::new("git")
