@@ -15,8 +15,8 @@ pub async fn check_connector_host_version_match(shortname: &str, connector: &Arc
         return Err(AutoschematicError {
             kind: AutoschematicErrorType::InvalidConnectorVersion {
                 shortname: shortname.to_string(),
-                conn_ver: conn_ver,
-                host_ver: host_ver,
+                conn_ver,
+                host_ver,
             },
         }
         .into());
