@@ -30,6 +30,7 @@ pub struct DiagnosticSpan {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 // #[cfg_attr(feature = "python", derive(FromPyObject))]
 pub struct Diagnostic {
+    /// Error = 1
     pub severity: u8,
     pub span: DiagnosticSpan,
     pub message: String,

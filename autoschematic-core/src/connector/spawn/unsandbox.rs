@@ -24,10 +24,9 @@ use crate::{
 use anyhow::bail;
 use async_trait::async_trait;
 
-use libc::killpg;
 use once_cell::sync::Lazy;
 use process_wrap::tokio::*;
-use sysinfo::{Pid, ProcessRefreshKind};
+use sysinfo::ProcessRefreshKind;
 
 /// This module handles unsandboxed execution of connector instances.
 pub struct UnsandboxConnectorHandle {
@@ -42,7 +41,6 @@ pub struct UnsandboxConnectorHandle {
 impl Connector for UnsandboxConnectorHandle {
     async fn new(_name: &str, _prefix: &Path, _outbox: ConnectorOutbox) -> Result<Arc<dyn Connector>, anyhow::Error> {
         bail!("Connector::new() for UnsandboxConnectorHandle is a stub!")
-        // <TarpcConnectorClient as Connector>::new(name, prefix, outbox).await
     }
     async fn init(&self) -> Result<(), anyhow::Error> {
         Connector::init(&self.client).await
@@ -202,14 +200,7 @@ pub async fn launch_server_binary(
 
 impl Drop for UnsandboxConnectorHandle {
     fn drop(&mut self) {
-        let pid = self.child.lock().unwrap().inner().id().unwrap();
-
-        unsafe {
-            killpg(pid.try_into().unwrap(), 9);
-        }
-
-        // self.child.lock().unwrap().start_kill().unwrap();
-        // self.child.lock().unwrap().try_wait().unwrap();
+        self.child.lock().unwrap().start_kill().unwrap();
 
         match std::fs::remove_file(&self.socket) {
             Ok(_) => {}
@@ -235,7 +226,7 @@ impl ConnectorHandle for UnsandboxConnectorHandle {
             return ConnectorHandleStatus::Dead;
         };
 
-        let pid = Pid::from_u32(pid);
+        let pid = sysinfo::Pid::from_u32(pid);
 
         SYSINFO.lock().await.refresh_processes_specifics(
             sysinfo::ProcessesToUpdate::Some(&[pid]),
@@ -251,5 +242,13 @@ impl ConnectorHandle for UnsandboxConnectorHandle {
         } else {
             return ConnectorHandleStatus::Dead;
         }
+    }
+
+    async fn kill(&self) -> anyhow::Result<()> {
+        unsafe {
+            self.child.lock().unwrap().inner_child_mut().start_kill().unwrap();
+        }
+
+        Ok(())
     }
 }

@@ -61,7 +61,8 @@ pub fn ident_at(src: &str, line: usize, col: usize) -> Result<Option<DocIdent>> 
 
     Ok(ident)
 }
-/*───────────────────────────────────────────────────────────────────────────*/
+
+/// recursive descent parser to find the ident and parent, if any, at the cursor position.
 fn descend_find_docident(
     pair: Pair<Rule>,
     cursor: usize,
@@ -85,7 +86,7 @@ fn descend_find_docident(
             }
         }
 
-        /*──────────────── structs ───────────────*/
+        // structs
         Rule::named_struct | Rule::tuple_struct | Rule::unit_struct => {
             // first inner child may be an ident
             let mut it = pair.clone().into_inner();
@@ -137,7 +138,7 @@ fn descend_find_docident(
                 // trail.push(Component::Name(slice(src, id_pair.as_span())));
 
                 for child in inner {
-                    eprintln!("child: {}", child.as_str());
+                    // eprintln!("child: {}", child.as_str());
                     if descend_find_docident(child, cursor, _src, parent, ident)? {
                         // trail.push(Component::Index(idx));
                         break;
@@ -146,7 +147,7 @@ fn descend_find_docident(
             }
         }
 
-        /*──────────────── lists / tuples ─────────*/
+        // lists / tuples
         Rule::list | Rule::tuple => {
             for val in pair.into_inner().filter(|p| p.as_rule() == Rule::value) {
                 if descend_find_docident(val, cursor, _src, parent, ident)? {
@@ -156,7 +157,7 @@ fn descend_find_docident(
             }
         }
 
-        /*──────────────── maps ───────────────────*/
+        // maps
         Rule::map => {
             for entry in pair.into_inner() {
                 // map_entry
@@ -179,7 +180,7 @@ fn descend_find_docident(
             }
         }
 
-        /*──────────────── enum variants ──────────*/
+        // enum variants
         Rule::enum_variant_named | Rule::enum_variant_tuple | Rule::enum_variant_unit => {
             let mut it = pair.clone().into_inner();
             let variant_name = it.next().unwrap(); // ident
@@ -196,7 +197,7 @@ fn descend_find_docident(
             }
         }
 
-        /*──────────────── leaf cases we ignore ───*/
+        // leaf cases we ignore
         _ => {
             // dive blindly; if any child returns true we stop
             for child in pair.clone().into_inner() {
@@ -220,7 +221,7 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
     }
 
     match pair.as_rule() {
-        // -- outermost “ron” rule is ignored
+        // outermost “ron” rule is ignored
         Rule::ron | Rule::value => {
             for child in pair.into_inner() {
                 if descend(child, cursor, src, trail)? {
@@ -229,7 +230,7 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
             }
         }
 
-        /*──────────────── structs ───────────────*/
+        // structs
         Rule::named_struct | Rule::tuple_struct | Rule::unit_struct => {
             // first inner child may be an ident
             let mut it = pair.clone().into_inner();
@@ -264,7 +265,7 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
             descend(val, cursor, src, trail)?;
         }
 
-        /*──────────────── lists / tuples ─────────*/
+        // lists / tuples
         Rule::list | Rule::tuple => {
             for (idx, val) in pair.into_inner().filter(|p| p.as_rule() == Rule::value).enumerate() {
                 if descend(val, cursor, src, trail)? {
@@ -274,7 +275,7 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
             }
         }
 
-        /*──────────────── maps ───────────────────*/
+        // maps
         Rule::map => {
             for entry in pair.into_inner() {
                 // map_entry
@@ -297,7 +298,7 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
             }
         }
 
-        /*──────────────── enum variants ──────────*/
+        // enum variants
         Rule::enum_variant_named | Rule::enum_variant_tuple | Rule::enum_variant_unit => {
             let mut it = pair.clone().into_inner();
             let variant_name = it.next().unwrap(); // ident
@@ -314,7 +315,7 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
             }
         }
 
-        /*──────────────── leaf cases we ignore ───*/
+        // leaf cases we ignore
         _ => {
             // dive blindly; if any child returns true we stop
             for child in pair.clone().into_inner() {
@@ -328,15 +329,11 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
     Ok(true)
 }
 
-/*──────────────── helpers ─────────────────────────────────────────────────*/
-
-#[inline]
 fn covers(span: Span, pos: usize) -> bool {
     let (lo, hi) = (span.start(), span.end());
     lo <= pos && pos < hi
 }
 
-#[inline]
 fn slice<'s>(src: &'s str, span: Span<'s>) -> String {
     src[span.start()..span.end()].to_owned()
 }

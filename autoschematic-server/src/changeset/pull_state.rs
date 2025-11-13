@@ -47,9 +47,9 @@ impl ChangeSet {
         let _chwd = self.chwd_to_repo();
         let subpath = subpath.unwrap_or(PathBuf::from("./"));
 
-        'prefix: for (prefix_name, prefix) in autoschematic_config.prefixes {
+        'prefix: for (prefix_name, prefix) in &autoschematic_config.prefixes {
             if let Some(prefix_filter) = &prefix_filter
-                && prefix_name != *prefix_filter
+                && *prefix_name != *prefix_filter
             {
                 continue;
             }
@@ -60,8 +60,8 @@ impl ChangeSet {
                 .iter()
                 .filter(|object| {
                     let global_addr = &object.filename;
-                    if global_addr.starts_with(&prefix_name)
-                        && let Ok(virt_addr) = global_addr.strip_prefix(&prefix_name)
+                    if global_addr.starts_with(prefix_name)
+                        && let Ok(virt_addr) = global_addr.strip_prefix(prefix_name)
                     {
                         // If this address is not under `subpath`, skip it.
                         return addr_matches_filter(virt_addr, &subpath);
@@ -74,7 +74,7 @@ impl ChangeSet {
                 continue 'prefix;
             }
 
-            'connector: for connector_def in prefix.connectors {
+            'connector: for connector_def in &prefix.connectors {
                 if let Some(connector_filter) = &connector_filter
                     && connector_def.shortname != *connector_filter
                 {
@@ -84,10 +84,9 @@ impl ChangeSet {
                 let (connector, mut inbox) = self
                     .connector_cache
                     .get_or_spawn_connector(
-                        &connector_def.shortname,
-                        &connector_def.spec,
-                        &PathBuf::from(&prefix_name),
-                        &connector_def.env,
+                        &autoschematic_config,
+                        prefix_name,
+                        connector_def,
                         Some(KEYSTORE.clone()),
                         true,
                     )
@@ -109,7 +108,7 @@ impl ChangeSet {
 
                 // let mut connector_import_count = 0;
                 'object: for object in &filtered_objects {
-                    let Ok(virt_addr) = object.filename.strip_prefix(&prefix_name) else {
+                    let Ok(virt_addr) = object.filename.strip_prefix(prefix_name) else {
                         continue 'object;
                     };
                     tracing::info!("Pull State: {:?}", object.filename.clone());

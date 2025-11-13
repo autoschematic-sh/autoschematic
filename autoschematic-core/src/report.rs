@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     bundle::{BundleMapFile, UnbundleResponseElement},
-    config::Spec,
+    config::{self, Spec},
     connector::{OpExecResponse, PlanResponseElement},
     error::ErrorMessage,
     template::ReadOutput,
@@ -19,9 +19,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub struct PlanReport {
     pub prefix: PathBuf,
-    pub connector_shortname: String,
-    pub connector_spec: Option<Spec>,
-    pub connector_env: HashMap<String, String>,
+    pub connector_def: Option<config::Connector>,
     pub virt_addr: PathBuf,
     /// Optional: if different to virt_addr, represents the \
     /// result of Connector::addr_virt_to_phy()

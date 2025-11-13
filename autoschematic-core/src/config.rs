@@ -1,10 +1,13 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::bail;
+use autoschematic_macros::FieldTypes;
 use documented::{Documented, DocumentedFields};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Documented, DocumentedFields)]
+use crate::macros::FieldTypes;
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Documented, DocumentedFields, FieldTypes)]
 #[serde(deny_unknown_fields)]
 /// The root Autoschematic config. This should be in a file called "autoschematic.ron" at the root of a git repo.
 pub struct AutoschematicConfig {
@@ -33,7 +36,7 @@ pub struct AutoschematicConfig {
     pub prefixes: HashMap<String, Prefix>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields, FieldTypes)]
 #[serde(deny_unknown_fields)]
 /// A Prefix object defines the set of connectors that are installed in that prefix, as well as task definitions, common environment variables,
 /// and metadata.
@@ -45,29 +48,41 @@ pub struct Prefix {
     /// [Optional] A human-readable description of the prefix.
     pub description: Option<String>,
     #[serde(default)]
-    /// When resource_group is set, and two prefixes share the same resource_group name, `autoschematic import` will
+    /// When two prefixes A and B have the same resource_group string, `autoschematic import` will
     /// not import resources in prefix A that already exist in prefix B. This is useful for
     /// having two prefixes that share the same AWS account, for example.
     pub resource_group: Option<String>,
 
     #[serde(default)]
     /// [Optional] A list of Task(...) definitions. Note: the task API is currently under review and is less stable than the rest of the core API.
-    pub tasks: Vec<Task>,
-    /// [Optional] A map of common environment variables shared between all connectors in this prefix.
+    pub tasks: Vec<AuxTask>,
+    /// [Optional] An env file path (like ".env") to read environment variables from.
+    #[serde(default)]
+    pub env_file: Option<String>,
+    /// [Optional] A map of common environment variables shared between all connectors in this prefix. Takes precedence over env_file.
     #[serde(default)]
     pub env: HashMap<String, String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields, FieldTypes)]
 #[serde(deny_unknown_fields)]
-pub struct Task {
+/// An auxilary task definition.
+pub struct AuxTask {
+    /// The identifier of the aux task to enable.
     pub name: String,
+    /// A free-form, human-readable description of this task.
     #[serde(default)]
     pub description: Option<String>,
+    /// [Optional] A map of environment variables for this connector. Takes precedence over env_file and Prefix.env on a per-variable basis.
     #[serde(default)]
     pub env: HashMap<String, String>,
+    /// [Optional] An env file path (like ".env") to read environment variables from.
+    /// Takes precedence over Prefix.env and Prefix.env_file on a per-variable basis.
     #[serde(default)]
-    pub read_secrets: Vec<String>,
+    pub env_file: Option<String>,
+    // TODO where do we plug this in now?
+    // #[serde(default)]
+    // pub read_secrets: Vec<String>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq, Documented)]
@@ -262,7 +277,7 @@ impl Spec {
 // TODO we'll also define ConnectorSet, a standalone file with a set of Connectors,
 // to allow prefixes to share common sets of connectors.
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Documented, DocumentedFields, FieldTypes)]
 #[serde(deny_unknown_fields)]
 /// Connectors are responsible for managing different kinds of resources as code. Connectors run as a lightweight
 /// server process over tarpc or grpc.
@@ -283,9 +298,13 @@ pub struct Connector {
     /// }
     /// ```
     pub env: HashMap<String, String>,
+    /// [Optional] An env file path (like ".env") to read environment variables from.
     #[serde(default)]
-    /// The set of secrets that this connector is allowed to unseal at runtime.
-    pub read_secrets: Vec<String>,
+    pub env_file: Option<String>,
+    // #[serde(default)]
+    // The set of secrets that this connector is allowed to unseal at runtime.
+    // TODO where do we plug this in now?
+    // pub read_secrets: Vec<String>,
 }
 
 // #[derive(Debug, Default, Deserialize, Serialize)]

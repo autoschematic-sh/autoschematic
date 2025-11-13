@@ -1,9 +1,16 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
-use clap::{Parser, Subcommand, command};
+use autoschematic_core::connector_cache::ConnectorCache;
+use clap::{Parser, Subcommand};
+use lazy_static::lazy_static;
 use tracing_subscriber::EnvFilter;
 
 use crate::safety_lock::{set_safety_lock, unset_safety_lock};
+
+lazy_static! {
+    /// Global connector cache shared across all subcommands
+    pub static ref CONNECTOR_CACHE: Arc<ConnectorCache> = Arc::new(ConnectorCache::default());
+}
 
 mod apply;
 mod config;
@@ -184,6 +191,10 @@ pub enum AutoschematicSubcommand {
         /// If set, overwrite existing files with their remote state.
         #[arg(long, value_name = "overwrite", default_value_t = false)]
         overwrite: bool,
+
+        /// If set, overwrite existing files with their remote state.
+        #[arg(long, value_name = "commit")]
+        commit: Option<bool>,
     },
     /// Scaffold new resource definitions from templates.
     Create {
@@ -207,40 +218,42 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
+    // Set up Ctrl-C handler to clean up connector cache
+    let cache_for_ctrlc = CONNECTOR_CACHE.clone();
+    tokio::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            eprintln!("Received Ctrl-C, cleaning up connectors...");
+            cache_for_ctrlc.clear().await;
+            std::process::exit(130); // Standard exit code for SIGINT
+        }
+    });
+
     let cmd = AutoschematicCommand::parse();
 
-    match cmd.command {
+    let result = match cmd.command {
         AutoschematicSubcommand::Seal {
             domain,
             path,
             in_path,
             key_id,
             ..
-        } => {
-            seal::seal(&domain, &path, in_path.as_deref(), key_id.as_deref()).await?;
-        }
+        } => seal::seal(&domain, &path, in_path.as_deref(), key_id.as_deref()).await,
         AutoschematicSubcommand::Init { kind } => match kind {
-            None => init::init()?,
-            Some(AutoschematicInitSubcommand::Config) => init::init()?,
-            Some(AutoschematicInitSubcommand::Rbac) => init::init_rbac()?,
+            None => init::init(),
+            Some(AutoschematicInitSubcommand::Config) => init::init(),
+            Some(AutoschematicInitSubcommand::Rbac) => init::init_rbac(),
         },
-        AutoschematicSubcommand::Validate {} => {
-            validate::validate()?;
-        }
+        AutoschematicSubcommand::Validate {} => validate::validate(),
         // AutoschematicSubcommand::Login { url } => {
         //     let token = login_via_github().await?;
         //     persist_github_token(&token)?;
         // }
-        AutoschematicSubcommand::Install {} => {
-            install::install().await?;
-        }
+        AutoschematicSubcommand::Install {} => install::install().await,
         AutoschematicSubcommand::Plan {
             prefix,
             connector,
             subpath,
-        } => {
-            plan::plan(&prefix, &connector, &subpath).await?;
-        }
+        } => plan::plan(&prefix, &connector, &subpath).await,
         AutoschematicSubcommand::Apply {
             prefix,
             connector,
@@ -249,7 +262,7 @@ async fn main() -> anyhow::Result<()> {
             skip_commit,
         } => {
             let ask_confirm = !skip_confirm;
-            apply::apply(prefix, connector, subpath, ask_confirm, skip_commit).await?;
+            apply::apply(prefix, connector, subpath, ask_confirm, skip_commit).await
         }
         AutoschematicSubcommand::Unbundle {
             prefix,
@@ -259,31 +272,27 @@ async fn main() -> anyhow::Result<()> {
             no_stage,
         } => {
             let git_stage = !no_stage;
-            unbundle::unbundle(&prefix, &connector, &subpath, overbundle, git_stage).await?;
+            unbundle::unbundle(&prefix, &connector, &subpath, overbundle, git_stage).await
         }
         AutoschematicSubcommand::Import {
             prefix,
             connector,
             subpath,
             overwrite,
-        } => {
-            import::import(prefix, connector, subpath, overwrite).await?;
-        }
+            commit,
+        } => import::import(prefix, connector, subpath, overwrite, commit).await,
         AutoschematicSubcommand::RunTask { name, prefix } => {
-            task::spawn_task("", "", &PathBuf::from(prefix), &name, 0, serde_json::Value::Null, true).await?
+            task::spawn_task("", "", &PathBuf::from(prefix), &name, 0, serde_json::Value::Null, true).await
         }
-        AutoschematicSubcommand::Create { prefix, connector } => {
-            create::create(&prefix, &connector).await?;
-        }
+        AutoschematicSubcommand::Create { prefix, connector } => create::create(&prefix, &connector).await,
         AutoschematicSubcommand::Safety { kind } => match kind {
-            AutoschematicSafetySubcommand::Lock => {
-                set_safety_lock()?;
-            }
-            AutoschematicSafetySubcommand::Unlock => {
-                unset_safety_lock()?;
-            }
+            AutoschematicSafetySubcommand::Lock => set_safety_lock(),
+            AutoschematicSafetySubcommand::Unlock => unset_safety_lock(),
         },
     };
 
-    Ok(())
+    // Clean up connector cache before exiting
+    CONNECTOR_CACHE.clear().await;
+
+    result
 }

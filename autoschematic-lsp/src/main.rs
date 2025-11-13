@@ -10,8 +10,8 @@ use anyhow::{Result, bail};
 use autoschematic_core::{
     config::AutoschematicConfig,
     config_rbac::AutoschematicRbacConfig,
-    connector::{FilterResponse, handle::ConnectorHandleStatus},
-    connector_cache::ConnectorCache,
+    connector::{DocIdent, FilterResponse},
+    connector_cache::{ConnectorCache, TopResponse},
     manifest::ConnectorManifest,
     template::{self},
     util::{RON, split_prefix_addr},
@@ -30,6 +30,7 @@ use tower_lsp_server::{Client, LanguageServer, LspService, Server, jsonrpc::Erro
 use util::{diag_to_lsp, lsp_error, lsp_param_to_path};
 
 use crate::{
+    path_at::Component,
     reindent::reindent,
     util::{lsp_param_to_rename_path, map_lsp_error},
 };
@@ -57,6 +58,11 @@ impl LanguageServer for Backend {
 
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+                completion_provider: Some(CompletionOptions {
+                    resolve_provider: Some(false),
+                    trigger_characters: Some(vec![".".to_string(), ":".to_string()]),
+                    ..Default::default()
+                }),
                 ..Default::default()
             },
             ..Default::default()
@@ -139,8 +145,145 @@ impl LanguageServer for Backend {
         Ok(None)
     }
 
+    async fn completion(&self, params: CompletionParams) -> tower_lsp_server::jsonrpc::Result<Option<CompletionResponse>> {
+        eprintln!("completion {:?}", params);
+        let file_contents = self
+            .load_file_uri(&params.text_document_position.text_document.uri)
+            .await
+            .unwrap();
+
+        let line = params.text_document_position.position.line + 1;
+        let col = params.text_document_position.position.character + 1;
+
+        let Ok(Some(path)) = path_at::path_at(&file_contents, line as usize, col as usize) else {
+            return Ok(None);
+        };
+
+        if path.len() < 2 {
+            return Ok(None);
+        }
+
+        let Some(Component::Name(parent)) = path.get(path.len() - 2) else {
+            return Ok(None);
+        };
+
+        let Some(Component::Name(_name)) = path.last() else {
+            return Ok(None);
+        };
+
+        let ident = DocIdent::Struct {
+            name: parent.to_string(),
+        };
+
+        let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+            return Ok(None);
+        };
+
+        let Ok(file_path) = self.uri_to_local_path(&params.text_document_position.text_document.uri) else {
+            return Ok(None);
+        };
+
+        // If it's not under a prefix, try it against the system docstring lookup...
+        let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &file_path) else {
+            if let Ok(Some(res)) = get_system_docstring(&file_path, ident) {
+                return Ok(Some(CompletionResponse::Array(
+                    res.fields
+                        .iter()
+                        .map(|f| {
+                            let ident = DocIdent::Field {
+                                parent: parent.to_string(),
+                                name: f.to_owned(),
+                            };
+
+                            if let Ok(Some(field_res)) = get_system_docstring(&file_path, ident) {
+                                eprintln!("Got field docs {:?} ", field_res);
+                                CompletionItem {
+                                    label: f.to_string(),
+                                    label_details: Some(CompletionItemLabelDetails {
+                                        detail: Some(field_res.r#type.clone()),
+                                        ..Default::default()
+                                    }),
+                                    kind: Some(CompletionItemKind::FIELD),
+                                    documentation: Some(lsp_types::Documentation::MarkupContent(MarkupContent {
+                                        kind: MarkupKind::Markdown,
+                                        value: field_res.markdown.clone(),
+                                    })),
+                                    ..Default::default()
+                                }
+                            } else {
+                                eprintln!("Got no field docs");
+                                CompletionItem {
+                                    label: f.to_string(),
+                                    // label_details: Some(CompletionItemLabelDetails {
+                                    //     detail: Some(res.r#type.clone()),
+                                    //     ..Default::default()
+                                    // }),
+                                    kind: Some(CompletionItemKind::FIELD),
+                                    // documentation: Some(lsp_types::Documentation::MarkupContent(MarkupContent {
+                                    //     kind: MarkupKind::Markdown,
+                                    //     value: res.markdown.clone(),
+                                    // })),
+                                    ..Default::default()
+                                }
+                            }
+                        })
+                        .collect(),
+                )));
+            } else {
+                return Ok(None);
+            }
+        };
+
+        // ...otherwise, just get a regular resource docstring in that prefix.
+        if let Ok(Some(res)) = get_docstring(autoschematic_config, &self.connector_cache, None, &prefix, &addr, ident).await {
+            let mut items = Vec::new();
+            if res.fields.is_empty() {
+                return Ok(None);
+            }
+            for field in res.fields {
+                let field_doc = if let Ok(Some(field_doc)) = get_docstring(
+                    autoschematic_config,
+                    &self.connector_cache,
+                    None,
+                    &prefix,
+                    &addr,
+                    DocIdent::Field {
+                        parent: parent.to_string(),
+                        name: field.clone(),
+                    },
+                )
+                .await
+                {
+                    Some(field_doc)
+                } else {
+                    None
+                };
+
+                eprintln!("{:?}", field_doc);
+
+                let detail = field_doc.as_ref().map(|f| f.r#type.clone());
+                let field_doc = field_doc.map(|f| {
+                    lsp_types::Documentation::MarkupContent(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: f.markdown.clone(),
+                    })
+                });
+
+                items.push(CompletionItem {
+                    label: field,
+                    kind: Some(CompletionItemKind::FIELD),
+                    detail,
+                    documentation: field_doc,
+                    ..Default::default()
+                });
+            }
+            return Ok(Some(CompletionResponse::Array(items)));
+        }
+
+        Ok(None)
+    }
+
     async fn formatting(&self, params: DocumentFormattingParams) -> tower_lsp_server::jsonrpc::Result<Option<Vec<TextEdit>>> {
-        eprintln!("formatting: {:#?}", params.text_document.uri);
         if !params.text_document.uri.as_str().ends_with(".ron") {
             return Ok(None);
         }
@@ -301,7 +444,7 @@ impl LanguageServer for Backend {
             "top" => {
                 let top_res = self.connector_cache.top().await;
 
-                let mut res: HashMap<PathBuf, HashMap<String, ConnectorHandleStatus>> = HashMap::new();
+                let mut res: HashMap<PathBuf, HashMap<String, TopResponse>> = HashMap::new();
 
                 for (key, value) in top_res {
                     res.entry(key.prefix).or_default().insert(key.shortname, value);
@@ -347,7 +490,6 @@ impl Backend {
         Ok(())
     }
     async fn try_reload_config(&self) -> anyhow::Result<()> {
-        eprintln!("try_reload_config");
         let config: Option<AutoschematicConfig> = if PathBuf::from("autoschematic.ron").is_file() {
             match tokio::fs::read_to_string("autoschematic.ron").await {
                 Ok(config_body) => match RON.from_str(&config_body) {
@@ -439,27 +581,25 @@ impl Backend {
             return Ok(());
         };
 
-        let autoschematic_config = autoschematic_config.clone();
+        let autoschematic_config = Arc::new(autoschematic_config.clone());
         // let mut handles = Vec::new();
         let mut joinset: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
-        for (prefix_name, prefix) in autoschematic_config.prefixes {
-            for connector_def in prefix.connectors {
-                eprintln!("launching connector, {}", connector_def.shortname);
+        let autoschematic_config = autoschematic_config.clone();
+        for (prefix_name, prefix_def) in &autoschematic_config.prefixes {
+            let autoschematic_config = autoschematic_config.clone();
+            let prefix_def = prefix_def.clone();
 
+            for connector_def in prefix_def.connectors {
                 let connector_cache = self.connector_cache.clone();
+
+                let autoschematic_config = autoschematic_config.clone();
+
                 let prefix_name = prefix_name.clone();
 
                 joinset.spawn(async move {
                     let (_connector, mut inbox) = connector_cache
-                        .get_or_spawn_connector(
-                            &connector_def.shortname,
-                            &connector_def.spec,
-                            &PathBuf::from(prefix_name),
-                            &connector_def.env,
-                            None,
-                            false,
-                        )
+                        .get_or_spawn_connector(&autoschematic_config, &prefix_name, &connector_def, None, false)
                         .await?;
 
                     // let sender_trace_handle = trace_handle.clone();

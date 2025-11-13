@@ -4,17 +4,13 @@ use anyhow::bail;
 use dialoguer::{Confirm, Input, Select};
 use regex::Regex;
 
-use autoschematic_core::{
-    connector::FilterResponse, connector_cache::ConnectorCache, util::load_autoschematic_config, workflow,
-};
+use autoschematic_core::{connector::FilterResponse, util::load_autoschematic_config, workflow};
 
-use crate::spinner::show_spinner;
+use crate::{CONNECTOR_CACHE, spinner::show_spinner};
 
 pub async fn create(_prefix_filter: &Option<String>, _connector_filter: &Option<String>) -> anyhow::Result<()> {
     // TODO implement prefix/connector filtering here
     let config = load_autoschematic_config()?;
-
-    let connector_cache = ConnectorCache::default();
 
     let prefix_names: Vec<&String> = config.prefixes.iter().map(|a| a.0).collect();
     if prefix_names.is_empty() {
@@ -50,7 +46,7 @@ pub async fn create(_prefix_filter: &Option<String>, _connector_filter: &Option<
 
     let spinner_stop = show_spinner().await;
     let skeletons =
-        workflow::get_skeletons::get_skeletons(&config, &connector_cache, None, &PathBuf::from(prefix), connector_def).await?;
+        workflow::get_skeletons::get_skeletons(&config, &CONNECTOR_CACHE, None, &PathBuf::from(prefix), connector_def).await?;
     spinner_stop.send(()).unwrap();
 
     let skeleton_paths: Vec<String> = skeletons.iter().map(|a| a.addr.to_str().unwrap().to_string()).collect();
@@ -91,7 +87,7 @@ pub async fn create(_prefix_filter: &Option<String>, _connector_filter: &Option<
     }
 
     let spinner_stop = show_spinner().await;
-    if workflow::filter::filter(&config, &connector_cache, None, None, &prefix, &output_path).await? == FilterResponse::none() {
+    if workflow::filter::filter(&config, &CONNECTOR_CACHE, None, None, &prefix, &output_path).await? == FilterResponse::none() {
         spinner_stop.send(()).unwrap();
         let write_override = Confirm::new()
             .with_prompt(

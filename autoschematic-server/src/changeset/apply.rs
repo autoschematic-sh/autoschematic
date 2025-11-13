@@ -43,10 +43,16 @@ impl ChangeSet {
             bail!("Stored plan already fully executed!")
         };
 
+        let autoschematic_config = self.get_autoschematic_config().await?;
+
         let _chwd = self.chwd_to_repo();
         for plan_report in &plan_report_set.plan_reports {
+            let Some(ref connector_def) = plan_report.connector_def else {
+                continue;
+            };
+
             if let Some(connector_filter) = &connector_filter
-                && plan_report.connector_shortname != *connector_filter
+                && connector_def.shortname != *connector_filter
             {
                 continue;
             }
@@ -54,12 +60,12 @@ impl ChangeSet {
             if !rbac_config.allows_apply_without_approval(
                 rbac_user,
                 plan_report.prefix.to_string_lossy().as_ref(),
-                &plan_report.connector_shortname,
+                &connector_def.shortname,
             ) {
                 if !rbac_config.allows_apply_with_approval(
                     rbac_user,
                     plan_report.prefix.to_string_lossy().as_ref(),
-                    &plan_report.connector_shortname,
+                    &connector_def.shortname,
                 ) {
                     continue;
                 }
@@ -72,7 +78,7 @@ impl ChangeSet {
                     if !rbac_config.allows_apply_if_approved_by(
                         rbac_user,
                         plan_report.prefix.to_string_lossy().as_ref(),
-                        &plan_report.connector_shortname,
+                        &connector_def.shortname,
                         pr_approvals,
                     ) {
                         continue;
@@ -85,14 +91,17 @@ impl ChangeSet {
             let virt_addr = plan_report.virt_addr.clone();
             // let phy_addr = plan_report.phy_addr.clone();
             let prefix = plan_report.prefix.clone();
+            let Some(prefix_name) = prefix.to_str() else {
+                continue;
+            };
 
             let check_run_name = format!(
                 "autoschematic apply -c {} -p ./{:?}",
-                &plan_report.connector_shortname,
+                &connector_def.shortname,
                 &PathBuf::from(&prefix).join(&virt_addr)
             );
 
-            let Some(ref connector_spec) = plan_report.connector_spec else {
+            let Some(ref connector_def) = plan_report.connector_def else {
                 let _file_check_run_id = self
                     .create_check_run(
                         None,
@@ -123,10 +132,9 @@ impl ChangeSet {
             let (connector, mut inbox) = self
                 .connector_cache
                 .get_or_spawn_connector(
-                    &plan_report.connector_shortname,
-                    connector_spec,
-                    &prefix,
-                    &plan_report.connector_env,
+                    &autoschematic_config,
+                    prefix_name,
+                    connector_def,
                     Some(KEYSTORE.clone()),
                     true,
                 )
@@ -164,70 +172,6 @@ impl ChangeSet {
                     Err(e) => exec_error = Some(e),
                 }
 
-                /*                for op in &plan_report.connector_ops {
-                    // let Some(phy_addr) = connector.addr_virt_to_phy(&virt_addr).await? else {
-                    //     exec_error = Some(anyhow!(
-                    //         "Error: virt addr could not be resolved: {:?}",
-                    //         virt_addr
-                    //     ));
-                    //     break;
-                    // };
-                    // TODO again, this is the diabolical incongruity between virt_addr and phy_addr depending on
-                    // the presence of one or the other. Are we really sure this isn't bananas?
-                    let res = match connector.addr_virt_to_phy(&virt_addr).await? {
-                        VirtToPhyOutput::NotPresent => connector.op_exec(&virt_addr, &op.op_definition).await,
-                        VirtToPhyOutput::Deferred(_read_outputs) => connector.op_exec(&virt_addr, &op.op_definition).await,
-                        VirtToPhyOutput::Present(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await,
-                        VirtToPhyOutput::Null(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await,
-                    };
-
-                    match res {
-                        Ok(op_exec_output) => {
-                            if let Some(outputs) = &op_exec_output.outputs {
-                                if !outputs.is_empty() {
-                                    let virt_output_path = build_out_path(&PathBuf::from(&prefix), &virt_addr);
-
-                                    if let Some(_) = write_virt_output_file(&virt_output_path, outputs, true)? {
-                                        if let VirtToPhyOutput::Present(phy_addr) =
-                                            connector.addr_virt_to_phy(&virt_addr).await?
-                                        {
-                                            let phy_output_path = build_out_path(&PathBuf::from(&prefix), &phy_addr);
-
-                                            if phy_addr != virt_addr {
-                                                report_phy_addr = Some(phy_addr.clone());
-
-                                                let _phy_output_path =
-                                                    link_phy_output_file(&virt_output_path, &phy_output_path)?;
-                                                wrote_files.push(phy_output_path);
-                                            }
-
-                                            wrote_files.push(virt_output_path);
-                                        }
-                                    } else if let VirtToPhyOutput::Present(phy_addr) =
-                                        connector.addr_virt_to_phy(&virt_addr).await?
-                                    {
-                                        let phy_output_path = build_out_path(&PathBuf::from(&prefix), &phy_addr);
-
-                                        if phy_addr != virt_addr {
-                                            unlink_phy_output_file(&phy_output_path)?;
-                                            wrote_files.push(phy_output_path);
-                                        }
-
-                                        wrote_files.push(virt_output_path);
-                                    }
-                                }
-                            }
-
-                            op_exec_outputs.push(op_exec_output);
-                        }
-                        Err(e) => {
-                            exec_error = e.into();
-                            // TODO add continue_on_error option? I doubt it...
-                            break;
-                        }
-                    }
-                } */
-
                 match exec_error {
                     Some(e) => {
                         apply_report_set.overall_success = false;
@@ -239,8 +183,9 @@ impl ChangeSet {
                             Some(CheckRunConclusion::Failure),
                         )
                         .await?;
+
                         apply_report_set.apply_reports.push(ApplyReport {
-                            connector_shortname: plan_report.connector_shortname.clone(),
+                            connector_shortname: connector_def.shortname.clone(),
                             prefix: prefix.clone(),
                             virt_addr: virt_addr.to_path_buf(),
                             phy_addr: Some(PathBuf::new()),
@@ -258,8 +203,9 @@ impl ChangeSet {
                             Some(CheckRunConclusion::Success),
                         )
                         .await?;
+
                         apply_report_set.apply_reports.push(ApplyReport {
-                            connector_shortname: plan_report.connector_shortname.clone(),
+                            connector_shortname: connector_def.shortname.clone(),
                             prefix: prefix.clone(),
                             virt_addr,
                             phy_addr: report_phy_addr,

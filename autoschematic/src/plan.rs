@@ -1,11 +1,8 @@
-use std::sync::Arc;
-
-use autoschematic_core::{
-    connector_cache::ConnectorCache, git_util::get_staged_files, report::PlanReport, util::load_autoschematic_config,
-};
+use autoschematic_core::{git_util::get_staged_files, report::PlanReport, util::load_autoschematic_config};
 use crossterm::style::Stylize;
 
 use crate::{
+    CONNECTOR_CACHE,
     spinner::show_spinner,
     util::{colour_op_message, try_colour_op_message_diff},
 };
@@ -20,8 +17,6 @@ pub async fn plan(
     if let Some(_prefix_filter) = prefix_filter {}
 
     let staged_files = get_staged_files()?;
-
-    let connector_cache = Arc::new(ConnectorCache::default());
 
     let keystore = None;
 
@@ -38,7 +33,7 @@ pub async fn plan(
 
         let Some(plan_report) = autoschematic_core::workflow::plan::plan(
             &config,
-            connector_cache.clone(),
+            CONNECTOR_CACHE.clone(),
             keystore.clone(),
             connector_filter,
             &path,

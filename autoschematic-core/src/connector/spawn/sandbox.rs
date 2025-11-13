@@ -31,8 +31,7 @@ use async_trait::async_trait;
 use nix::{
     errno::Errno,
     sched::CloneFlags,
-    sys::signal::Signal::SIGKILL,
-    sys::signal::kill,
+    sys::signal::{Signal::SIGKILL, kill, killpg},
     unistd::{Pid, Uid, execve, getegid, geteuid, pipe, setresuid},
 };
 use once_cell::sync::Lazy;
@@ -208,8 +207,16 @@ impl ConnectorHandle for SandboxConnectorHandle {
             Err(_) => ConnectorHandleStatus::Dead,
         }
     }
+
+    async fn kill(&self) -> anyhow::Result<()> {
+        kill(self.pid, SIGKILL)?;
+        kill(Pid::from_raw(-self.pid.as_raw()), SIGKILL)?;
+        killpg(self.pid, SIGKILL)?;
+        Ok(())
+    }
 }
 
+#[allow(unreachable_code)]
 pub async fn launch_server_binary_sandboxed(
     spec: &Spec,
     shortname: &str,
@@ -457,7 +464,10 @@ impl Drop for SandboxConnectorHandle {
 
         tracing::info!("DROP on SandboxConnectorHandle! Killing {}", self.pid);
         // nix::sys::signal::kill(-self.pid, SIGKILL).unwrap();
-        nix::sys::signal::kill(self.pid, SIGKILL).unwrap();
+        // nix::sys::signal::kill(self.pid, SIGKILL).unwrap();
+        let _ = kill(self.pid, SIGKILL).map_err(|e| tracing::info!("kill: {:?}", e));
+        let _ = kill(Pid::from_raw(-self.pid.as_raw()), SIGKILL).map_err(|e| tracing::info!("kill: {:?}", e));
+        let _ = killpg(self.pid, SIGKILL).map_err(|e| tracing::info!("kill: {:?}", e));
     }
 }
 

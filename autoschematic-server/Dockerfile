@@ -9,6 +9,7 @@ FROM rust:1.90-trixie AS build
 RUN cargo new /app
 COPY autoschematic-server/Cargo.toml autoschematic-server/Cargo.lock /app/
 COPY autoschematic-core/ /autoschematic-core/
+COPY autoschematic-macros/ /autoschematic-macros/
 # COPY autoschematic/ /autoschematic/
 
 # # We do the same for our app

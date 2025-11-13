@@ -1,11 +1,11 @@
 use std::{path::Path, sync::Arc};
 
-use documented::{Documented, DocumentedFields};
-
 use crate::{
-    config::{AutoschematicConfig, Connector, Prefix},
+    config::{AutoschematicConfig, AuxTask, Connector, Prefix},
+    config_rbac::{self},
     connector::{DocIdent, FilterResponse, GetDocResponse},
     connector_cache::ConnectorCache,
+    doc_dispatch,
     error::AutoschematicError,
     keystore::KeyStore,
 };
@@ -16,24 +16,16 @@ pub fn get_system_docstring(path: &Path, ident: DocIdent) -> Result<Option<GetDo
     };
 
     match path {
-        "autoschematic.ron" => match ident {
-            DocIdent::Struct { name } => match name.as_str() {
-                "AutoschematicConfig" => Ok(Some(AutoschematicConfig::DOCS.into())),
-                "Prefix" => Ok(Some(Prefix::DOCS.into())),
-                "Connector" => Ok(Some(Connector::DOCS.into())),
-                _ => Ok(None),
-            },
-            DocIdent::Field { parent, name } => match parent.as_str() {
-                "AutoschematicConfig" => Ok(Some(AutoschematicConfig::get_field_docs(name)?.into())),
-                "Prefix" => Ok(Some(Prefix::get_field_docs(name)?.into())),
-                "Connector" => Ok(Some(Connector::get_field_docs(name)?.into())),
-                _ => Ok(None),
-            },
-        },
-        // "autoschematic.rbac.ron" => match ident {
-        //     DocIdent::Struct { name } => todo!(),
-        //     DocIdent::Field { parent, name } => todo!(),
-        // },
+        "autoschematic.ron" => doc_dispatch!(ident, [AutoschematicConfig, Prefix, Connector, AuxTask], [Spec]),
+        "autoschematic.rbac.ron" => doc_dispatch!(
+            ident,
+            [
+                config_rbac::AutoschematicRbacConfig,
+                config_rbac::Role,
+                config_rbac::PrefixGrant
+            ],
+            [config_rbac::User, config_rbac::Grant]
+        ),
         _ => Ok(None),
     }
 }
@@ -47,24 +39,17 @@ pub async fn get_docstring(
     addr: &Path,
     ident: DocIdent,
 ) -> Result<Option<GetDocResponse>, AutoschematicError> {
-    let Some(prefix_str) = prefix.to_str() else {
+    let Some(prefix_name) = prefix.to_str() else {
         return Ok(None);
     };
 
-    let Some(prefix_def) = autoschematic_config.prefixes.get(prefix_str) else {
+    let Some(prefix_def) = autoschematic_config.prefixes.get(prefix_name) else {
         return Ok(None);
     };
 
     for connector_def in &prefix_def.connectors {
         let (connector, _inbox) = connector_cache
-            .get_or_spawn_connector(
-                &connector_def.shortname,
-                &connector_def.spec,
-                prefix,
-                &connector_def.env,
-                keystore.clone(),
-                false,
-            )
+            .get_or_spawn_connector(autoschematic_config, prefix_name, connector_def, keystore.clone(), false)
             .await?;
 
         if connector.filter(addr).await?.intersects(FilterResponse::none())

@@ -1,7 +1,31 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::{Context, bail};
 use regex::Regex;
+
+use crate::{
+    connector::{Connector, handle::ConnectorHandle},
+    error::{AutoschematicError, AutoschematicErrorType},
+};
+
+pub async fn check_connector_host_version_match(shortname: &str, connector: &Arc<dyn ConnectorHandle>) -> anyhow::Result<()> {
+    let conn_ver = connector.version().await?;
+    let host_ver = env!("CARGO_PKG_VERSION").to_string();
+    if conn_ver != host_ver {
+        return Err(AutoschematicError {
+            kind: AutoschematicErrorType::InvalidConnectorVersion {
+                shortname: shortname.to_string(),
+                conn_ver,
+                host_ver,
+            },
+        }
+        .into());
+    }
+    Ok(())
+}
 
 // TODO Annotate these with custom types so that accidental misuse is impossible
 // TODO Add unit tests

@@ -1,14 +1,13 @@
 syntax = "proto3";
 package connector;
 
-/// A generic empty message (was google.protobuf.Empty)
 message Empty {}
 
 message VersionResponse {
   string version = 1;
 }
 
-/// --- Filter ---
+/// Connector::filter 
 message FilterRequest  { string addr = 1; }
 enum FilterResponseType {
   NONE     = 0;
@@ -20,22 +19,22 @@ enum FilterResponseType {
 }
 message FilterResponse { uint32 bitmask = 1; }
 
-/// --- Listing ---
+/// Connector::list
 message ListRequest  { string subpath = 1; }
 message ListResponse { repeated string addrs = 1; }
 
-/// --- Get resource ---
+/// Connector::get
 message GetRequest {
   string addr = 1;
 }
 message GetResponse {
-  /// false ⇒ no resource at `addr`; other fields ignored
+  /// false => no resource at `addr`; other fields ignored
   bool   exists              = 1;
   bytes  resource_definition = 2;
   map<string,string> outputs = 3;
 }
 
-/// --- Plan ---
+/// Connector::plan
 message PlanRequest {
   string addr    = 1;
   bytes  current = 2;  // empty means “none”
@@ -50,6 +49,7 @@ message PlanResponse {
   repeated PlanResponseElement ops = 1;
 }
 
+/// Connector::op_exec
 message OpExecRequest {
   string addr = 1;
   string op   = 2;
@@ -59,6 +59,7 @@ message OpExecResponse {
   string             friendly_message = 2;
 }
 
+/// Connector::addr_phy_to_virt
 message AddrPhyToVirtRequest {
   string addr = 1;
 }
@@ -67,7 +68,7 @@ message AddrPhyToVirtResponse {
   string virt_addr = 2;
 }
 
-/// --- Virt‐to‐phy mapping ---
+/// Connector::addr_virt_to_phy
 message AddrVirtToPhyRequest {
   string addr = 1;
 }
@@ -91,12 +92,12 @@ message AddrVirtToPhyResponse {
 }
 
 
-/// --- Subpaths (parallelism hints) ---
+/// Connector::subpaths
 message SubpathsResponse {
   repeated string subpaths = 1;
 }
 
-/// --- Skeletons (templates) ---
+/// Connector::get_skeletons
 message Skeleton {
   string addr = 1;
   bytes  body = 2;
@@ -105,13 +106,15 @@ message GetSkeletonsResponse {
   repeated Skeleton skeletons = 1;
 }
 
-/// --- Docstrings ---
+/// Connector::get_docstring
 message StructIdent { string name = 1; }
 message FieldIdent  { string parent = 1; string name = 2; }
+message EnumVariantIdent  { string parent = 1; string name = 2; }
 message DocIdent {
   oneof ident {
     StructIdent struct = 1;
     FieldIdent  field  = 2;
+    EnumVariantIdent  enum_variant  = 3;
   }
 }
 message GetDocRequest {
@@ -120,10 +123,12 @@ message GetDocRequest {
 }
 message GetDocResponse {
   bool   has_doc = 1;
-  string markdown = 2;
+  string type = 2;
+  string markdown = 3;
+  repeated string fields = 4;
 }
 
-/// --- Equality check ---
+/// Connector::eq
 message EqRequest {
   string addr = 1;
   bytes  a    = 2;
@@ -133,7 +138,7 @@ message EqResponse {
   bool equal = 1;
 }
 
-/// --- Diagnostics ---
+/// Connector::diag
 message DiagnosticPosition {
   uint32 line = 1;
   uint32 col  = 2;
@@ -156,7 +161,7 @@ message DiagResponse {
   repeated Diagnostic diagnostics = 1;
 }
 
-/// --- Unbundle bundles into resources ---
+/// Connector::unbundle
 message UnbundleRequest {
   string addr   = 1;
   bytes  bundle = 2;
@@ -169,7 +174,6 @@ message UnbundleResponse {
   repeated UnbundleResponseElement bundles = 1;
 }
 
-/// --- The Connector gRPC service ---
 service Connector {
   rpc Init            (Empty)                returns (Empty);
   rpc Version         (Empty)                returns (VersionResponse);

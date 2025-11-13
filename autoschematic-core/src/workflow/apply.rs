@@ -76,10 +76,12 @@ pub async fn apply(
     connector_filter: &Option<String>,
     plan_report: &PlanReport,
 ) -> Result<Option<ApplyReport>, anyhow::Error> {
-    let Some(prefix_def) = autoschematic_config
-        .prefixes
-        .get(plan_report.prefix.to_str().unwrap_or_default())
-    else {
+    let Some(prefix_name) = plan_report.prefix.to_str() else {
+        // TODO shouldn't this throw an error?
+        return Ok(None);
+    };
+
+    let Some(prefix_def) = autoschematic_config.prefixes.get(prefix_name) else {
         return Ok(None);
     };
 
@@ -91,14 +93,7 @@ pub async fn apply(
         }
 
         let (connector, mut inbox) = connector_cache
-            .get_or_spawn_connector(
-                &connector_def.shortname,
-                &connector_def.spec,
-                &plan_report.prefix,
-                &connector_def.env,
-                keystore.clone(),
-                true,
-            )
+            .get_or_spawn_connector(autoschematic_config, prefix_name, connector_def, keystore.clone(), true)
             .await?;
 
         let _reader_handle = tokio::spawn(async move {

@@ -173,6 +173,48 @@ pub fn passthrough_env_from_env(env: &HashMap<String, String>) -> anyhow::Result
     Ok(out_map)
 }
 
+// pub fn read_env_file<P: AsRef<Path>>(path: P) -> io::Result<HashMap<String, String>> {
+//     let content = fs::read_to_string(path)?;
+//     Ok(parse_env_str(&content))
+// }
+
+pub fn parse_env_file(s: &str) -> HashMap<String, String> {
+    let mut map = HashMap::new();
+
+    for line in s.lines() {
+        let line = line.trim();
+
+        // skip empty lines and comments
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        // allow `export KEY=val`
+        let line = if let Some(stripped) = line.strip_prefix("export ") {
+            stripped.trim()
+        } else {
+            line
+        };
+
+        // must have `=`
+        // TODO should throw an error on this...
+        let Some(eq_pos) = line.find('=') else {
+            continue;
+        };
+
+        let key = line[..eq_pos].trim();
+        let val = line[eq_pos + 1..].trim();
+
+        if key.is_empty() {
+            continue;
+        }
+
+        map.insert(key.to_string(), val.to_string());
+    }
+
+    map
+}
+
 lazy_static::lazy_static! {
     pub static ref RON: ron::options::Options = ron::Options::default()
     .with_default_extension(ron::extensions::Extensions::UNWRAP_NEWTYPES)

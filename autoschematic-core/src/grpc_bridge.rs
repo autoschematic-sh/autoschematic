@@ -214,6 +214,10 @@ impl GrpcConnector for GrpcConnectorServer {
                 parent: f.parent,
                 name: f.name,
             },
+            doc_ident::Ident::EnumVariant(f) => connector::DocIdent::EnumVariant {
+                parent: f.parent,
+                name: f.name,
+            },
         };
 
         if let Some(resp) = Connector::get_docstring(&*self.inner.lock().await, &addr, ident)
@@ -222,12 +226,16 @@ impl GrpcConnector for GrpcConnectorServer {
         {
             Ok(Response::new(GetDocResponse {
                 has_doc: true,
+                r#type: resp.r#type,
                 markdown: resp.markdown,
+                fields: resp.fields,
             }))
         } else {
             Ok(Response::new(GetDocResponse {
                 has_doc: false,
+                r#type: String::new(),
                 markdown: String::new(),
+                fields: Vec::new(),
             }))
         }
     }
@@ -498,6 +506,9 @@ impl Connector for GrpcConnectorClient {
             connector::DocIdent::Field { parent, name } => proto::DocIdent {
                 ident: Some(doc_ident::Ident::Field(FieldIdent { parent, name })),
             },
+            connector::DocIdent::EnumVariant { parent, name } => proto::DocIdent {
+                ident: Some(doc_ident::Ident::EnumVariant(EnumVariantIdent { parent, name })),
+            },
         };
 
         let req = GetDocRequest {
@@ -508,7 +519,11 @@ impl Connector for GrpcConnectorClient {
         let resp = self.inner.lock().await.get_docstring(Request::new(req)).await?.into_inner();
 
         if resp.has_doc {
-            Ok(Some(connector::GetDocResponse { markdown: resp.markdown }))
+            Ok(Some(connector::GetDocResponse {
+                r#type: resp.r#type,
+                markdown: resp.markdown,
+                fields: resp.fields,
+            }))
         } else {
             Ok(None)
         }

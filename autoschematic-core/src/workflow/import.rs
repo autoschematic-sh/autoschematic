@@ -150,14 +150,14 @@ pub async fn import_all(
     // Represents the joinset for each Connector::list() operation.
     let mut subpath_joinset: JoinSet<anyhow::Result<Vec<PathBuf>>> = JoinSet::new();
 
-    for (prefix_name, prefix) in &autoschematic_config.prefixes {
+    for (prefix_name, prefix_def) in &autoschematic_config.prefixes {
         if let Some(prefix_filter) = &prefix_filter
             && prefix_name != prefix_filter
         {
             continue;
         }
-        for connector_def in &prefix.connectors {
-            let prefix_name = PathBuf::from(&prefix_name);
+        for connector_def in &prefix_def.connectors {
+            let prefix = PathBuf::from(&prefix_name);
 
             if let Some(connector_filter) = &connector_filter
                 && connector_def.shortname != *connector_filter
@@ -170,14 +170,7 @@ pub async fn import_all(
 
             tracing::info!("connector init: {}", connector_def.shortname);
             let (connector, mut inbox) = connector_cache
-                .get_or_spawn_connector(
-                    &connector_def.shortname,
-                    &connector_def.spec,
-                    &PathBuf::from(&prefix_name),
-                    &connector_def.env,
-                    keystore.clone(),
-                    true,
-                )
+                .get_or_spawn_connector(&autoschematic_config, prefix_name, connector_def, keystore.clone(), true)
                 .await?;
             let _reader_handle = tokio::spawn(async move {
                 loop {
@@ -237,11 +230,11 @@ pub async fn import_all(
                         }
 
                         // Skip files that already exist in other resource groups.
-                        if let Some(ref resource_group) = prefix.resource_group
+                        if let Some(ref resource_group) = prefix_def.resource_group
                             && let Some(neighbour_prefixes) = resource_group_map.get(resource_group)
                         {
                             // get all prefixes in this resource group except our own
-                            for neighbour_prefix in neighbour_prefixes.iter().filter(|p| **p != prefix_name) {
+                            for neighbour_prefix in neighbour_prefixes.iter().filter(|p| **p != prefix) {
                                 if neighbour_prefix.join(&phy_addr).exists() {
                                     continue 'phy_addr;
                                 }
@@ -252,7 +245,7 @@ pub async fn import_all(
                             }
                         }
 
-                        let prefix_name = prefix_name.clone();
+                        let prefix_name = prefix.clone();
                         let outbox = outbox.clone();
                         let connector_shortname = connector_def.shortname.clone();
                         let connector = connector.clone();

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use actix_web::http::header::HeaderValue;
 use anyhow::{Context, bail};
@@ -80,7 +80,7 @@ pub async fn clear_prefix_keep_outputs(prefix: &Path) -> anyhow::Result<()> {
         .min_depth(1)
         .into_iter()
         .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path() != prefix.join(".outputs"))
+        .filter(|entry| entry.path() != PathBuf::from(".autoschematic").join(prefix))
     {
         if entry.path().is_dir() {
             tracing::warn!("Deleting directory {}...", entry.path().to_string_lossy());

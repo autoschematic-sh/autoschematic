@@ -134,13 +134,13 @@ impl ChangeSet {
         // Number of resources found
         let mut total_count: usize = 0;
 
-        for (prefix_name, prefix) in autoschematic_config.prefixes {
+        for (prefix_name, prefix) in &autoschematic_config.prefixes {
             if let Some(prefix_filter) = &prefix_filter
-                && prefix_name != *prefix_filter
+                && *prefix_name != *prefix_filter
             {
                 continue;
             }
-            for connector_def in prefix.connectors {
+            for connector_def in &prefix.connectors {
                 let connector_shortname = &connector_def.shortname;
                 if let Some(connector_filter) = &connector_filter
                     && connector_shortname != connector_filter
@@ -148,7 +148,7 @@ impl ChangeSet {
                     continue;
                 }
 
-                if !rbac_config.allows_read(rbac_user, &prefix_name, connector_shortname) {
+                if !rbac_config.allows_read(rbac_user, &prefix_name.clone(), connector_shortname) {
                     tracing::info!(
                         "RBAC denied for user {:?} in prefix {:?} with connector {}",
                         rbac_user,
@@ -157,8 +157,6 @@ impl ChangeSet {
                     );
                     continue;
                 }
-
-                let prefix_name = PathBuf::from(&prefix_name);
 
                 // subcount represents the number of resources imported by this connector,
                 // count represents the number of resources imported by all connectors
@@ -170,10 +168,9 @@ impl ChangeSet {
                 let (connector, mut inbox) = self
                     .connector_cache
                     .get_or_spawn_connector(
-                        &connector_def.shortname,
-                        &connector_def.spec,
-                        &PathBuf::from(&prefix_name),
-                        &connector_def.env,
+                        &autoschematic_config,
+                        prefix_name,
+                        connector_def,
                         Some(KEYSTORE.clone()),
                         true,
                     )
@@ -207,7 +204,7 @@ impl ChangeSet {
                         && let Some(neighbour_prefixes) = resource_group_map.get(resource_group)
                     {
                         // get all prefixes in this resource group except our own
-                        for neighbour_prefix in neighbour_prefixes.iter().filter(|p| **p != prefix_name) {
+                        for neighbour_prefix in neighbour_prefixes.iter().filter(|p| **p != PathBuf::from(&prefix_name)) {
                             if neighbour_prefix.join(&phy_addr).exists() {
                                 continue 'phy_addr;
                             }
@@ -223,7 +220,7 @@ impl ChangeSet {
                             &repo,
                             connector_shortname,
                             connector.clone(),
-                            &prefix_name,
+                            &PathBuf::from(prefix_name),
                             &phy_addr,
                             overwrite_existing,
                         )

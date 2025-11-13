@@ -1,22 +1,31 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    process::{Command, Stdio},
+    sync::Arc,
+};
 
 use autoschematic_core::{
-    config::Connector, connector_cache::ConnectorCache, util::load_autoschematic_config, workflow::import::ImportMessage,
+    config::Connector,
+    git_util::git_add,
+    util::{load_autoschematic_config, repo_root},
+    workflow::import::ImportMessage,
 };
 use crossterm::style::Stylize;
-use dialoguer::MultiSelect;
+use dialoguer::{Confirm, MultiSelect};
 use tokio::{sync::Semaphore, task::JoinSet};
+
+use crate::CONNECTOR_CACHE;
 
 pub async fn import(
     prefix: Option<String>,
     connector: Option<String>,
     subpath: Option<String>,
     overwrite: bool,
+    commit: Option<bool>,
 ) -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;
     let config = Arc::new(config);
-
-    let connector_cache = Arc::new(ConnectorCache::default());
 
     let subpath = subpath.map(PathBuf::from);
 
@@ -113,15 +122,19 @@ pub async fn import(
 
     println!(" Starting import. This may take a while!");
 
-    let mut connector_joinset: JoinSet<anyhow::Result<()>> = JoinSet::new();
+    let repo_root = repo_root()?;
+    let mut wrote_files = false;
+
+    let mut connector_joinset: JoinSet<anyhow::Result<Vec<PathBuf>>> = JoinSet::new();
 
     for (prefix_name, connector_names) in connector_selections {
         for connector_name in connector_names {
             let (sender, mut receiver) = tokio::sync::mpsc::channel(64);
-            let reader_handle: tokio::task::JoinHandle<anyhow::Result<()>> = {
+            let reader_handle: tokio::task::JoinHandle<anyhow::Result<Vec<PathBuf>>> = {
                 let prefix_name = prefix_name.clone();
                 let connector_name = connector_name.clone();
                 tokio::spawn(async move {
+                    let mut written_files = Vec::new();
                     while let Some(msg) = receiver.recv().await {
                         match msg {
                             ImportMessage::StartImport { subpath } => {
@@ -149,24 +162,26 @@ pub async fn import(
                                     addr.display()
                                 )
                             }
-                            ImportMessage::WroteFile { .. } => {}
+                            ImportMessage::WroteFile { path } => {
+                                written_files.push(path);
+                            }
                             ImportMessage::NotFound { .. } => {}
                         }
                     }
-                    Ok(())
+                    Ok(written_files)
                 })
             };
 
             let config = config.clone();
             let prefix_name = prefix_name.clone();
-            let connector_cache = connector_cache.clone();
+
             let keystore = keystore.clone();
             let subpath = subpath.clone();
             connector_joinset.spawn(async move {
                 let semaphore = Arc::new(Semaphore::new(10));
                 let _import_counts = autoschematic_core::workflow::import::import_all(
                     config,
-                    connector_cache,
+                    CONNECTOR_CACHE.clone(),
                     keystore,
                     sender,
                     Some(semaphore),
@@ -183,9 +198,38 @@ pub async fn import(
     }
 
     while let Some(res) = connector_joinset.join_next().await {
-        res??
+        let written_files = res??;
+        if !written_files.is_empty() {
+            wrote_files = true;
+            for path in written_files {
+                git_add(&repo_root, &path)?;
+            }
+        }
     }
+
     println!("{}", " Success!".dark_green());
+
+    if wrote_files {
+        let do_commit = match commit {
+            Some(commit) => commit,
+            None => Confirm::new()
+                .with_prompt(" ◈ Import succeeded! Do you wish to run git commit to track the imported files?")
+                .default(true)
+                .interact()
+                .unwrap(),
+        };
+
+        if do_commit {
+            Command::new("git")
+                .arg("commit")
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .output()
+                .expect("git commit: failed to execute");
+        }
+    }
+
+    CONNECTOR_CACHE.clear().await;
 
     Ok(())
 }
