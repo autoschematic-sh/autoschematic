@@ -6,7 +6,10 @@ use std::{
 use anyhow::{Context, bail};
 use regex::Regex;
 
-use crate::{connector::{Connector, handle::ConnectorHandle}, error::{AutoschematicError, AutoschematicErrorType}};
+use crate::{
+    connector::{Connector, handle::ConnectorHandle},
+    error::{AutoschematicError, AutoschematicErrorType},
+};
 
 pub async fn check_connector_host_version_match(shortname: &str, connector: &Arc<dyn ConnectorHandle>) -> anyhow::Result<()> {
     let conn_ver = connector.version().await?;

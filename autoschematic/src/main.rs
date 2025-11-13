@@ -233,31 +233,23 @@ async fn main() -> anyhow::Result<()> {
             in_path,
             key_id,
             ..
-        } => {
-            seal::seal(&domain, &path, in_path.as_deref(), key_id.as_deref()).await
-        }
+        } => seal::seal(&domain, &path, in_path.as_deref(), key_id.as_deref()).await,
         AutoschematicSubcommand::Init { kind } => match kind {
             None => init::init(),
             Some(AutoschematicInitSubcommand::Config) => init::init(),
             Some(AutoschematicInitSubcommand::Rbac) => init::init_rbac(),
         },
-        AutoschematicSubcommand::Validate {} => {
-            validate::validate()
-        }
+        AutoschematicSubcommand::Validate {} => validate::validate(),
         // AutoschematicSubcommand::Login { url } => {
         //     let token = login_via_github().await?;
         //     persist_github_token(&token)?;
         // }
-        AutoschematicSubcommand::Install {} => {
-            install::install().await
-        }
+        AutoschematicSubcommand::Install {} => install::install().await,
         AutoschematicSubcommand::Plan {
             prefix,
             connector,
             subpath,
-        } => {
-            plan::plan(&prefix, &connector, &subpath).await
-        }
+        } => plan::plan(&prefix, &connector, &subpath).await,
         AutoschematicSubcommand::Apply {
             prefix,
             connector,
@@ -283,22 +275,14 @@ async fn main() -> anyhow::Result<()> {
             connector,
             subpath,
             overwrite,
-        } => {
-            import::import(prefix, connector, subpath, overwrite).await
-        }
+        } => import::import(prefix, connector, subpath, overwrite).await,
         AutoschematicSubcommand::RunTask { name, prefix } => {
             task::spawn_task("", "", &PathBuf::from(prefix), &name, 0, serde_json::Value::Null, true).await
         }
-        AutoschematicSubcommand::Create { prefix, connector } => {
-            create::create(&prefix, &connector).await
-        }
+        AutoschematicSubcommand::Create { prefix, connector } => create::create(&prefix, &connector).await,
         AutoschematicSubcommand::Safety { kind } => match kind {
-            AutoschematicSafetySubcommand::Lock => {
-                set_safety_lock()
-            }
-            AutoschematicSafetySubcommand::Unlock => {
-                unset_safety_lock()
-            }
+            AutoschematicSafetySubcommand::Lock => set_safety_lock(),
+            AutoschematicSafetySubcommand::Unlock => unset_safety_lock(),
         },
     };
 

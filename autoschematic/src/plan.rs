@@ -1,12 +1,10 @@
-use autoschematic_core::{
-    git_util::get_staged_files, report::PlanReport, util::load_autoschematic_config,
-};
+use autoschematic_core::{git_util::get_staged_files, report::PlanReport, util::load_autoschematic_config};
 use crossterm::style::Stylize;
 
 use crate::{
+    CONNECTOR_CACHE,
     spinner::show_spinner,
     util::{colour_op_message, try_colour_op_message_diff},
-    CONNECTOR_CACHE,
 };
 
 pub async fn plan(
