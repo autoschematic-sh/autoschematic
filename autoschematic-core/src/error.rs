@@ -45,14 +45,23 @@ pub enum AutoschematicErrorType {
     /// Error when parsing an invalid connector string
     InvalidConnectorString(String),
 
+    /// Connector protocol version doesn't match the host
+    InvalidConnectorVersion {
+        shortname: String,
+        conn_ver: String,
+        host_ver: String,
+    },
+
     /// Error when parsing an invalid keystore string
     InvalidKeystoreString(String),
 
     /// Error when parsing an invalid lock string
     InvalidLockString(String),
 
+    /// Address not valid for this connector
     InvalidAddr(PathBuf),
 
+    /// Op not valid for this connector or addr
     InvalidOp(PathBuf, String),
 
     /// Internal service error wrapping anyhow::Error
@@ -83,6 +92,17 @@ impl fmt::Display for AutoschematicError {
                 write!(f, "Invalid ConnectorOp for addr {} : {}", addr.display(), op)
             }
             AutoschematicErrorType::InternalError(e) => write!(f, "Internal Error: {e:#}"),
+            AutoschematicErrorType::InvalidConnectorVersion {
+                shortname,
+                conn_ver,
+                host_ver,
+            } => {
+                write!(
+                    f,
+                    "Protocol version for connector {} doesn't match host: connector={}, host={}",
+                    shortname, conn_ver, host_ver
+                )
+            }
         }
     }
 }

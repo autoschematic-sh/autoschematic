@@ -2,7 +2,6 @@ use std::{
     collections::HashSet,
     io::Write,
     process::{Command, Stdio},
-    sync::Arc,
 };
 
 use crossterm::style::Stylize;
@@ -10,7 +9,6 @@ use dialoguer::Confirm;
 use rand::Rng;
 
 use autoschematic_core::{
-    connector_cache::ConnectorCache,
     git_util::{get_staged_files, git_add},
     report::{PlanReport, PlanReportSet},
     template::ReadOutput,
@@ -18,6 +16,7 @@ use autoschematic_core::{
 };
 
 use crate::{
+    CONNECTOR_CACHE,
     plan::{frame, print_frame_end, print_frame_start, print_plan, print_plan_addr},
     safety_lock::check_safety_lock,
     spinner::show_spinner,
@@ -37,8 +36,6 @@ pub async fn apply(
     let config = load_autoschematic_config()?;
 
     let staged_files = get_staged_files()?;
-
-    let connector_cache = Arc::new(ConnectorCache::default());
 
     let keystore = None;
 
@@ -96,7 +93,7 @@ pub async fn apply(
 
         let Some(plan_report) = autoschematic_core::workflow::plan::plan(
             &config,
-            connector_cache.clone(),
+            CONNECTOR_CACHE.clone(),
             keystore.clone(),
             &connector_filter,
             &path,
@@ -186,7 +183,7 @@ pub async fn apply(
         let spinner_stop = show_spinner().await;
         let Some(apply_report) = autoschematic_core::workflow::apply::apply(
             &config,
-            connector_cache.clone(),
+            CONNECTOR_CACHE.clone(),
             keystore.clone(),
             &connector_filter,
             &plan_report,

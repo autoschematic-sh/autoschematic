@@ -1,12 +1,9 @@
-use std::sync::Arc;
-
 use autoschematic_core::{
-    connector_cache::ConnectorCache, git_util::get_staged_files, util::load_autoschematic_config,
-    workflow::unbundle::write_unbundle_element,
+    git_util::get_staged_files, util::load_autoschematic_config, workflow::unbundle::write_unbundle_element,
 };
 use crossterm::style::Stylize;
 
-use crate::spinner::show_spinner;
+use crate::{CONNECTOR_CACHE, spinner::show_spinner};
 
 pub async fn unbundle(
     _prefix_filter: &Option<String>,
@@ -18,8 +15,6 @@ pub async fn unbundle(
     let config = load_autoschematic_config()?;
 
     let staged_files = get_staged_files()?;
-
-    let connector_cache = Arc::new(ConnectorCache::default());
 
     let keystore = None;
 
@@ -34,7 +29,7 @@ pub async fn unbundle(
 
         let Some(unbundle_report) = autoschematic_core::workflow::unbundle::unbundle(
             &config,
-            connector_cache.clone(),
+            CONNECTOR_CACHE.clone(),
             keystore.clone(),
             connector_filter,
             &path,

@@ -11,6 +11,7 @@ use crate::{
         handle::{ConnectorHandle, ConnectorHandleStatus},
         spawn::spawn_connector,
     },
+    connector_util::check_connector_host_version_match,
     error::AutoschematicError,
     keystore::KeyStore,
     util::parse_env_file,
@@ -19,6 +20,7 @@ use crate::{
 use anyhow::Context;
 use dashmap::DashMap;
 use serde::Serialize;
+use tokio::task::JoinSet;
 
 #[derive(Debug, Clone, Serialize)]
 pub enum InitStatus {
@@ -167,6 +169,8 @@ impl ConnectorCache {
                     }
                 };
 
+                check_connector_host_version_match(&connector_def.shortname, connector).await?;
+
                 if need_init {
                     self.init_status.insert(key.clone(), InitStatus::Initializing);
                     // TODO there's a subtle race condition here - does it affect real usage?
@@ -198,6 +202,8 @@ impl ConnectorCache {
                     spawn_connector(&connector_def.shortname, spec, &PathBuf::from(prefix), &env, keystore)
                         .await
                         .context("spawn_connector()")?;
+
+                check_connector_host_version_match(&connector_def.shortname, &connector).await?;
 
                 if do_init {
                     self.init_status.insert(key.clone(), InitStatus::Initializing);
@@ -329,6 +335,19 @@ impl ConnectorCache {
     /// This should in theory kill all connectors that encapsulate running processes
     /// by calling their Drop impl.
     pub async fn clear(&self) {
+        let keys: Vec<ConnectorCacheKey> = self.cache.iter().map(|kv| kv.key().clone()).collect();
+
+        let mut joinset = JoinSet::new();
+
+        for key in keys {
+            if let Some(kv) = self.cache.get(&key) {
+                let connector = kv.0.clone();
+                joinset.spawn(async move { connector.kill().await });
+            }
+        }
+
+        joinset.join_all().await;
+
         self.cache.clear();
         self.filter_cache.clear();
     }

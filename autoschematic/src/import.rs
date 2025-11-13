@@ -7,7 +7,6 @@ use std::{
 
 use autoschematic_core::{
     config::Connector,
-    connector_cache::ConnectorCache,
     git_util::git_add,
     util::{load_autoschematic_config, repo_root},
     workflow::import::ImportMessage,
@@ -15,6 +14,8 @@ use autoschematic_core::{
 use crossterm::style::Stylize;
 use dialoguer::{Confirm, MultiSelect};
 use tokio::{sync::Semaphore, task::JoinSet};
+
+use crate::CONNECTOR_CACHE;
 
 pub async fn import(
     prefix: Option<String>,
@@ -24,8 +25,6 @@ pub async fn import(
 ) -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;
     let config = Arc::new(config);
-
-    let connector_cache = Arc::new(ConnectorCache::default());
 
     let subpath = subpath.map(PathBuf::from);
 
@@ -174,14 +173,14 @@ pub async fn import(
 
             let config = config.clone();
             let prefix_name = prefix_name.clone();
-            let connector_cache = connector_cache.clone();
+
             let keystore = keystore.clone();
             let subpath = subpath.clone();
             connector_joinset.spawn(async move {
                 let semaphore = Arc::new(Semaphore::new(10));
                 let _import_counts = autoschematic_core::workflow::import::import_all(
                     config,
-                    connector_cache,
+                    CONNECTOR_CACHE.clone(),
                     keystore,
                     sender,
                     Some(semaphore),
@@ -225,6 +224,8 @@ pub async fn import(
                 .expect("git commit: failed to execute");
         }
     }
+
+    CONNECTOR_CACHE.clear().await;
 
     Ok(())
 }

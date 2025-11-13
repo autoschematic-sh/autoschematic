@@ -228,6 +228,7 @@ impl OutputMapFile {
 
 pub mod handle;
 pub mod spawn;
+pub mod shutdown;
 pub mod task_registry;
 
 #[bitmask_enum::bitmask(u32)]

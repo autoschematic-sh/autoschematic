@@ -24,12 +24,18 @@ pub enum ConnectorHandleStatus {
 #[async_trait]
 pub trait ConnectorHandle: Connector {
     async fn status(&self) -> ConnectorHandleStatus;
+
+    async fn kill(&self) -> anyhow::Result<()>;
 }
 
 #[async_trait]
 impl ConnectorHandle for Arc<dyn ConnectorHandle> {
     async fn status(&self) -> ConnectorHandleStatus {
         ConnectorHandle::status(self.as_ref()).await
+    }
+
+    async fn kill(&self) -> anyhow::Result<()> {
+        ConnectorHandle::kill(self.as_ref()).await
     }
 }
 
