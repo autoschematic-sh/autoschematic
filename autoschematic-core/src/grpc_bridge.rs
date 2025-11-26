@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -280,6 +281,61 @@ impl GrpcConnector for GrpcConnectorServer {
         } else {
             Ok(Response::new(DiagResponse { diagnostics: Vec::new() }))
         }
+    }
+
+    async fn task_exec(&self, req: Request<TaskExecRequest>) -> Result<Response<TaskExecResponse>, Status> {
+        let r = req.into_inner();
+        let addr = PathBuf::from(r.addr);
+
+        let arg = if r.arg.is_empty() { None } else { Some(r.arg) };
+
+        let state = if r.state.is_empty() { None } else { Some(r.state) };
+
+        let resp = Connector::task_exec(&*self.inner.lock().await, &addr, r.body, arg, state)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        let modified_files = resp
+            .modified_files
+            .unwrap_or_default()
+            .iter()
+            .map(|p| p.to_string_lossy().to_string())
+            .collect();
+
+        let mut outputs = HashMap::new();
+
+        for (k, v) in resp.outputs.unwrap_or_default() {
+            match v {
+                Some(v) => {
+                    outputs.insert(k, v);
+                }
+                None => {
+                    continue;
+                }
+            }
+        }
+
+        let mut secrets = HashMap::new();
+
+        for (k, v) in resp.secrets.unwrap_or_default() {
+            match v {
+                Some(v) => {
+                    secrets.insert(k.to_string_lossy().to_string(), v);
+                }
+                None => {
+                    secrets.insert(k.to_string_lossy().to_string(), String::new());
+                }
+            }
+        }
+
+        Ok(Response::new(TaskExecResponse {
+            next_state: resp.next_state.unwrap_or_default(),
+            modified_files,
+            outputs,
+            secrets,
+            friendly_message: resp.friendly_message.unwrap_or_default(),
+            delay_until: resp.delay_until.unwrap_or_default(),
+        }))
     }
 
     async fn unbundle(&self, req: Request<UnbundleRequest>) -> Result<Response<UnbundleResponse>, Status> {
@@ -593,6 +649,71 @@ impl Connector for GrpcConnectorClient {
         //     })
         //     .collect();
         // Ok(connector::DiagnosticResponse { diagnostics: diag_out })
+    }
+
+    async fn task_exec(
+        &self,
+        addr: &Path,
+        body: Vec<u8>,
+        arg: Option<Vec<u8>>,
+        state: Option<Vec<u8>>,
+    ) -> anyhow::Result<connector::TaskExecResponse> {
+        let req = TaskExecRequest {
+            addr: addr.to_string_lossy().into(),
+            body,
+            arg: arg.unwrap_or_default(),
+            state: state.unwrap_or_default(),
+        };
+
+        let resp = self.inner.lock().await.task_exec(Request::new(req)).await?.into_inner();
+
+        let mut outputs = HashMap::new();
+
+        for (k, v) in resp.outputs {
+            if v.is_empty() {
+                continue;
+            }
+            outputs.insert(k, Some(v));
+        }
+
+        let mut secrets = HashMap::new();
+
+        for (k, v) in resp.secrets {
+            if v.is_empty() {
+                continue;
+            }
+            secrets.insert(PathBuf::from(k), Some(v));
+        }
+
+        let next_state = if resp.next_state.is_empty() {
+            None
+        } else {
+            Some(resp.next_state)
+        };
+
+        let modified_files = if resp.modified_files.is_empty() {
+            None
+        } else {
+            Some(resp.modified_files.iter().map(PathBuf::from).collect())
+        };
+
+        let friendly_message = if resp.friendly_message.is_empty() {
+            None
+        } else {
+            Some(resp.friendly_message)
+        };
+
+        let delay_until = if resp.delay_until == 0 { None } else { Some(resp.delay_until) };
+
+        // TODO grpc task_exec isn't plugged in yet!
+        Ok(connector::TaskExecResponse {
+            next_state,
+            modified_files,
+            outputs: Some(outputs),
+            secrets: Some(secrets),
+            friendly_message,
+            delay_until,
+        })
     }
 
     async fn unbundle(&self, addr: &Path, bundle: &[u8]) -> Result<Vec<UnbundleResponseElement>> {

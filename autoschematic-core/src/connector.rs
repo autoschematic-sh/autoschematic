@@ -377,7 +377,7 @@ pub struct TaskExecResponse {
     /// Each task_exec phase can return a friendly human-readable message detailing its state.
     pub friendly_message: Option<String>,
     /// Delay the next task_exec phase until at least `delay_until` seconds after the UNIX epoch
-    pub delay_until: Option<u32>,
+    pub delay_until: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -596,9 +596,10 @@ pub trait Connector: Send + Sync {
         // The current state of the task as returned by a previous task_exec(...) call.
         // state always starts as None when a task is first executed.
         _state: Option<Vec<u8>>,
-    ) -> anyhow::Result<TaskExecResponse> {
-        Ok(TaskExecResponse::default())
-    }
+    ) -> anyhow::Result<TaskExecResponse>;
+    // ) -> anyhow::Result<TaskExecResponse> {
+    //     Ok(TaskExecResponse::default())
+    // }
 
     /// Design: TODO: How shall we define the GetMetricResponse enum?
     /// Again, how will metrics be stored by the server and queried?
@@ -755,6 +756,16 @@ impl Connector for Arc<dyn Connector> {
 
     async fn diag(&self, addr: &Path, a: &[u8]) -> anyhow::Result<Option<DiagnosticResponse>> {
         Connector::diag(self.as_ref(), addr, a).await
+    }
+
+    async fn task_exec(
+        &self,
+        addr: &Path,
+        body: Vec<u8>,
+        arg: Option<Vec<u8>>,
+        state: Option<Vec<u8>>,
+    ) -> anyhow::Result<TaskExecResponse> {
+        Connector::task_exec(self.as_ref(), addr, body, arg, state).await
     }
 
     async fn unbundle(&self, addr: &Path, bundle: &[u8]) -> anyhow::Result<Vec<UnbundleResponseElement>> {

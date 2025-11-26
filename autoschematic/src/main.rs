@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use autoschematic_core::connector_cache::ConnectorCache;
+use autoschematic_core::{connector_cache::ConnectorCache};
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
 use tracing_subscriber::EnvFilter;
@@ -13,6 +13,7 @@ lazy_static! {
 }
 
 mod apply;
+mod aux_task;
 mod config;
 mod create;
 mod import;
@@ -167,12 +168,19 @@ pub enum AutoschematicSubcommand {
         #[arg(long, value_name = "no-stage", default_value_t = false)]
         no_stage: bool,
     },
-    /// Execute a task as defined by a connector.
-    RunTask {
+    /// Execute an auxiliary task as defined by the runtime.
+    RunAuxTask {
         #[arg(short, long, value_name = "name")]
         name: String,
         #[arg(short, long, value_name = "prefix")]
         prefix: String,
+    },
+    /// Execute a task as defined by a connector.
+    RunTask {
+        #[arg(short, long, value_name = "path")]
+        path: String,
+        #[arg(short, long, value_name = "arg")]
+        arg: Option<String>,
     },
     /// Import remote resources into the repository.
     Import {
@@ -281,8 +289,12 @@ async fn main() -> anyhow::Result<()> {
             overwrite,
             commit,
         } => import::import(prefix, connector, subpath, overwrite, commit).await,
-        AutoschematicSubcommand::RunTask { name, prefix } => {
-            task::spawn_task("", "", &PathBuf::from(prefix), &name, 0, serde_json::Value::Null, true).await
+        AutoschematicSubcommand::RunAuxTask { name, prefix } => {
+            aux_task::spawn_task("", "", &PathBuf::from(prefix), &name, 0, serde_json::Value::Null, true).await
+        }
+        AutoschematicSubcommand::RunTask { path, arg } => {
+            task::run_task(&PathBuf::from(path), false, arg).await
+            // aux_task::spawn_task("", "", &PathBuf::from(prefix), &name, 0, serde_json::Value::Null, true).await
         }
         AutoschematicSubcommand::Create { prefix, connector } => create::create(&prefix, &connector).await,
         AutoschematicSubcommand::Safety { kind } => match kind {
