@@ -149,7 +149,6 @@ impl LanguageServer for Backend {
     }
 
     async fn completion(&self, params: CompletionParams) -> tower_lsp_server::jsonrpc::Result<Option<CompletionResponse>> {
-        eprintln!("completion {:?}", params);
         let Ok(file_contents) = self.load_file_uri(&params.text_document_position.text_document.uri).await else {
             return Ok(None);
         };
