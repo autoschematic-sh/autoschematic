@@ -216,7 +216,6 @@ fn descend_find_docident(
 fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component>) -> Result<bool> {
     let span = pair.as_span();
     if !covers(span, cursor) {
-        eprintln!("cursor not inside this node");
         return Ok(false);
     }
 
