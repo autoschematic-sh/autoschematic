@@ -3,7 +3,7 @@ cargo-features = ["edition2024"]
 name = "autoschematic-core"
 description = "Core shared functionality for Autoschematic: workflow engine, state management, and Git integrations"
 license = "AGPL-3.0"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2024"
 authors = ["Peter Sherman <peter@autoschematic.sh>"]
 repository = "https://github.com/autoschematic-sh/autoschematic"
@@ -17,7 +17,7 @@ default = ["grpc"]
 grpc = ["tonic-build", "tonic-prost-build", "tonic", "prost", "tonic-prost"]
 
 [dependencies]
-autoschematic-macros = { path = "../autoschematic-macros", version = "0.10.0", features = [
+autoschematic-macros = { path = "../autoschematic-macros", version = "0.11.0", features = [
 ] }
 
 anyhow = "1.0.95"
@@ -45,7 +45,7 @@ nix = { version = "0.30.1", features = [
     "fs",
     "mount",
 ] }
-ron = "0.11.0"
+ron = "0.12.0"
 walkdir = "2.5.0"
 rand = "0.9.1"
 libc = "0.2.172"

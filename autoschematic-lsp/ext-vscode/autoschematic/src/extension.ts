@@ -102,6 +102,8 @@ async function commandExists(command: string): Promise<boolean> {
 	}
 }
 
+let clientRef: { current: LanguageClient | null } = { current: null };
+
 export async function activate(context: vscode.ExtensionContext) {
 	// Check if autoschematic-lsp is installed
 	const lspExists = await commandExists('autoschematic-lsp');
@@ -171,7 +173,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// 	}
 	// });
 
-	vscode.commands.registerCommand('autoschematic.editOutputs', async (fileUri) => {
+	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.editOutputs', async (fileUri) => {
 		if (!fileUri) {
 			vscode.window.showErrorMessage('No file selected for edit');
 			return;
@@ -193,16 +195,21 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		const doc = await vscode.workspace.openTextDocument(targetUri);
 		await vscode.window.showTextDocument(doc);
-	});
+	}));
 
-	vscode.commands.registerCommand('autoschematic.compareWithRemote', async (fileUri) => {
+	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.compareWithRemote', async (fileUri) => {
 		if (!fileUri) {
 			vscode.window.showErrorMessage('No file selected for comparison');
 			return;
 		}
 
+		if (!clientRef.current) {
+			vscode.window.showErrorMessage('Language server not running');
+			return;
+		}
+
 		try {
-			const filterResponse = await client.sendRequest(ExecuteCommandRequest.type, {
+			const filterResponse = await clientRef.current.sendRequest(ExecuteCommandRequest.type, {
 				command: "filter",
 				arguments: [fileUri.path]
 			});
@@ -225,7 +232,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				progress.report({ increment: 0 });
 
 				try {
-					const remoteContent = await client.sendRequest(ExecuteCommandRequest.type, {
+					const remoteContent = await clientRef.current!.sendRequest(ExecuteCommandRequest.type, {
 						command: "get_untemplate",
 						arguments: [fileUri.path]
 					});
@@ -254,11 +261,14 @@ export async function activate(context: vscode.ExtensionContext) {
 						return;
 					}
 
+					// Open the local file first to ensure VSCode knows it exists
+					// await vscode.workspace.openTextDocument(fileUri);
+
 					vscode.commands.executeCommand('vscode.diff',
 						fileUri,
 						remoteUri,
 						diffTitle,
-						{ preview: true }
+						{ preview: false }
 					);
 				} catch (e) {
 					vscode.window.showErrorMessage(`Error comparing with remote: ${fileUri.path}: ${e}`);
@@ -267,7 +277,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		} catch (error) {
 			vscode.window.showErrorMessage(`Error comparing with remote: ${error}`);
 		}
-	});
+	}));
 
 	const serverOptions: ServerOptions = {
 		run: { command: 'autoschematic-lsp', transport: TransportKind.stdio },
@@ -290,10 +300,16 @@ export async function activate(context: vscode.ExtensionContext) {
 		clientOptions
 	);
 
+	clientRef.current = client;
+
 	context.subscriptions.push(client);
 
 	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.getConfigTree', async () => {
-		const configTree = await client.sendRequest(ExecuteCommandRequest.type, {
+		if (!clientRef.current) {
+			vscode.window.showErrorMessage('Language server not running');
+			return;
+		}
+		const configTree = await clientRef.current.sendRequest(ExecuteCommandRequest.type, {
 			command: "getConfigTree",
 			arguments: []
 		});
@@ -301,7 +317,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.filter', async (fileUri) => {
-		const filterResult = await client.sendRequest(ExecuteCommandRequest.type, {
+		if (!clientRef.current) {
+			vscode.window.showErrorMessage('Language server not running');
+			return;
+		}
+		const filterResult = await clientRef.current.sendRequest(ExecuteCommandRequest.type, {
 			command: "filter",
 			arguments: [fileUri.path]
 		});
@@ -309,6 +329,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.pullRemoteState', async (uri) => {
+		if (!clientRef.current) {
+			vscode.window.showErrorMessage('Language server not running');
+			return;
+		}
+
 		// Extract the file path from the URI
 		// The URI will be the autoschematic-remote URI, but we need the original file path
 		let filePath: string;
@@ -328,7 +353,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 
 		try {
-			await handlePullRemoteState(filePath, client);
+			await handlePullRemoteState(filePath, clientRef.current);
 		} catch (error) {
 			console.log(error);
 			vscode.window.showErrorMessage(`Error during pull remote state: ${error}`);
@@ -336,34 +361,33 @@ export async function activate(context: vscode.ExtensionContext) {
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('autoschematic.relaunch', async () => {
-		await client.stop()
-			.then(undefined, (error) => {
-				vscode.window.showErrorMessage(`Error stopping Autoschematic Language Server: ${error}`);
-			});
+		try {
+			// Stop the old client if it exists
+			if (clientRef.current) {
+				await clientRef.current.stop();
+			}
 
-		client = new LanguageClient(
-			'autoschematicLsp',
-			'Autoschematic Language Server',
-			serverOptions,
-			clientOptions
-		);
+			// Create a new client with the same options
+			const newClient = new LanguageClient(
+				'autoschematicLsp',
+				'Autoschematic Language Server',
+				serverOptions,
+				clientOptions
+			);
 
-		client.start()
-			.then(undefined, (error) => {
-				vscode.window.showErrorMessage(`Error restarting Autoschematic Language Server: ${error}`);
-			});
-		// client = new LanguageClient(
-		// 	'autoschematicLsp',
-		// 	'Autoschematic Language Server',
-		// 	serverOptions,
-		// 	clientOptions
-		// );
-		// client.sendRequest(ExecuteCommandRequest.type, {
-		// 	command: "relaunch",
-		// 	arguments: []
-		// }).then(undefined, (error) => {
-		// 	vscode.window.showErrorMessage(`Error executing relaunch command: ${error}`);
-		// });
+			// Update the reference so all commands use the new client
+			clientRef.current = newClient;
+			context.subscriptions.push(newClient);
+
+			// Start the new client
+			await newClient.start();
+			vscode.window.showInformationMessage('Restarted Autoschematic language server');
+
+			// Reactivate the connector view with the new client
+			connectorView.activate(context, newClient);
+		} catch (error) {
+			vscode.window.showErrorMessage(`Error relaunching Autoschematic Language Server: ${error}`);
+		}
 	}));
 
 	client.start()

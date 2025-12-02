@@ -40,10 +40,23 @@ class StatusProvider implements vscode.TreeDataProvider<Prefix | Connector> {
     private _onDidChangeTreeData = new vscode.EventEmitter<Prefix | Connector | undefined | void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
     private client: LanguageClient;
+    private refreshInterval: NodeJS.Timeout | undefined;
 
     constructor(client: LanguageClient) {
         this.client = client;
-        setInterval(() => { this.refresh() }, 1000);
+        this.refreshInterval = setInterval(() => { this.refresh() }, 1000);
+    }
+
+    dispose() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = undefined;
+        }
+        this._onDidChangeTreeData.dispose();
+    }
+
+    updateClient(client: LanguageClient) {
+        this.client = client;
     }
 
     getTreeItem(e: Prefix | Connector): vscode.TreeItem {
@@ -141,9 +154,26 @@ function iconFor(sev: Sev): vscode.ThemeIcon {
     // };
 }
 
+let providerRef: StatusProvider | undefined;
+
 export function activate(ctx: vscode.ExtensionContext, client: LanguageClient) {
-    const provider = new StatusProvider(client);
-    ctx.subscriptions.push(
-        vscode.window.registerTreeDataProvider('connector-summary', provider)
-    );
+    if (providerRef) {
+        // Reuse existing provider, just update the client reference
+        providerRef.updateClient(client);
+    } else {
+        // first, create a new provider and register it
+        providerRef = new StatusProvider(client);
+        const disposable = vscode.window.registerTreeDataProvider('connector-summary', providerRef);
+        ctx.subscriptions.push(disposable);
+
+        // dispose the provider when the extension deactivates
+        ctx.subscriptions.push({
+            dispose: () => {
+                if (providerRef) {
+                    providerRef.dispose();
+                    providerRef = undefined;
+                }
+            }
+        });
+    }
 }

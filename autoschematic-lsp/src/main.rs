@@ -27,6 +27,7 @@ use path_at::ident_at;
 use serde::de::DeserializeOwned;
 use tokio::{sync::RwLock, task::JoinSet};
 use tower_lsp_server::{Client, LanguageServer, LspService, Server, jsonrpc::Error as LspError, lsp_types};
+use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 use util::{diag_to_lsp, lsp_error, lsp_param_to_path};
 
 use crate::{
@@ -70,7 +71,7 @@ impl LanguageServer for Backend {
     }
 
     async fn initialized(&self, _: InitializedParams) {
-        self.client.log_message(MessageType::INFO, "Autochematic LSP ready").await;
+        self.client.log_message(MessageType::INFO, "Autoschematic LSP ready").await;
     }
 
     async fn shutdown(&self) -> Result<(), LspError> {
@@ -94,10 +95,12 @@ impl LanguageServer for Backend {
     }
 
     async fn hover(&self, params: HoverParams) -> tower_lsp_server::jsonrpc::Result<Option<Hover>> {
-        let file_contents = self
+        let Ok(file_contents) = self
             .load_file_uri(&params.text_document_position_params.text_document.uri)
             .await
-            .unwrap();
+        else {
+            return Ok(None);
+        };
 
         let line = params.text_document_position_params.position.line + 1;
         let col = params.text_document_position_params.position.character + 1;
@@ -147,10 +150,9 @@ impl LanguageServer for Backend {
 
     async fn completion(&self, params: CompletionParams) -> tower_lsp_server::jsonrpc::Result<Option<CompletionResponse>> {
         eprintln!("completion {:?}", params);
-        let file_contents = self
-            .load_file_uri(&params.text_document_position.text_document.uri)
-            .await
-            .unwrap();
+        let Ok(file_contents) = self.load_file_uri(&params.text_document_position.text_document.uri).await else {
+            return Ok(None);
+        };
 
         let line = params.text_document_position.position.line + 1;
         let col = params.text_document_position.position.character + 1;
@@ -196,7 +198,6 @@ impl LanguageServer for Backend {
                             };
 
                             if let Ok(Some(field_res)) = get_system_docstring(&file_path, ident) {
-                                eprintln!("Got field docs {:?} ", field_res);
                                 CompletionItem {
                                     label: f.to_string(),
                                     label_details: Some(CompletionItemLabelDetails {
@@ -211,7 +212,6 @@ impl LanguageServer for Backend {
                                     ..Default::default()
                                 }
                             } else {
-                                eprintln!("Got no field docs");
                                 CompletionItem {
                                     label: f.to_string(),
                                     // label_details: Some(CompletionItemLabelDetails {
@@ -363,7 +363,10 @@ impl LanguageServer for Backend {
                 match get(autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await {
                     Ok(Some(res)) => match String::from_utf8(res) {
                         Ok(s) => {
-                            return Ok(Some(serde_json::to_value(s).unwrap()));
+                            let Ok(s) = serde_json::to_value(s) else {
+                                return Ok(None);
+                            };
+                            return Ok(Some(s));
                         }
                         Err(e) => {
                             return Err(lsp_error(e.into()));
@@ -403,7 +406,10 @@ impl LanguageServer for Backend {
 
                 let result = template::apply_comments(reverse_templated, comments);
 
-                return Ok(Some(serde_json::to_value(result).unwrap()));
+                let Ok(value) = serde_json::to_value(result) else {
+                    return Ok(None);
+                };
+                return Ok(Some(value));
             }
             "filter" => {
                 let Some(path) = lsp_param_to_path(params) else {
@@ -411,16 +417,25 @@ impl LanguageServer for Backend {
                 };
 
                 let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
-                    return Ok(Some(serde_json::to_value(false).unwrap()));
+                    let Ok(value) = serde_json::to_value(false) else {
+                        return Ok(None);
+                    };
+                    return Ok(Some(value));
                 };
 
                 let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &path) else {
-                    return Ok(Some(serde_json::to_value(false).unwrap()));
+                    let Ok(value) = serde_json::to_value(false) else {
+                        return Ok(None);
+                    };
+                    return Ok(Some(value));
                 };
 
                 let Ok(filter_res) = filter(autoschematic_config, &self.connector_cache, keystore, None, &prefix, &addr).await
                 else {
-                    return Ok(Some(serde_json::to_value(false).unwrap()));
+                    let Ok(value) = serde_json::to_value(false) else {
+                        return Ok(None);
+                    };
+                    return Ok(Some(value));
                 };
                 let mut res = Vec::<String>::new();
 
@@ -439,7 +454,10 @@ impl LanguageServer for Backend {
                 if filter_res.intersects(FilterResponse::Metric) {
                     res.push(String::from("Metric"));
                 }
-                return Ok(Some(serde_json::to_value(res).unwrap()));
+                let Ok(value) = serde_json::to_value(res) else {
+                    return Ok(None);
+                };
+                return Ok(Some(value));
             }
             "top" => {
                 let top_res = self.connector_cache.top().await;
@@ -450,7 +468,10 @@ impl LanguageServer for Backend {
                     res.entry(key.prefix).or_default().insert(key.shortname, value);
                 }
 
-                return Ok(Some(serde_json::to_value(res).unwrap()));
+                let Ok(value) = serde_json::to_value(res) else {
+                    return Ok(None);
+                };
+                return Ok(Some(value));
             }
             _ => {}
         }
@@ -632,7 +653,7 @@ impl Backend {
 
     // Generic helper that runs serde and converts the error
     async fn check<T: DeserializeOwned>(&self, text: &str) -> Result<Option<Diagnostic>, anyhow::Error> {
-        let res = ron::Deserializer::from_str_with_options(text, &RON);
+        let res = ron::Deserializer::from_str_with_options(text, &*RON);
         match res {
             Ok(mut deserializer) => {
                 let result: Result<T, _> = serde_path_to_error::deserialize(&mut deserializer);
@@ -679,7 +700,11 @@ impl Backend {
 
         let file_path = PathBuf::from(uri.path().as_str());
 
-        let Ok(file_path) = file_path.strip_prefix(std::env::current_dir().unwrap()) else {
+        let Ok(cwd) = std::env::current_dir() else {
+            bail!("Failed to get current directory");
+        };
+
+        let Ok(file_path) = file_path.strip_prefix(cwd) else {
             bail!("Outside of working dir");
         };
 
@@ -723,7 +748,11 @@ impl Backend {
         //     return Ok(());
         // }
 
-        match path.to_str().unwrap_or_default() {
+        let Some(path_str) = path.to_str() else {
+            return Ok(res);
+        };
+
+        match path_str {
             "autoschematic.ron" => {
                 self.try_reload_config().await?;
 
@@ -773,9 +802,15 @@ impl Backend {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let connector_cache = ConnectorCache::default();
+    tracing_subscriber::fmt()
+        .with_thread_ids(false)
+        .with_ansi(false)
+        .with_writer(std::io::stderr)
+        .with_max_level(LevelFilter::WARN)
+        .compact()
+        .init();
 
-    // let rd_handle = connector_cache.start_monitoring().await;
+    let connector_cache = ConnectorCache::default();
 
     let (stdin, stdout) = (tokio::io::stdin(), tokio::io::stdout());
     let (service, socket) = LspService::new(|client| Backend {
