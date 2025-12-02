@@ -30,7 +30,7 @@ pub async fn run_task(path: &Path, _commit: bool, arg: Option<String>) -> anyhow
         arg = None;
         state = res.next_state;
 
-        if state == None {
+        if state.is_none() {
             break;
         }
     }

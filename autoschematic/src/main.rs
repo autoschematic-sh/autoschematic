@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use autoschematic_core::{connector_cache::ConnectorCache};
+use autoschematic_core::connector_cache::ConnectorCache;
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
 use tracing_subscriber::EnvFilter;

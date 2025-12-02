@@ -14,7 +14,7 @@ use autoschematic_core::{
 };
 use regex::Regex;
 
-use crate::{safety_lock::check_safety_lock, aux_task::test_task::TestTask};
+use crate::{aux_task::test_task::TestTask, safety_lock::check_safety_lock};
 
 pub static TASK_REGISTRY: OnceLock<TaskRegistry> = OnceLock::new();
 

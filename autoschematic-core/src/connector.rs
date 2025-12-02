@@ -580,7 +580,7 @@ pub trait Connector: Send + Sync {
         Ok(Vec::new())
     }
 
-    /// task_exec represents the entrypoint, or continuation point, of a Connector's 
+    /// task_exec represents the entrypoint, or continuation point, of a Connector's
     /// custom stateful task implementation. Connectors can implement imperative workflows associated with resources,
     /// or as standalone task bodies, by returning `FilterResponse::Task | ... ` in their filter() implementation.
     /// `arg` sets the initial argument for the task. `arg` is set to None after the first execution.

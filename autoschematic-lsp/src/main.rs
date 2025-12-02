@@ -27,7 +27,7 @@ use path_at::ident_at;
 use serde::de::DeserializeOwned;
 use tokio::{sync::RwLock, task::JoinSet};
 use tower_lsp_server::{Client, LanguageServer, LspService, Server, jsonrpc::Error as LspError, lsp_types};
-use tracing_subscriber::{EnvFilter, filter::LevelFilter};
+use tracing_subscriber::filter::LevelFilter;
 use util::{diag_to_lsp, lsp_error, lsp_param_to_path};
 
 use crate::{
@@ -652,7 +652,7 @@ impl Backend {
 
     // Generic helper that runs serde and converts the error
     async fn check<T: DeserializeOwned>(&self, text: &str) -> Result<Option<Diagnostic>, anyhow::Error> {
-        let res = ron::Deserializer::from_str_with_options(text, &*RON);
+        let res = ron::Deserializer::from_str_with_options(text, &RON);
         match res {
             Ok(mut deserializer) => {
                 let result: Result<T, _> = serde_path_to_error::deserialize(&mut deserializer);
