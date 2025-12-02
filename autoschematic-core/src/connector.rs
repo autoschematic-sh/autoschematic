@@ -368,6 +368,9 @@ pub struct OpExecResponse {
 pub struct TaskExecResponse {
     /// The next value of `state` with which to call task_exec(...) next time. If None, the task is not executed again.
     pub next_state: Option<Vec<u8>>,
+    /// If a task modifies a file on-disk within its repository, it can let the client know
+    /// by including it here.
+    /// Paths should be relative to the root of the repository.
     pub modified_files: Option<Vec<PathBuf>>,
     /// Task files, like Resource files, can have associated outputs. Outputs returned here are merged into the task's
     /// output file.
@@ -377,7 +380,7 @@ pub struct TaskExecResponse {
     /// Each task_exec phase can return a friendly human-readable message detailing its state.
     pub friendly_message: Option<String>,
     /// Delay the next task_exec phase until at least `delay_until` seconds after the UNIX epoch
-    pub delay_until: Option<u32>,
+    pub delay_until: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -558,7 +561,7 @@ pub trait Connector: Send + Sync {
     ///  as parsed by the connector.
     /// This is used in, for example, pull-state, in order to determine if local state needs to be updated
     ///  to match remote state.
-    /// The defaul implementation simply compares strings, without serializing or parsing in any way.
+    /// The default implementation simply compares strings, without serializing or parsing in any way.
     /// addr is ignored in this default case.
     async fn eq(&self, _addr: &Path, a: &[u8], b: &[u8]) -> anyhow::Result<bool> {
         Ok(a == b)
@@ -577,24 +580,19 @@ pub trait Connector: Send + Sync {
         Ok(Vec::new())
     }
 
-    /// Design: TODO: Maybe we'll have task_send_msg(handle, msg) and task_recv_msg(handle) -> Option<msg>?
-    /// ...as well as list_task_handles()?
-    /// This is an area, like global repo locking, where we ought to be careful about how
-    /// we serialize task messages in order to be flexible regarding our shared store over e.g. redis
-    /// POST: Ok, now we've hit on a stateless method pattern! This is good. State and task handles can live
-    /// in the runtime where they belong. Now, the question is how do we send messages to the runtime from a connector?
-    /// This is not strictly speaking task related, but it's worth trying to understand how we can implement,
-    /// say, tasks creating or rotating sealed secrets, or creating PRs, etc etc etc...
-    ///
+    /// task_exec represents the entrypoint, or continuation point, of a Connector's
+    /// custom stateful task implementation. Connectors can implement imperative workflows associated with resources,
+    /// or as standalone task bodies, by returning `FilterResponse::Task | ... ` in their filter() implementation.
+    /// `arg` sets the initial argument for the task. `arg` is set to None after the first execution.
+    /// state always starts as None when a task is first executed.
+    /// Once invoked by a user, a connector client will repeatedly call task_exec until it returns next_state = None within `TaskExecResponse`,
+    /// or throws an error. In this way, connectors store no state - only the clients.
     async fn task_exec(
         &self,
         _addr: &Path,
         _body: Vec<u8>,
 
-        // `arg` sets the initial argument for the task. `arg` is set to None after the first execution.
         _arg: Option<Vec<u8>>,
-        // The current state of the task as returned by a previous task_exec(...) call.
-        // state always starts as None when a task is first executed.
         _state: Option<Vec<u8>>,
     ) -> anyhow::Result<TaskExecResponse> {
         Ok(TaskExecResponse::default())
@@ -755,6 +753,16 @@ impl Connector for Arc<dyn Connector> {
 
     async fn diag(&self, addr: &Path, a: &[u8]) -> anyhow::Result<Option<DiagnosticResponse>> {
         Connector::diag(self.as_ref(), addr, a).await
+    }
+
+    async fn task_exec(
+        &self,
+        addr: &Path,
+        body: Vec<u8>,
+        arg: Option<Vec<u8>>,
+        state: Option<Vec<u8>>,
+    ) -> anyhow::Result<TaskExecResponse> {
+        Connector::task_exec(self.as_ref(), addr, body, arg, state).await
     }
 
     async fn unbundle(&self, addr: &Path, bundle: &[u8]) -> anyhow::Result<Vec<UnbundleResponseElement>> {

@@ -216,7 +216,6 @@ fn descend_find_docident(
 fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component>) -> Result<bool> {
     let span = pair.as_span();
     if !covers(span, cursor) {
-        eprintln!("cursor not inside this node");
         return Ok(false);
     }
 
@@ -234,7 +233,6 @@ fn descend(pair: Pair<Rule>, cursor: usize, src: &str, trail: &mut Vec<Component
         Rule::named_struct | Rule::tuple_struct | Rule::unit_struct => {
             // first inner child may be an ident
             let mut it = pair.clone().into_inner();
-            eprintln!("it: {it}");
             if let Some(id_pair) = it.next()
                 && id_pair.as_rule() == Rule::ident
             {

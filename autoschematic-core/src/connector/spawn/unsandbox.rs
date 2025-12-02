@@ -11,7 +11,7 @@ use crate::{
     config::Spec,
     connector::{
         Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
-        PlanResponseElement, SkeletonResponse, VirtToPhyResponse,
+        PlanResponseElement, SkeletonResponse, TaskExecResponse, VirtToPhyResponse,
         handle::{ConnectorHandle, ConnectorHandleStatus},
         spawn::{random_error_dump_path, random_socket_path},
     },
@@ -101,6 +101,16 @@ impl Connector for UnsandboxConnectorHandle {
 
     async fn diag(&self, addr: &Path, a: &[u8]) -> Result<Option<DiagnosticResponse>, anyhow::Error> {
         Connector::diag(&self.client, addr, a).await
+    }
+
+    async fn task_exec(
+        &self,
+        addr: &Path,
+        body: Vec<u8>,
+        arg: Option<Vec<u8>>,
+        state: Option<Vec<u8>>,
+    ) -> anyhow::Result<TaskExecResponse> {
+        Connector::task_exec(&self.client, addr, body, arg, state).await
     }
 
     async fn unbundle(&self, addr: &Path, resource: &[u8]) -> Result<Vec<UnbundleResponseElement>, anyhow::Error> {

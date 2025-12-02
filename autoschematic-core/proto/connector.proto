@@ -161,6 +161,22 @@ message DiagResponse {
   repeated Diagnostic diagnostics = 1;
 }
 
+/// Connector::task_exec
+message TaskExecRequest {
+  string addr   = 1;
+  bytes  body   = 2;
+  bytes  arg    = 3;
+  bytes  state  = 4;
+}
+message TaskExecResponse {
+  bytes              next_state       = 1;
+  repeated string    modified_files   = 2;
+  map<string,string> outputs          = 3;
+  map<string,string> secrets          = 4;
+  string             friendly_message = 5;
+  uint64             delay_until      = 6;
+}
+
 /// Connector::unbundle
 message UnbundleRequest {
   string addr   = 1;
@@ -189,5 +205,6 @@ service Connector {
   rpc GetDocstring    (GetDocRequest)        returns (GetDocResponse);
   rpc Eq              (EqRequest)            returns (EqResponse);
   rpc Diag            (DiagRequest)          returns (DiagResponse);
+  rpc TaskExec        (TaskExecRequest)      returns (TaskExecResponse);
   rpc Unbundle        (UnbundleRequest)      returns (UnbundleResponse);
 }

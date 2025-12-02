@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     connector::{
         Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
-        PlanResponseElement, SkeletonResponse, VirtToPhyResponse,
+        PlanResponseElement, SkeletonResponse, TaskExecResponse, VirtToPhyResponse,
     },
     diag::DiagnosticResponse,
     util::RON,
@@ -275,6 +275,16 @@ impl Connector for Arc<dyn Bundle> {
 
     async fn diag(&self, addr: &Path, a: &[u8]) -> Result<Option<DiagnosticResponse>, anyhow::Error> {
         Bundle::diag(self, addr, a).await
+    }
+
+    async fn task_exec(
+        &self,
+        _addr: &Path,
+        _body: Vec<u8>,
+        _arg: Option<Vec<u8>>,
+        _state: Option<Vec<u8>>,
+    ) -> anyhow::Result<TaskExecResponse> {
+        Ok(TaskExecResponse::default())
     }
 
     async fn unbundle(&self, addr: &Path, bundle: &[u8]) -> anyhow::Result<Vec<UnbundleResponseElement>> {

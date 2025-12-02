@@ -322,6 +322,25 @@ impl ConnectorCache {
         }
     }
 
+    pub async fn filter_all_cached(
+        &self,
+        autoschematic_config: &AutoschematicConfig,
+        addr: &Path,
+    ) -> anyhow::Result<FilterResponse> {
+        for (prefix_name, prefix_def) in &autoschematic_config.prefixes {
+            for connector_def in &prefix_def.connectors {
+                match self
+                    .filter_cached(&connector_def.shortname, &PathBuf::from(prefix_name), addr)
+                    .await?
+                {
+                    FilterResponse::None => continue,
+                    resp => return Ok(resp),
+                }
+            }
+        }
+        Ok(FilterResponse::None)
+    }
+
     pub async fn clear_filter_cache(&self, name: &str, prefix: &Path) {
         let key = ConnectorCacheKey {
             shortname: name.into(),

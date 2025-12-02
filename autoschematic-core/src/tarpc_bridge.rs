@@ -23,7 +23,7 @@ use crate::{
     bundle::UnbundleResponseElement,
     connector::{
         Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
-        PlanResponseElement, SkeletonResponse, VirtToPhyResponse, spawn::wait_for_socket,
+        PlanResponseElement, SkeletonResponse, TaskExecResponse, VirtToPhyResponse, spawn::wait_for_socket,
     },
     diag::DiagnosticResponse,
     error::ErrorMessage,
@@ -54,6 +54,12 @@ pub trait TarpcConnector {
     async fn get_docstring(addr: PathBuf, ident: DocIdent) -> Result<Option<GetDocResponse>, ErrorMessage>;
     async fn eq(addr: PathBuf, a: Vec<u8>, b: Vec<u8>) -> Result<bool, ErrorMessage>;
     async fn diag(addr: PathBuf, a: Vec<u8>) -> Result<Option<DiagnosticResponse>, ErrorMessage>;
+    async fn task_exec(
+        addr: PathBuf,
+        body: Vec<u8>,
+        arg: Option<Vec<u8>>,
+        state: Option<Vec<u8>>,
+    ) -> Result<TaskExecResponse, ErrorMessage>;
     async fn unbundle(addr: PathBuf, a: Vec<u8>) -> Result<Vec<UnbundleResponseElement>, ErrorMessage>;
     async fn version() -> Result<String, ErrorMessage>;
 }
@@ -149,6 +155,17 @@ impl TarpcConnector for ConnectorServer {
         a: Vec<u8>,
     ) -> Result<Option<DiagnosticResponse>, ErrorMessage> {
         Ok(Connector::diag(&*self.connector.lock().await, &addr, &a).await?)
+    }
+
+    async fn task_exec(
+        self,
+        _context: tarpc::context::Context,
+        addr: PathBuf,
+        body: Vec<u8>,
+        arg: Option<Vec<u8>>,
+        state: Option<Vec<u8>>,
+    ) -> Result<TaskExecResponse, ErrorMessage> {
+        Ok(Connector::task_exec(&*self.connector.lock().await, &addr, body, arg, state).await?)
     }
 
     async fn unbundle(
@@ -249,6 +266,17 @@ impl<C: Connector> TarpcConnector for C {
         a: Vec<u8>,
     ) -> Result<Option<DiagnosticResponse>, ErrorMessage> {
         Ok(Connector::diag(&self, &addr, &a).await?)
+    }
+
+    async fn task_exec(
+        self,
+        _context: tarpc::context::Context,
+        addr: PathBuf,
+        body: Vec<u8>,
+        arg: Option<Vec<u8>>,
+        state: Option<Vec<u8>>,
+    ) -> Result<TaskExecResponse, ErrorMessage> {
+        Ok(Connector::task_exec(&self, &addr, body, arg, state).await?)
     }
 
     async fn unbundle(
@@ -354,6 +382,18 @@ impl Connector for TarpcConnectorClient {
 
     async fn diag(&self, addr: &Path, a: &[u8]) -> Result<Option<DiagnosticResponse>, anyhow::Error> {
         Ok(self.diag(context_1m_deadline(), addr.to_path_buf(), a.to_owned()).await??)
+    }
+
+    async fn task_exec(
+        &self,
+        addr: &Path,
+        body: Vec<u8>,
+        arg: Option<Vec<u8>>,
+        state: Option<Vec<u8>>,
+    ) -> anyhow::Result<TaskExecResponse> {
+        Ok(self
+            .task_exec(context_1m_deadline(), addr.to_path_buf(), body, arg, state)
+            .await??)
     }
 
     async fn unbundle(&self, addr: &Path, resource: &[u8]) -> Result<Vec<UnbundleResponseElement>, anyhow::Error> {

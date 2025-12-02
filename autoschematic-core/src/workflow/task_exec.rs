@@ -5,7 +5,7 @@ use tokio::task::JoinSet;
 
 use crate::{
     config::AutoschematicConfig,
-    connector::{Connector, FilterResponse, TaskExecResponse, VirtToPhyResponse},
+    connector::{Connector, FilterResponse, TaskExecResponse},
     connector_cache::ConnectorCache,
     keystore::KeyStore,
     template::template_config,
@@ -20,15 +20,15 @@ pub async fn task_exec_connector(
     arg: Option<Arc<Vec<u8>>>,
     state: Option<Arc<Vec<u8>>>,
 ) -> Result<Option<TaskExecResponse>, anyhow::Error> {
-    let _phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
-        VirtToPhyResponse::NotPresent => None,
-        VirtToPhyResponse::Deferred(_read_outputs) => {
-            // TODO again, how do we encode missing outputs in TaskExecResponse? Do we?
-            return Ok(None);
-        }
-        VirtToPhyResponse::Present(phy_addr) => Some(phy_addr),
-        VirtToPhyResponse::Null(phy_addr) => Some(phy_addr),
-    };
+    // let _phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
+    //     VirtToPhyResponse::NotPresent => None,
+    //     VirtToPhyResponse::Deferred(_read_outputs) => {
+    //         // TODO again, how do we encode missing outputs in TaskExecResponse? Do we?
+    //         return Ok(None);
+    //     }
+    //     VirtToPhyResponse::Present(phy_addr) => Some(phy_addr),
+    //     VirtToPhyResponse::Null(phy_addr) => Some(phy_addr),
+    // };
 
     let path = prefix.join(virt_addr);
 
@@ -62,6 +62,7 @@ pub async fn task_exec_connector(
                     )
                     .await
                     .context(format!("{}::task_exec({}, _, _)", connector_shortname, virt_addr.display()))?;
+
                 Ok(Some(task_exec_resp))
             }
         }
@@ -88,12 +89,10 @@ pub async fn task_exec(
     let autoschematic_config = Arc::new(autoschematic_config.clone());
 
     let Some((prefix, virt_addr)) = split_prefix_addr(&autoschematic_config, path) else {
-        // eprintln!("split_prefix_addr None!");
         return Ok(None);
     };
 
     let Some(prefix_def) = autoschematic_config.prefixes.get(prefix.to_str().unwrap_or_default()) else {
-        // eprintln!("prefix None!");
         return Ok(None);
     };
 
@@ -143,7 +142,7 @@ pub async fn task_exec(
             if connector_cache
                 .filter_cached(&connector_def.shortname, &prefix, &virt_addr)
                 .await?
-                == FilterResponse::Resource
+                == FilterResponse::Task
             {
                 let task_exec_resp =
                     task_exec_connector(&connector_def.shortname, connector, &prefix, &virt_addr, arg, state).await?;

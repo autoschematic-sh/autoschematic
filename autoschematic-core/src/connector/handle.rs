@@ -10,7 +10,7 @@ use crate::{
     bundle::UnbundleResponseElement,
     connector::{
         Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
-        PlanResponseElement, SkeletonResponse, VirtToPhyResponse,
+        PlanResponseElement, SkeletonResponse, TaskExecResponse, VirtToPhyResponse,
     },
     diag::DiagnosticResponse,
 };
@@ -104,6 +104,16 @@ impl Connector for Arc<dyn ConnectorHandle> {
 
     async fn diag(&self, addr: &Path, a: &[u8]) -> anyhow::Result<Option<DiagnosticResponse>> {
         Connector::diag(self.as_ref(), addr, a).await
+    }
+
+    async fn task_exec(
+        &self,
+        addr: &Path,
+        body: Vec<u8>,
+        arg: Option<Vec<u8>>,
+        state: Option<Vec<u8>>,
+    ) -> anyhow::Result<TaskExecResponse> {
+        Connector::task_exec(self.as_ref(), addr, body, arg, state).await
     }
 
     async fn unbundle(&self, addr: &Path, bundle: &[u8]) -> anyhow::Result<Vec<UnbundleResponseElement>> {

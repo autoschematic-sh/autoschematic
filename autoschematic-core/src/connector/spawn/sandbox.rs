@@ -13,7 +13,7 @@ use crate::{
     config::Spec,
     connector::{
         Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
-        PlanResponseElement, SkeletonResponse, VirtToPhyResponse,
+        PlanResponseElement, SkeletonResponse, TaskExecResponse, VirtToPhyResponse,
         handle::{ConnectorHandle, ConnectorHandleStatus},
         spawn::{random_error_dump_path, random_socket_path},
     },
@@ -168,6 +168,21 @@ impl Connector for SandboxConnectorHandle {
         let res = Connector::diag(&self.client, addr, a).await;
         self.still_alive()
             .context(format!("After diag({}, _, _)", addr.to_string_lossy()))?;
+        res
+    }
+
+    async fn task_exec(
+        &self,
+        addr: &Path,
+        body: Vec<u8>,
+        arg: Option<Vec<u8>>,
+        state: Option<Vec<u8>>,
+    ) -> anyhow::Result<TaskExecResponse> {
+        self.still_alive()
+            .context(format!("Before task_exec({}, _, _)", addr.to_string_lossy()))?;
+        let res = Connector::task_exec(&self.client, addr, body, arg, state).await;
+        self.still_alive()
+            .context(format!("After unbundle({}, _, _)", addr.to_string_lossy()))?;
         res
     }
 

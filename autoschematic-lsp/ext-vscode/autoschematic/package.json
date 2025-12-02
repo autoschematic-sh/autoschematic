@@ -2,9 +2,9 @@
   "name": "autoschematic",
   "displayName": "Autoschematic",
   "publisher": "Autoschematic",
-  "description": "Language Server support and Ctrl-P shortcuts for Autoschematic.",
+  "description": "Syntax highlighting, Language Server support and Ctrl-P shortcuts for Autoschematic.",
   "repository": "https://github.com/autoschematic-sh/autoschematic",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "icon": "resources/logo.png",
   "engines": {
     "vscode": "^1.99.0"
@@ -54,10 +54,6 @@
         {
           "command": "autoschematic.compareWithRemote",
           "group": "navigation@98"
-        },
-        {
-          "command": "autoschematic.editOutputs",
-          "group": "navigation@99"
         }
       ],
       "editor/title": [

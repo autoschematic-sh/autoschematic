@@ -4,7 +4,7 @@ name = "autoschematic-server"
 description = "A platform for declarative Ops systems, built around Git."
 repository = "https://github.com/autoschematic-sh/autoschematic"
 license = "AGPL-3.0"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2024"
 
 [features]
@@ -19,7 +19,7 @@ debug = 1
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-autoschematic-core = { path = "../autoschematic-core", version = "0.10.0", features = [
+autoschematic-core = { path = "../autoschematic-core", version = "0.11.0", features = [
     "grpc",
 ] }
 anyhow = { version = "1.0.97", features = ["backtrace"] }
@@ -31,16 +31,16 @@ git2 = "0.20.0"
 http = "1.0.0"
 http-body-util = "0.1.1"
 itertools = "0.14.0"
-jsonwebtoken = "9.3.0"
+jsonwebtoken = "10.2.0"
 # oauth2 = "5.0.0"
-octocrab = { version = "0.47.0", features = ["stream"] }
+octocrab = { version = "0.48.0", features = ["stream"] }
 rand = "0.9.0"
 reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
     "json",
     "blocking",
 ] }
-ron = "0.11.0"
+ron = "0.12.0"
 secrecy = { version = "0.10.3" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.117"

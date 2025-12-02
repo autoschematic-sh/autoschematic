@@ -9,7 +9,7 @@ use autoschematic_core::{
     util::{RON, copy_dir_all},
 };
 
-use crate::{apply, task::test_task::TestTask};
+use crate::{apply, aux_task::test_task::TestTask};
 
 #[derive(Clone, Serialize, Deserialize)]
 struct FuzzConfig {
