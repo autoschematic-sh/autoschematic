@@ -303,7 +303,7 @@ pub enum DocIdent {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-/// GetDocResponse represents the successful result of Connector.get_doc(ident).
+/// GetDocResponse represents the successful result of Connector.get_docstring(ident).
 /// This represents the Docstring or other documentation corresponding to
 /// structs or enums used in resource bodies.
 /// Just like Connector::diag(), it is intended for use with autoschematic-lsp
