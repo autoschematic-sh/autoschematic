@@ -90,10 +90,18 @@ class StatusProvider implements vscode.TreeDataProvider<Prefix | Connector> {
     }
 
     async refresh() {
-        const top = await this.client.sendRequest(ExecuteCommandRequest.type, {
-            command: "top",
-            arguments: []
-        });
+        let top;
+        try {
+            top = await this.client.sendRequest(ExecuteCommandRequest.type, {
+                command: "top",
+                arguments: []
+            });
+        } catch (e) {
+            // Client not ready yet (e.g., during restart) - clear and show empty state
+            this.root = [];
+            this._onDidChangeTreeData.fire();
+            return;
+        }
 
         this.root = [];
 

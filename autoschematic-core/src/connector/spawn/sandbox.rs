@@ -470,14 +470,14 @@ impl Drop for SandboxConnectorHandle {
 
         match std::fs::remove_file(&self.error_dump) {
             Ok(_) => {}
-            Err(e) => tracing::warn!("Couldn't remove error_dump {:?}: {}", self.error_dump, e),
+            Err(e) => tracing::debug!("Couldn't remove error_dump {:?}: {}", self.error_dump, e),
         }
 
         if self.read_thread.is_some() {
             // handle.
         }
 
-        tracing::info!("DROP on SandboxConnectorHandle! Killing {}", self.pid);
+        tracing::debug!("DROP on SandboxConnectorHandle! Killing {}", self.pid);
         // nix::sys::signal::kill(-self.pid, SIGKILL).unwrap();
         // nix::sys::signal::kill(self.pid, SIGKILL).unwrap();
         let _ = kill(self.pid, SIGKILL).map_err(|e| tracing::info!("kill: {:?}", e));

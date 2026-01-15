@@ -219,7 +219,7 @@ impl Drop for UnsandboxConnectorHandle {
 
         match std::fs::remove_file(&self.error_dump) {
             Ok(_) => {}
-            Err(e) => tracing::warn!("Couldn't remove error_dump {:?}: {}", self.error_dump, e),
+            Err(e) => tracing::debug!("Couldn't remove error_dump {:?}: {}", self.error_dump, e),
         }
 
         if self.read_thread.is_some() {}

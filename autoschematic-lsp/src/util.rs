@@ -1,29 +1,31 @@
 use std::path::PathBuf;
 
 use autoschematic_core::diag::{DiagnosticResponse, DiagnosticSeverity};
-use lsp_types::ExecuteCommandParams;
-use tower_lsp_server::jsonrpc::{self, ErrorCode};
+use tower_lsp_server::{
+    jsonrpc::{self, ErrorCode},
+    ls_types,
+};
 
-pub fn severity_to_lsp(severity: u8) -> Option<lsp_types::DiagnosticSeverity> {
+pub fn severity_to_lsp(severity: u8) -> Option<ls_types::DiagnosticSeverity> {
     match severity {
-        val if val == DiagnosticSeverity::ERROR as u8 => Some(lsp_types::DiagnosticSeverity::ERROR),
-        val if val == DiagnosticSeverity::WARNING as u8 => Some(lsp_types::DiagnosticSeverity::WARNING),
-        val if val == DiagnosticSeverity::INFORMATION as u8 => Some(lsp_types::DiagnosticSeverity::INFORMATION),
-        val if val == DiagnosticSeverity::HINT as u8 => Some(lsp_types::DiagnosticSeverity::HINT),
+        val if val == DiagnosticSeverity::ERROR as u8 => Some(ls_types::DiagnosticSeverity::ERROR),
+        val if val == DiagnosticSeverity::WARNING as u8 => Some(ls_types::DiagnosticSeverity::WARNING),
+        val if val == DiagnosticSeverity::INFORMATION as u8 => Some(ls_types::DiagnosticSeverity::INFORMATION),
+        val if val == DiagnosticSeverity::HINT as u8 => Some(ls_types::DiagnosticSeverity::HINT),
         _ => None,
     }
 }
 
-pub fn diag_to_lsp(diag_output: DiagnosticResponse) -> Vec<lsp_types::Diagnostic> {
+pub fn diag_to_lsp(diag_output: DiagnosticResponse) -> Vec<ls_types::Diagnostic> {
     let mut res = Vec::new();
     for diag in diag_output.diagnostics {
-        res.push(lsp_types::Diagnostic {
-            range: lsp_types::Range::new(
-                lsp_types::Position {
+        res.push(ls_types::Diagnostic {
+            range: ls_types::Range::new(
+                ls_types::Position {
                     line: diag.span.start.line - 1,
                     character: diag.span.start.col - 1,
                 },
-                lsp_types::Position {
+                ls_types::Position {
                     line: diag.span.end.line - 1,
                     character: diag.span.end.col - 1,
                 },
@@ -67,7 +69,7 @@ pub fn map_lsp_error<T, E: Into<anyhow::Error>>(r: Result<T, E>) -> Result<T, to
     }
 }
 
-pub fn lsp_param_to_path(params: ExecuteCommandParams) -> Option<PathBuf> {
+pub fn lsp_param_to_path(params: ls_types::ExecuteCommandParams) -> Option<PathBuf> {
     if params.arguments.len() != 1 {
         return None;
     }
@@ -87,7 +89,7 @@ pub fn lsp_param_to_path(params: ExecuteCommandParams) -> Option<PathBuf> {
     Some(file_path.into())
 }
 
-pub fn lsp_param_to_rename_path(params: ExecuteCommandParams) -> Option<(PathBuf, PathBuf)> {
+pub fn lsp_param_to_rename_path(params: ls_types::ExecuteCommandParams) -> Option<(PathBuf, PathBuf)> {
     if params.arguments.len() != 2 {
         return None;
     }
