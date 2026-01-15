@@ -71,17 +71,17 @@ macro_rules! skeleton {
 #[macro_export]
 macro_rules! virt_to_phy {
     (
-        $enum:path, $addr:ident, $prefix:expr,
-        trivial => [ $( $triv_variant:ident { $triv_field:ident } ),* $(,)? ],
+        $addr:ident, $prefix:expr,
+        trivial => [ $( $triv_variant:tt { $triv_field:ident } ),* $(,)? ],
         null => [ $( $null_variant:ident { $null_field:ident } ),* $(,)? ],
         todo => [ $( $todo_variant:ident { $($todo_field:ident),* } ),* $(,)? ]
     ) => {
         match &$addr {
             $(
-                <$enum>::$triv_variant { .. } => {
+                $triv_variant { .. } => {
                     if let Some($triv_field) = $addr.get_output($prefix, stringify!($triv_field))? {
                         Ok(VirtToPhyResponse::Present(
-                            <$enum>::$triv_variant { $triv_field }.to_path_buf(),
+                            $triv_variant { $triv_field }.to_path_buf(),
                         ))
                     } else {
                         Ok(VirtToPhyResponse::NotPresent)
@@ -89,12 +89,12 @@ macro_rules! virt_to_phy {
                 }
             )*
             $(
-                <$enum>::$null_variant { $null_field } => {
-                    Ok(VirtToPhyResponse::Null(<$enum>::$null_variant { $null_field: $null_field.into() }.to_path_buf()))
+                $null_variant { $null_field } => {
+                    Ok(VirtToPhyResponse::Null($null_variant { $null_field: $null_field.into() }.to_path_buf()))
                 }
             )*
             $(
-                <$enum>::$todo_variant { .. } => {
+                $todo_variant { .. } => {
                     todo!()
                 }
             )*
@@ -104,7 +104,7 @@ macro_rules! virt_to_phy {
 
 #[macro_export]
 macro_rules! doc_dispatch {
-    // call like: doc_dispatch!(ident, GetDocResponse, [GitHubConnectorConfig, GitHubRepository, ...]);
+    // call like: doc_dispatch!(ident, [GitHubConnectorConfig, GitHubRepository, ...]);
     ($ident:expr, [ $( $struct_ty:path ),+ $(,)? ] $(,)?) => {{
         match $ident {
             DocIdent::Struct { name } => {
