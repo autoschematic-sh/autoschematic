@@ -285,6 +285,28 @@ pub fn ron_check_syntax<T: DeserializeOwned>(text: &[u8]) -> Result<Option<Diagn
     }
 }
 
+pub fn diff_text_markdown(a: &str, b: &str) -> anyhow::Result<String>
+where
+{
+    let diff = TextDiff::from_lines(a, b);
+
+    let mut lines = Vec::<String>::new();
+
+    lines.push(String::from("```diff\n"));
+
+    for change in diff.iter_all_changes() {
+        let sign = match change.tag() {
+            ChangeTag::Delete => "-",
+            ChangeTag::Insert => "+",
+            ChangeTag::Equal => " ",
+        };
+        lines.push(format!("{sign}{change}"));
+    }
+    lines.push(String::from("```\n"));
+
+    Ok(lines.join(""))
+}
+
 pub fn diff_ron_values<T>(a: &T, b: &T) -> anyhow::Result<String>
 where
     T: Serialize,
@@ -398,4 +420,14 @@ pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Re
         }
     }
     Ok(())
+}
+
+pub fn check_safety_lock() -> anyhow::Result<()> {
+    let repo_root = repo_root()?;
+    let safety_lock_path = repo_root.join(".autoschematic.safety.lock");
+    if safety_lock_path.is_file() {
+        bail!("The safety lock is set, preventing any operation that would modify infrastructure.");
+    } else {
+        Ok(())
+    }
 }

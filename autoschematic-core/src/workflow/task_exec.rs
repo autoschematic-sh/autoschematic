@@ -38,6 +38,17 @@ pub async fn task_exec_connector(
 
     let task_body_bytes = tokio::fs::read(&path).await?;
 
+    let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
+        crate::connector::VirtToPhyResponse::NotPresent => {
+            return Ok(None);
+        }
+        crate::connector::VirtToPhyResponse::Deferred(_read_outputs) => {
+            return Ok(None);
+        }
+        crate::connector::VirtToPhyResponse::Present(phy_addr) => phy_addr,
+        crate::connector::VirtToPhyResponse::Null(virt_addr) => virt_addr,
+    };
+
     match std::str::from_utf8(&task_body_bytes) {
         Ok(desired) => {
             let template_result = template_config(prefix, desired)?;
@@ -55,22 +66,22 @@ pub async fn task_exec_connector(
                 // TODO c'mon, surely we can avoid this cloned() call here...
                 let task_exec_resp = connector
                     .task_exec(
-                        virt_addr,
+                        &phy_addr,
                         template_result.body.into_bytes(),
                         arg.as_deref().cloned(),
                         state.as_deref().cloned(),
                     )
                     .await
-                    .context(format!("{}::task_exec({}, _, _)", connector_shortname, virt_addr.display()))?;
+                    .context(format!("{}::task_exec({}, _, _)", connector_shortname, phy_addr.display()))?;
 
                 Ok(Some(task_exec_resp))
             }
         }
         Err(_) => {
             let task_exec_resp = connector
-                .task_exec(virt_addr, task_body_bytes, arg.as_deref().cloned(), state.as_deref().cloned())
+                .task_exec(&phy_addr, task_body_bytes, arg.as_deref().cloned(), state.as_deref().cloned())
                 .await
-                .context(format!("{}::task_exec({}, _, _)", connector_shortname, virt_addr.display()))?;
+                .context(format!("{}::task_exec({}, _, _)", connector_shortname, phy_addr.display()))?;
             Ok(Some(task_exec_resp))
         }
     }
@@ -142,7 +153,7 @@ pub async fn task_exec(
             if connector_cache
                 .filter_cached(&connector_def.shortname, &prefix, &virt_addr)
                 .await?
-                == FilterResponse::Task
+                .intersects(FilterResponse::Task)
             {
                 let task_exec_resp =
                     task_exec_connector(&connector_def.shortname, connector, &prefix, &virt_addr, arg, state).await?;

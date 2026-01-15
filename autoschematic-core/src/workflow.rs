@@ -1,4 +1,5 @@
 pub mod apply;
+pub mod check_drift;
 pub mod filter;
 pub mod get;
 pub mod get_docstring;
