@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     ffi::{CString, OsString},
     fs::create_dir_all,
-    os::{fd::{OwnedFd}, unix::ffi::OsStringExt},
+    os::{fd::OwnedFd, unix::ffi::OsStringExt},
     path::{Path, PathBuf},
     sync::Arc,
     thread::JoinHandle,
@@ -299,7 +299,7 @@ pub fn close_all_extra_fds() -> anyhow::Result<()> {
 }
 
 #[allow(unused)]
-/// This is a utility function for spawning a shell within the sandbox. 
+/// This is a utility function for spawning a shell within the sandbox.
 /// Unless we redirect stdio, it'll be interactive!
 fn exec_debug_shell() -> ! {
     let sh = CString::new("/bin/sh").unwrap();
@@ -513,7 +513,7 @@ pub async fn launch_server_binary_sandboxed(
                     bind_mount_with_overlay(&root_squashfs, &repo_path, &repo_mount).unwrap();
 
                     // Because we're in a new mount namespace, other connectors
-                    // can't see this mount or anything in it. We'll create a dedicated tmpfs 
+                    // can't see this mount or anything in it. We'll create a dedicated tmpfs
                     //  to store secret values that policy allows this connector to read.
                     nix::mount::mount(
                         None::<&PathBuf>,
@@ -530,7 +530,7 @@ pub async fn launch_server_binary_sandboxed(
                     }
 
                     // Autoschematic connectors communicate over UNIX sockets under /tmp/autoschematic/....
-                    // This means we need to expose a bind mount for this path so that connectors 
+                    // This means we need to expose a bind mount for this path so that connectors
                     //  within a sandbox can read and write sockets to communicate with the host!
                     nix::mount::mount(
                         None::<&PathBuf>,
@@ -552,11 +552,11 @@ pub async fn launch_server_binary_sandboxed(
                     )
                     .expect("Bind-mounting /tmp/autoschematic");
 
-                    // Here is some real fuckery. Pivot root is slightly like chroot, except it "swaps" two 
+                    // Here is some real fuckery. Pivot root is slightly like chroot, except it "swaps" two
                     //  mountpoints. Our old mount entry for / will now be at the path old_root_mount (/.old_root/).
                     pivot_root(&root_squashfs, &old_root_mount).expect("pivoting root");
-                    
-                    // Now we're really "in" the sandbox filesystem! 
+
+                    // Now we're really "in" the sandbox filesystem!
                     // However, we can still read everything the host user can read under /.old_root/.
 
                     nix::mount::mount(None::<&str>, "/proc", Some("proc"), MsFlags::empty(), None::<&str>)
@@ -564,7 +564,7 @@ pub async fn launch_server_binary_sandboxed(
 
                     chdir(Path::new("/")).expect("cd /");
 
-                    // Once we detach the old root, we 
+                    // Once we detach the old root, we
                     umount2(Path::new("/.old_root"), MntFlags::MNT_DETACH).unwrap();
 
                     chdir(Path::new("/repo")).expect("cd /repo");

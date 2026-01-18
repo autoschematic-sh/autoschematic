@@ -259,10 +259,7 @@ impl Spec {
                     "cargo".into()
                 };
 
-                Ok(SpecCommand {
-                    binary,
-                    args,
-                })
+                Ok(SpecCommand { binary, args })
             }
             Spec::TypescriptLocal { path } => {
                 if !path.is_file() {

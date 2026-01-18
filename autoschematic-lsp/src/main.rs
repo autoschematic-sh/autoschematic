@@ -134,7 +134,8 @@ impl LanguageServer for Backend {
                 }
             };
 
-            if let Ok(Some(res)) = get_docstring(&autoschematic_config, &self.connector_cache, None, &prefix, &addr, ident).await
+            if let Ok(Some(res)) =
+                get_docstring(&autoschematic_config, &self.connector_cache, None, &prefix, &addr, ident).await
             {
                 return Ok(Some(Hover {
                     contents: HoverContents::Markup(MarkupContent {

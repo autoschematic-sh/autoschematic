@@ -20,7 +20,6 @@ struct FuzzConfig {
 
 impl TestTask {
     pub async fn run_fuzz_test(&self, path: &Path) -> anyhow::Result<()> {
-
         // let connector_filter = fuzz_config.connector_filter.map(|c| format!("-c {c}")).unwrap_or_default();
         // let prefix_filter = format!("-p {}", self.prefix.to_string_lossy());
         //
@@ -30,10 +29,8 @@ impl TestTask {
         eprintln!("{}", str::from_utf8(&output.stderr).ok().unwrap_or_default());
         println!("{}", str::from_utf8(&output.stdout).ok().unwrap_or_default());
 
-
         let config = load_autoschematic_config()?;
         let fuzz_config: FuzzConfig = RON.from_str(&std::fs::read_to_string(path.join("fuzz_config.ron"))?)?;
-
 
         let output = Command::new("git")
             .arg("checkout")
