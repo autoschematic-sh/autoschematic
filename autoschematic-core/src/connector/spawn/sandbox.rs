@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     ffi::{CString, OsString},
     fs::create_dir_all,
-    os::{fd::{FromRawFd, OwnedFd}, unix::ffi::OsStringExt},
+    os::{fd::{OwnedFd}, unix::ffi::OsStringExt},
     path::{Path, PathBuf},
     sync::Arc,
     thread::JoinHandle,
@@ -35,7 +35,7 @@ use nix::{
     mount::{MntFlags, MsFlags, umount2},
     sched::CloneFlags,
     sys::signal::{Signal::SIGKILL, kill, killpg},
-    unistd::{Gid, Pid, Uid, chdir, dup2, execve, getegid, geteuid, pipe, pivot_root, setresgid, setresuid},
+    unistd::{Gid, Pid, Uid, chdir, execve, getegid, geteuid, pipe, pivot_root, setresgid, setresuid},
 };
 use once_cell::sync::Lazy;
 use sysinfo::ProcessRefreshKind;
@@ -400,8 +400,8 @@ pub async fn launch_server_binary_sandboxed(
     // and those bytes will be routed to stdout_w.
     // Meanwhile, the host will read from stdout_r and receive those
     // bytes to capture logs from the connector.
-    let (stdout_r, stdout_w) = pipe()?;
-    let (stderr_r, stderr_w) = pipe()?;
+    let (stdout_r, _stdout_w) = pipe()?;
+    let (stderr_r, _stderr_w) = pipe()?;
 
     // The cloned child process is started in a new mount namespace,
     //  new cgroup, ipc, user namespaces, etc.
