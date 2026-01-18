@@ -130,11 +130,11 @@ fn random_error_dump_path() -> PathBuf {
     }
 }
 
-fn random_overlay_dir(root: &Path) -> PathBuf {
+fn random_overlay_dir(_root: &Path) -> PathBuf {
     loop {
         let overlay_s: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
 
-        let mut overlay = root.join("/tmp/").join(overlay_s);
+        let mut overlay = Path::new("/tmp/").join(overlay_s);
 
         overlay.set_extension("overlay");
 

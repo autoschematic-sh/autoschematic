@@ -374,6 +374,7 @@ pub fn bind_mount_with_overlay(root: &Path, src: &Path, dst: &Path) -> anyhow::R
 }
 
 #[allow(unreachable_code)]
+#[allow(clippy::too_many_arguments)]
 pub async fn launch_server_binary_sandboxed(
     spec: &Spec,
     shortname: &str,

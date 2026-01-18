@@ -686,7 +686,7 @@ impl Backend {
     fn uri_to_local_path(&self, uri: &Uri) -> anyhow::Result<PathBuf> {
         let scheme = uri.scheme().as_str();
 
-        if (scheme != "file") {
+        if scheme != "file" {
             bail!("Unknown uri scheme {}", scheme)
         }
 
@@ -706,7 +706,7 @@ impl Backend {
     async fn load_file_uri(&self, uri: &Uri) -> anyhow::Result<String> {
         let scheme = uri.scheme().as_str();
 
-        if (scheme != "file") {
+        if scheme != "file" {
             bail!("Unknown uri scheme {}", scheme)
         }
 
@@ -724,7 +724,7 @@ impl Backend {
 
         let scheme = uri.scheme().as_str();
 
-        if (scheme != "file") {
+        if scheme != "file" {
             return Ok(res);
         }
 
