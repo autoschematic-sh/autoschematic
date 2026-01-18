@@ -6,7 +6,6 @@ use std::{
     time::Duration,
 };
 
-use crate::util::repo_root;
 use crate::{
     config::Spec,
     connector::{ConnectorInbox, handle::ConnectorHandle},
@@ -54,7 +53,7 @@ pub async fn spawn_connector(
     return Ok((
         if is_sandbox_enabled() {
             let new_root = std::env::var("AUTOSCHEMATIC_SANDBOX_ROOT")?;
-            let repo_path = repo_root()?.canonicalize()?;
+            let repo_path = crate::util::repo_root()?.canonicalize()?;
             Arc::new(
                 sandbox::launch_server_binary_sandboxed(
                     spec,
