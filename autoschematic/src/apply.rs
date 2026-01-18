@@ -221,7 +221,7 @@ pub async fn apply(
             }
 
             if let Some(ref report_outputs) = output.outputs {
-                for (key, _) in report_outputs {
+                for key in report_outputs.keys() {
                     set_outputs.insert(ReadOutput {
                         addr: plan_report.virt_addr.clone(),
                         key: key.clone(),

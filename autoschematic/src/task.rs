@@ -43,11 +43,10 @@ pub async fn run_task(path: &Path, _commit: bool, arg: Option<String>) -> anyhow
 
         if let Some(delay_until) = res.delay_until {
             let now_secs = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-            if delay_until > now_secs {
-                if let Some(rerun_at) = Instant::now().checked_add(Duration::from_secs(delay_until - now_secs)) {
+            if delay_until > now_secs
+                && let Some(rerun_at) = Instant::now().checked_add(Duration::from_secs(delay_until - now_secs)) {
                     tokio::time::sleep_until(rerun_at).await;
                 }
-            }
         }
 
         if state.is_none() {

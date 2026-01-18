@@ -286,7 +286,7 @@ pub fn close_all_extra_fds() -> anyhow::Result<()> {
             bail!("non-integer fd path in /proc/self/fd/?");
         };
 
-        if matches!(fd, 0 | 1 | 2) {
+        if matches!(fd, 0..=2) {
             continue;
         }
 
