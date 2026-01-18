@@ -353,7 +353,7 @@ pub async fn log_subscribe(
             actix_web::rt::spawn(async move {
                 //
                 for log in logs {
-                    if let Err(Closed) = ws_session.binary(log).await {
+                    if let Err(Closed) = ws_session.binary(log.into_encoded_bytes()).await {
                         return;
                     }
                 }
@@ -363,7 +363,7 @@ pub async fn log_subscribe(
                         let res = log_receiver.recv().await;
                         match res {
                             Ok(log) => {
-                                if let Err(Closed) = ws_session.binary(log).await {
+                                if let Err(Closed) = ws_session.binary(log.into_encoded_bytes()).await {
                                     return;
                                 }
                             }

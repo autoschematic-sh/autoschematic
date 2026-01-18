@@ -620,7 +620,7 @@ impl Backend {
                             match inbox.recv().await {
                                 Ok(Some(stdout)) => {
                                     // dbg!(&stdout);
-                                    eprintln!("stdout: {stdout}");
+                                    eprintln!("{}", stdout.to_string_lossy());
                                     // self.client.log_message(MessageType::INFO, format!("{}", stdout)).await;
                                     // let res = append_run_log(&sender_trace_handle, stdout).await;
                                     // match res {

@@ -395,8 +395,8 @@ pub struct SkeletonResponse {
 
 /// ConnectorOutbox is primarily used to transmit logs for tracestores across
 /// the remote bridge, i.e. tarpc. The usefulness of this may be reexamined later.
-pub type ConnectorOutbox = tokio::sync::broadcast::Sender<Option<String>>;
-pub type ConnectorInbox = tokio::sync::broadcast::Receiver<Option<String>>;
+pub type ConnectorOutbox = tokio::sync::broadcast::Sender<Option<OsString>>;
+pub type ConnectorInbox = tokio::sync::broadcast::Receiver<Option<OsString>>;
 
 #[derive(Debug, Serialize, Deserialize)]
 /// VirtToPhyResponse represents the result of Connector::addr_virt_to_phy(addr).

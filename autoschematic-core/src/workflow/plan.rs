@@ -172,7 +172,7 @@ pub async fn plan(
                 loop {
                     match inbox.recv().await {
                         Ok(Some(stdout)) => {
-                            eprintln!("{stdout}");
+                            eprintln!("{}", stdout.to_string_lossy());
                         }
                         Ok(None) => {}
                         Err(_) => break,

@@ -103,12 +103,7 @@ pub async fn apply(
             loop {
                 match inbox.recv().await {
                     Ok(Some(stdout)) => {
-                        // let res = append_run_log(&sender_trace_handle, stdout).await;
-                        eprintln!("{stdout}");
-                        // match res {
-                        //     Ok(_) => {}
-                        //     Err(_) => {}
-                        // }
+                        eprintln!("{}", stdout.to_string_lossy());
                     }
                     Ok(None) => {}
                     Err(_) => break,

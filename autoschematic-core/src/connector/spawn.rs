@@ -1,10 +1,12 @@
 use std::{
     collections::HashMap,
+    fs::create_dir_all,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
 
+use crate::util::repo_root;
 use crate::{
     config::Spec,
     connector::{ConnectorInbox, handle::ConnectorHandle},
@@ -30,6 +32,13 @@ pub fn is_sandbox_enabled() -> bool {
     }
 }
 
+pub fn have_squashfs() -> Option<PathBuf> {
+    match std::env::var("AUTOSCHEMATIC_SANDBOX_ROOT") {
+        Ok(s) => Some(PathBuf::from(s)),
+        Err(_) => None,
+    }
+}
+
 pub async fn spawn_connector(
     shortname: &str,
     spec: &Spec,
@@ -39,13 +48,26 @@ pub async fn spawn_connector(
 ) -> Result<(Arc<dyn ConnectorHandle>, ConnectorInbox), anyhow::Error> {
     let (outbox, inbox) = tokio::sync::broadcast::channel(64);
 
+    create_dir_all("/tmp/autoschematic")?;
+
     #[cfg(target_os = "linux")]
     return Ok((
         if is_sandbox_enabled() {
+            let new_root = std::env::var("AUTOSCHEMATIC_SANDBOX_ROOT")?;
+            let repo_path = repo_root()?.canonicalize()?;
             Arc::new(
-                sandbox::launch_server_binary_sandboxed(spec, shortname, prefix, env, outbox, keystore)
-                    .await
-                    .context("launch_server_binary_sandboxed()")?,
+                sandbox::launch_server_binary_sandboxed(
+                    spec,
+                    shortname,
+                    prefix,
+                    env,
+                    outbox,
+                    keystore,
+                    new_root.into(),
+                    repo_path,
+                )
+                .await
+                .context("launch_server_binary_sandboxed()")?,
             ) as Arc<dyn ConnectorHandle>
         } else {
             Arc::new(
@@ -86,11 +108,8 @@ pub async fn wait_for_socket(socket: &Path, timeout: Duration) -> anyhow::Result
 
 fn random_socket_path() -> PathBuf {
     loop {
-        let socket_s: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
-
-        let mut socket = PathBuf::from("/tmp/").join(socket_s);
-
-        socket.set_extension("sock");
+        let socket_id: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
+        let socket = PathBuf::from(format!("/tmp/autoschematic/{}.sock", socket_id));
 
         if let Ok(false) = socket.try_exists() {
             tracing::info!("Creating socket at {:?}", socket);
@@ -101,14 +120,26 @@ fn random_socket_path() -> PathBuf {
 
 fn random_error_dump_path() -> PathBuf {
     loop {
-        let dump_s: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
+        let dump_id: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
 
-        let mut dump = PathBuf::from("/tmp/").join(dump_s);
-
-        dump.set_extension("dump");
+        let dump = PathBuf::from(format!("/tmp/autoschematic/{}.dump", dump_id));
 
         if let Ok(false) = dump.try_exists() {
             return dump;
+        }
+    }
+}
+
+fn random_overlay_dir(root: &Path) -> PathBuf {
+    loop {
+        let overlay_s: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
+
+        let mut overlay = root.join("/tmp/").join(overlay_s);
+
+        overlay.set_extension("overlay");
+
+        if let Ok(false) = overlay.try_exists() {
+            return overlay;
         }
     }
 }
