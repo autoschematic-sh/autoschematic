@@ -16,7 +16,7 @@ use crate::{
         Connector, ConnectorOutbox, DocIdent, FilterResponse, GetDocResponse, GetResourceResponse, OpExecResponse,
         PlanResponseElement, SkeletonResponse, TaskExecResponse, VirtToPhyResponse,
         handle::{ConnectorHandle, ConnectorHandleStatus},
-        spawn::{random_error_dump_path, random_overlay_dir, random_socket_path},
+        spawn::{random_error_dump_path, random_socket_path},
     },
     diag::DiagnosticResponse,
     error::ErrorMessage,
@@ -38,6 +38,7 @@ use nix::{
     unistd::{Gid, Pid, Uid, chdir, execve, getegid, geteuid, pipe, pivot_root, setresgid, setresuid},
 };
 use once_cell::sync::Lazy;
+use rand::{Rng, distr::Alphanumeric};
 use sysinfo::ProcessRefreshKind;
 use tokio::sync::Mutex;
 use walkdir::WalkDir;
@@ -265,6 +266,20 @@ pub fn log_proc_self_status() {
     let status = std::fs::read_to_string("/proc/self/status").unwrap();
     eprintln!("/proc/self/status:");
     eprintln!("{}", status);
+}
+
+fn random_overlay_dir(_root: &Path) -> PathBuf {
+    loop {
+        let overlay_s: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
+
+        let mut overlay = Path::new("/tmp/").join(overlay_s);
+
+        overlay.set_extension("overlay");
+
+        if let Ok(false) = overlay.try_exists() {
+            return overlay;
+        }
+    }
 }
 
 /// Use /proc/self/fd/.. to close all open file descriptors

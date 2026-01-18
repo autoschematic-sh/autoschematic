@@ -129,17 +129,3 @@ fn random_error_dump_path() -> PathBuf {
         }
     }
 }
-
-fn random_overlay_dir(_root: &Path) -> PathBuf {
-    loop {
-        let overlay_s: String = rand::rng().sample_iter(&Alphanumeric).take(20).map(char::from).collect();
-
-        let mut overlay = Path::new("/tmp/").join(overlay_s);
-
-        overlay.set_extension("overlay");
-
-        if let Ok(false) = overlay.try_exists() {
-            return overlay;
-        }
-    }
-}
