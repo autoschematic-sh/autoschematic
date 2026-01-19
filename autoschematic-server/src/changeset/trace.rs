@@ -1,3 +1,5 @@
+use std::ffi::OsString;
+
 use crate::{
     TRACESTORE,
     error::{AutoschematicServerError, AutoschematicServerErrorType},
@@ -36,7 +38,7 @@ pub async fn start_run(
         .await
 }
 
-pub async fn append_run_log(handle: &TraceHandle, log: String) -> anyhow::Result<()> {
+pub async fn append_run_log(handle: &TraceHandle, log: OsString) -> anyhow::Result<()> {
     let Some(trace_store) = TRACESTORE.get() else {
         return Err(AutoschematicServerError {
             kind: AutoschematicServerErrorType::ConfigurationError {

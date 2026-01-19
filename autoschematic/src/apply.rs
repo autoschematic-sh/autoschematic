@@ -10,7 +10,7 @@ use rand::Rng;
 
 use autoschematic_core::{
     git_util::{get_staged_files, git_add},
-    report::{PlanReport, PlanReportSet},
+    report::{ApplyReport, PlanReport, PlanReportSet},
     template::ReadOutput,
     util::{load_autoschematic_config, repo_root},
 };
@@ -29,7 +29,7 @@ pub async fn apply(
     _subpath_filter: Option<String>,
     ask_confirm: bool,
     skip_commit: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<ApplyReport>> {
     check_safety_lock()?;
 
     let repo_root = repo_root()?;
@@ -54,13 +54,14 @@ pub async fn apply(
     }
 
     let mut plan_report_set = PlanReportSet::default();
+    let mut apply_report_set = Vec::new();
 
     let mut need_print_frame_start = true;
     let mut need_print_frame_end = false;
 
     if staged_files.is_empty() {
         println!(" ∅  No files staged in git. Stage modified files with git add to plan or apply them.");
-        return Ok(());
+        return Ok(apply_report_set);
     }
 
     // let mut unbundle_results = Vec::new();
@@ -147,7 +148,7 @@ pub async fn apply(
         println!(
             " ≡ All plans are empty, implying that the remote configuration matches the desired configuration for all staged files."
         );
-        return Ok(());
+        return Ok(apply_report_set);
     }
 
     if ask_confirm {
@@ -204,10 +205,10 @@ pub async fn apply(
 
         print_plan_addr(&plan_report);
 
-        for output in apply_report.outputs {
-            if let Some(friendly_message) = output.friendly_message {
+        for output in &apply_report.outputs {
+            if let Some(ref friendly_message) = output.friendly_message {
                 let coloured_message =
-                    try_colour_op_message_diff(&friendly_message).unwrap_or(colour_op_message(&friendly_message));
+                    try_colour_op_message_diff(friendly_message).unwrap_or(colour_op_message(friendly_message));
 
                 for (i, line) in coloured_message.lines().enumerate() {
                     if i == 0 {
@@ -219,11 +220,11 @@ pub async fn apply(
                 }
             }
 
-            if let Some(report_outputs) = output.outputs {
-                for (key, _) in report_outputs {
+            if let Some(ref report_outputs) = output.outputs {
+                for key in report_outputs.keys() {
                     set_outputs.insert(ReadOutput {
                         addr: plan_report.virt_addr.clone(),
-                        key,
+                        key: key.clone(),
                     });
                 }
             }
@@ -232,7 +233,10 @@ pub async fn apply(
         for path in &apply_report.wrote_files {
             git_add(&repo_root, path)?;
         }
+
         wrote_files = true;
+
+        apply_report_set.push(apply_report);
     }
     if need_print_frame_end {
         print_frame_end();
@@ -309,5 +313,5 @@ pub async fn apply(
         }
     }
 
-    Ok(())
+    Ok(apply_report_set)
 }

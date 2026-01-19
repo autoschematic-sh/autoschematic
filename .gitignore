@@ -5,4 +5,7 @@ target/
 **/*/node_modules/
 *.cred.json
 scripts/build_docker_test.sh
+scripts/build_docker_dist.sh
+scripts/publish_docker_test.sh
 autoschematic-mcp/*
+CLAUDE.md

@@ -1,5 +1,6 @@
 target/
 autoschematic/target/
+autoschematic-server/target/
 autoschematic-core/target/
 autoschematic-cli/target/
 autoschematic-connector-python/

@@ -63,6 +63,7 @@ impl ConnectorCache {
     pub async fn top(&self) -> HashMap<ConnectorCacheKey, TopResponse> {
         let mut res = HashMap::new();
 
+        // Note: This looks redundant, but avoids a lifetime issue with DashMap: Map not being general enough...
         let keys: Vec<ConnectorCacheKey> = self.cache.iter().map(|kv| kv.key().clone()).collect();
 
         for key in keys {
@@ -169,7 +170,7 @@ impl ConnectorCache {
                     }
                 };
 
-                check_connector_host_version_match(&connector_def.shortname, connector).await?;
+                // check_connector_host_version_match(&connector_def.shortname, connector).await?;
 
                 if need_init {
                     self.init_status.insert(key.clone(), InitStatus::Initializing);

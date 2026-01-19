@@ -1,6 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use autoschematic_core::connector_cache::ConnectorCache;
+
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
 use tracing_subscriber::EnvFilter;
@@ -14,6 +15,7 @@ lazy_static! {
 
 mod apply;
 mod aux_task;
+mod check_drift;
 mod config;
 mod create;
 mod import;
@@ -214,6 +216,11 @@ pub enum AutoschematicSubcommand {
         #[arg(short, long, value_name = "connector")]
         connector: Option<String>,
     },
+    /// Check if a resource at `path` has drifted.
+    CheckDrift {
+        #[arg(short, long, value_name = "path")]
+        path: String,
+    },
 }
 
 #[tokio::main]
@@ -232,7 +239,7 @@ async fn main() -> anyhow::Result<()> {
         if tokio::signal::ctrl_c().await.is_ok() {
             eprintln!("Received Ctrl-C, cleaning up connectors...");
             cache_for_ctrlc.clear().await;
-            std::process::exit(130); // Standard exit code for SIGINT
+            std::process::exit(130); // SIGINT
         }
     });
 
@@ -270,7 +277,8 @@ async fn main() -> anyhow::Result<()> {
             skip_commit,
         } => {
             let ask_confirm = !skip_confirm;
-            apply::apply(prefix, connector, subpath, ask_confirm, skip_commit).await
+            let _apply_reports = apply::apply(prefix, connector, subpath, ask_confirm, skip_commit).await?;
+            Ok(())
         }
         AutoschematicSubcommand::Unbundle {
             prefix,
@@ -301,6 +309,7 @@ async fn main() -> anyhow::Result<()> {
             AutoschematicSafetySubcommand::Lock => set_safety_lock(),
             AutoschematicSafetySubcommand::Unlock => unset_safety_lock(),
         },
+        AutoschematicSubcommand::CheckDrift { path } => check_drift::check_drift(&path).await,
     };
 
     // Clean up connector cache before exiting

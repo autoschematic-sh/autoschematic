@@ -121,6 +121,8 @@ pub enum Spec {
         #[serde(default)]
         binary: Option<String>,
         #[serde(default)]
+        cargo: Option<String>,
+        #[serde(default)]
         features: Option<Vec<String>>,
         #[serde(default)]
         protocol: Protocol,
@@ -180,14 +182,14 @@ impl Spec {
     pub fn command(&self) -> anyhow::Result<SpecCommand> {
         match self {
             Spec::Binary { path, .. } => {
-                let mut binary_path = path.clone();
-                if !binary_path.is_file() {
-                    binary_path = which::which(binary_path)?;
-                }
+                let binary_path = path.clone();
+                // if !binary_path.is_file() {
+                //     binary_path = which::which(binary_path)?;
+                // }
 
-                if !binary_path.is_file() {
-                    bail!("launch_server_binary: {}: not found", binary_path.display())
-                }
+                // if !binary_path.is_file() {
+                //     bail!("launch_server_binary: {}: not found", binary_path.display())
+                // }
                 // let mut command = tokio::process::Command::new(binary_path);
                 // let args = [shortname.into(), prefix.into(), socket.clone(), error_dump.clone()];
                 // command.args(args);
@@ -226,7 +228,11 @@ impl Spec {
                 })
             }
             Spec::CargoLocal {
-                path, binary, features, ..
+                path,
+                binary,
+                features,
+                cargo,
+                ..
             } => {
                 let manifest_path = path.join("Cargo.toml");
                 if !manifest_path.is_file() {
@@ -246,10 +252,14 @@ impl Spec {
                 {
                     args.append(&mut vec![String::from("--features"), features.join(",").to_string()]);
                 }
-                Ok(SpecCommand {
-                    binary: "cargo".into(),
-                    args,
-                })
+
+                let binary = if let Some(cargo) = cargo {
+                    cargo.into()
+                } else {
+                    "cargo".into()
+                };
+
+                Ok(SpecCommand { binary, args })
             }
             Spec::TypescriptLocal { path } => {
                 if !path.is_file() {

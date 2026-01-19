@@ -22,11 +22,11 @@ use autoschematic_core::{
         rename,
     },
 };
-use lsp_types::*;
+
 use path_at::ident_at;
 use serde::de::DeserializeOwned;
 use tokio::{sync::RwLock, task::JoinSet};
-use tower_lsp_server::{Client, LanguageServer, LspService, Server, jsonrpc::Error as LspError, lsp_types};
+use tower_lsp_server::{Client, LanguageServer, LspService, Server, jsonrpc::Error as LspError, ls_types::*};
 use tracing_subscriber::filter::LevelFilter;
 use util::{diag_to_lsp, lsp_error, lsp_param_to_path};
 
@@ -44,7 +44,7 @@ pub mod util;
 struct Backend {
     client: Client,
     docs: DashMap<Uri, String>,
-    autoschematic_config: RwLock<Option<AutoschematicConfig>>,
+    autoschematic_config: RwLock<Option<Arc<AutoschematicConfig>>>,
     connector_cache: Arc<ConnectorCache>,
 }
 
@@ -75,6 +75,7 @@ impl LanguageServer for Backend {
     }
 
     async fn shutdown(&self) -> Result<(), LspError> {
+        self.connector_cache.clear().await;
         Ok(())
     }
 
@@ -115,11 +116,11 @@ impl LanguageServer for Backend {
         };
 
         if let Some(ident) = ident {
-            let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+            let Some(autoschematic_config) = self.autoschematic_config.read().await.clone() else {
                 return Ok(None);
             };
 
-            let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &file_path) else {
+            let Some((prefix, addr)) = split_prefix_addr(&autoschematic_config, &file_path) else {
                 if let Ok(Some(res)) = get_system_docstring(&file_path, ident) {
                     return Ok(Some(Hover {
                         contents: HoverContents::Markup(MarkupContent {
@@ -133,7 +134,8 @@ impl LanguageServer for Backend {
                 }
             };
 
-            if let Ok(Some(res)) = get_docstring(autoschematic_config, &self.connector_cache, None, &prefix, &addr, ident).await
+            if let Ok(Some(res)) =
+                get_docstring(&autoschematic_config, &self.connector_cache, None, &prefix, &addr, ident).await
             {
                 return Ok(Some(Hover {
                     contents: HoverContents::Markup(MarkupContent {
@@ -176,7 +178,7 @@ impl LanguageServer for Backend {
             name: parent.to_string(),
         };
 
-        let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+        let Some(autoschematic_config) = self.autoschematic_config.read().await.clone() else {
             return Ok(None);
         };
 
@@ -185,7 +187,7 @@ impl LanguageServer for Backend {
         };
 
         // If it's not under a prefix, try it against the system docstring lookup...
-        let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &file_path) else {
+        let Some((prefix, addr)) = split_prefix_addr(&autoschematic_config, &file_path) else {
             if let Ok(Some(res)) = get_system_docstring(&file_path, ident) {
                 return Ok(Some(CompletionResponse::Array(
                     res.fields
@@ -204,7 +206,7 @@ impl LanguageServer for Backend {
                                         ..Default::default()
                                     }),
                                     kind: Some(CompletionItemKind::FIELD),
-                                    documentation: Some(lsp_types::Documentation::MarkupContent(MarkupContent {
+                                    documentation: Some(Documentation::MarkupContent(MarkupContent {
                                         kind: MarkupKind::Markdown,
                                         value: field_res.markdown.clone(),
                                     })),
@@ -234,14 +236,14 @@ impl LanguageServer for Backend {
         };
 
         // ...otherwise, just get a regular resource docstring in that prefix.
-        if let Ok(Some(res)) = get_docstring(autoschematic_config, &self.connector_cache, None, &prefix, &addr, ident).await {
+        if let Ok(Some(res)) = get_docstring(&autoschematic_config, &self.connector_cache, None, &prefix, &addr, ident).await {
             let mut items = Vec::new();
             if res.fields.is_empty() {
                 return Ok(None);
             }
             for field in res.fields {
                 let field_doc = if let Ok(Some(field_doc)) = get_docstring(
-                    autoschematic_config,
+                    &autoschematic_config,
                     &self.connector_cache,
                     None,
                     &prefix,
@@ -258,11 +260,11 @@ impl LanguageServer for Backend {
                     None
                 };
 
-                eprintln!("{:?}", field_doc);
+                // eprintln!("{:?}", field_doc);
 
                 let detail = field_doc.as_ref().map(|f| f.r#type.clone());
                 let field_doc = field_doc.map(|f| {
-                    lsp_types::Documentation::MarkupContent(MarkupContent {
+                    Documentation::MarkupContent(MarkupContent {
                         kind: MarkupKind::Markdown,
                         value: f.markdown.clone(),
                     })
@@ -334,11 +336,11 @@ impl LanguageServer for Backend {
                     return Ok(None);
                 };
 
-                let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+                let Some(autoschematic_config) = self.autoschematic_config.read().await.clone() else {
                     return Ok(None);
                 };
 
-                match rename::rename(autoschematic_config, &self.connector_cache, keystore, &old_path, &new_path).await {
+                match rename::rename(&autoschematic_config, &self.connector_cache, keystore, &old_path, &new_path).await {
                     Ok(_) => {}
                     Err(e) => {
                         eprintln!("{e}");
@@ -351,15 +353,15 @@ impl LanguageServer for Backend {
                     return Ok(None);
                 };
 
-                let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+                let Some(autoschematic_config) = self.autoschematic_config.read().await.clone() else {
                     return Ok(None);
                 };
 
-                let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &path) else {
+                let Some((prefix, addr)) = split_prefix_addr(&autoschematic_config, &path) else {
                     return Ok(None);
                 };
 
-                match get(autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await {
+                match get(&autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await {
                     Ok(Some(res)) => match String::from_utf8(res) {
                         Ok(s) => {
                             let Ok(s) = serde_json::to_value(s) else {
@@ -382,15 +384,15 @@ impl LanguageServer for Backend {
                     return Ok(None);
                 };
 
-                let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+                let Some(autoschematic_config) = self.autoschematic_config.read().await.clone() else {
                     return Ok(None);
                 };
 
-                let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &path) else {
+                let Some((prefix, addr)) = split_prefix_addr(&autoschematic_config, &path) else {
                     return Ok(None);
                 };
 
-                let remote_content = get(autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await;
+                let remote_content = get(&autoschematic_config, &self.connector_cache, keystore, &prefix, &addr).await;
                 let remote_content = match map_lsp_error(remote_content)? {
                     Some(res) => map_lsp_error(String::from_utf8(res))?,
                     None => return Ok(None),
@@ -411,31 +413,26 @@ impl LanguageServer for Backend {
                 return Ok(Some(value));
             }
             "filter" => {
+                let Ok(ret_empty) = serde_json::to_value(Vec::<String>::new()) else {
+                    return Ok(None);
+                };
+
                 let Some(path) = lsp_param_to_path(params) else {
                     return Ok(None);
                 };
 
-                let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
-                    let Ok(value) = serde_json::to_value(false) else {
-                        return Ok(None);
-                    };
-                    return Ok(Some(value));
+                let Some(autoschematic_config) = self.autoschematic_config.read().await.clone() else {
+                    return Ok(None);
                 };
 
-                let Some((prefix, addr)) = split_prefix_addr(autoschematic_config, &path) else {
-                    let Ok(value) = serde_json::to_value(false) else {
-                        return Ok(None);
-                    };
-                    return Ok(Some(value));
+                let Some((prefix, addr)) = split_prefix_addr(&autoschematic_config, &path) else {
+                    return Ok(Some(ret_empty));
                 };
 
-                let Ok(filter_res) = filter(autoschematic_config, &self.connector_cache, keystore, None, &prefix, &addr).await
-                else {
-                    let Ok(value) = serde_json::to_value(false) else {
-                        return Ok(None);
-                    };
-                    return Ok(Some(value));
-                };
+                let filter_res = filter(&autoschematic_config, &self.connector_cache, keystore, None, &prefix, &addr)
+                    .await
+                    .map_err(lsp_error)?;
+
                 let mut res = Vec::<String>::new();
 
                 if filter_res.intersects(FilterResponse::Config) {
@@ -534,7 +531,7 @@ impl Backend {
             None
         };
 
-        *self.autoschematic_config.write().await = config;
+        *self.autoschematic_config.write().await = config.map(Arc::new);
         self.load_connectors().await?;
 
         Ok(())
@@ -556,7 +553,7 @@ impl Backend {
 
         self.try_load_config().await?;
 
-        let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
+        let Some(autoschematic_config) = self.autoschematic_config.read().await.clone() else {
             return Ok(res);
         };
 
@@ -596,16 +593,12 @@ impl Backend {
     }
 
     async fn load_connectors(&self) -> anyhow::Result<()> {
-        let Some(ref autoschematic_config) = *self.autoschematic_config.read().await else {
-            eprintln!("load_connectors: config none!");
+        let Some(autoschematic_config) = self.autoschematic_config.read().await.clone() else {
             return Ok(());
         };
-
-        let autoschematic_config = Arc::new(autoschematic_config.clone());
         // let mut handles = Vec::new();
         let mut joinset: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
-        let autoschematic_config = autoschematic_config.clone();
         for (prefix_name, prefix_def) in &autoschematic_config.prefixes {
             let autoschematic_config = autoschematic_config.clone();
             let prefix_def = prefix_def.clone();
@@ -619,7 +612,7 @@ impl Backend {
 
                 joinset.spawn(async move {
                     let (_connector, mut inbox) = connector_cache
-                        .get_or_spawn_connector(&autoschematic_config, &prefix_name, &connector_def, None, false)
+                        .get_or_spawn_connector(&autoschematic_config, &prefix_name, &connector_def, None, true)
                         .await?;
 
                     // let sender_trace_handle = trace_handle.clone();
@@ -628,7 +621,7 @@ impl Backend {
                             match inbox.recv().await {
                                 Ok(Some(stdout)) => {
                                     // dbg!(&stdout);
-                                    eprintln!("stdout: {stdout}");
+                                    eprintln!("{}", stdout.to_string_lossy());
                                     // self.client.log_message(MessageType::INFO, format!("{}", stdout)).await;
                                     // let res = append_run_log(&sender_trace_handle, stdout).await;
                                     // match res {
@@ -691,9 +684,9 @@ impl Backend {
     }
 
     fn uri_to_local_path(&self, uri: &Uri) -> anyhow::Result<PathBuf> {
-        let Some(scheme) = uri.scheme() else { bail!("No uri scheme") };
+        let scheme = uri.scheme().as_str();
 
-        if !scheme.eq_lowercase("file") {
+        if scheme != "file" {
             bail!("Unknown uri scheme {}", scheme)
         }
 
@@ -711,9 +704,9 @@ impl Backend {
     }
 
     async fn load_file_uri(&self, uri: &Uri) -> anyhow::Result<String> {
-        let Some(scheme) = uri.scheme() else { bail!("No uri scheme") };
+        let scheme = uri.scheme().as_str();
 
-        if !scheme.eq_lowercase("file") {
+        if scheme != "file" {
             bail!("Unknown uri scheme {}", scheme)
         }
 
@@ -729,9 +722,9 @@ impl Backend {
 
         // self.client.log_message(MessageType::WARNING, format!("{:?}", uri)).await;
 
-        let Some(scheme) = uri.scheme() else { return Ok(res) };
+        let scheme = uri.scheme().as_str();
 
-        if !scheme.eq_lowercase("file") {
+        if scheme != "file" {
             return Ok(res);
         }
 
@@ -805,19 +798,22 @@ async fn main() -> Result<()> {
         .with_thread_ids(false)
         .with_ansi(false)
         .with_writer(std::io::stderr)
-        .with_max_level(LevelFilter::WARN)
+        .with_max_level(LevelFilter::INFO)
         .compact()
         .init();
 
-    let connector_cache = ConnectorCache::default();
+    let connector_cache = Arc::new(ConnectorCache::default());
 
     let (stdin, stdout) = (tokio::io::stdin(), tokio::io::stdout());
     let (service, socket) = LspService::new(|client| Backend {
         client,
         docs: DashMap::new(),
         autoschematic_config: RwLock::new(None),
-        connector_cache: Arc::new(connector_cache),
+        connector_cache: connector_cache.clone(),
     });
+
     Server::new(stdin, stdout, socket).serve(service).await;
+    connector_cache.clear().await;
+
     Ok(())
 }

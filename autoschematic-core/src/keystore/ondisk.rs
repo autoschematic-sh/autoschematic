@@ -1,4 +1,3 @@
-// autoschematic/src/keystore/ondisk.rs
 use anyhow::{Result, anyhow};
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;

@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsString,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -409,7 +410,7 @@ impl Connector for TarpcConnectorClient {
 
 pub async fn launch_client(socket: &Path) -> Result<Arc<dyn Connector>, anyhow::Error> {
     tracing::info!("waiting for  socket...");
-    wait_for_socket(socket, Duration::from_secs(30)).await?;
+    wait_for_socket(socket, Duration::from_secs(5)).await?;
     tracing::info!("Got socket...");
     let conn = UnixStream::connect(socket).await?;
     tracing::info!("Connected to socket...");
@@ -426,7 +427,7 @@ pub async fn launch_server<C: Connector>(
     name: &str,
     prefix: &Path,
     socket: &Path,
-    outbox: tokio::sync::broadcast::Sender<Option<String>>,
+    outbox: tokio::sync::broadcast::Sender<Option<OsString>>,
 ) -> anyhow::Result<()> {
     let connector = C::new(name, prefix, outbox).await.context("Failed to initialize connector")?;
 
@@ -434,7 +435,7 @@ pub async fn launch_server<C: Connector>(
         connector: Arc::new(Mutex::new(connector)),
     };
 
-    let listener = UnixListener::bind(socket).context("Failed to bind socket")?;
+    let listener = UnixListener::bind(socket).context(format!("Failed to bind socket at {}", socket.display()))?;
     let codec_builder = LengthDelimitedCodec::builder();
 
     loop {
@@ -456,7 +457,7 @@ pub async fn init_server<C: Connector>(
     name: &str,
     prefix: &Path,
     socket: &Path,
-    outbox: tokio::sync::broadcast::Sender<Option<String>>,
+    outbox: tokio::sync::broadcast::Sender<Option<OsString>>,
 ) -> anyhow::Result<isize> {
     match launch_server::<C>(name, prefix, socket, outbox).await {
         Ok(()) => {
@@ -496,8 +497,8 @@ pub async fn tarpc_connector_main<T: Connector>() -> anyhow::Result<()> {
                 Ok(())
             }
             Err(e) => {
-                std::fs::write(error_dump, format!("{e:?}")).expect("Failed to write error dump!");
                 tracing::error!("init_server threw an error: {:?}", e);
+                std::fs::write(error_dump, format!("{e:?}")).expect("Failed to write error dump!");
                 Err(e)
             }
         },

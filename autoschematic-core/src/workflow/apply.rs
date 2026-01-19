@@ -32,6 +32,9 @@ pub async fn apply_connector(connector: Arc<dyn Connector>, plan: &PlanReport) -
             VirtToPhyResponse::Null(phy_addr) => connector.op_exec(&phy_addr, &op.op_definition).await?,
         };
 
+        apply_report.prefix = plan.prefix.clone();
+        apply_report.virt_addr = plan.virt_addr.clone();
+
         if let Some(outputs) = &op_exec_output.outputs
             && !outputs.is_empty()
         {
@@ -100,12 +103,7 @@ pub async fn apply(
             loop {
                 match inbox.recv().await {
                     Ok(Some(stdout)) => {
-                        // let res = append_run_log(&sender_trace_handle, stdout).await;
-                        eprintln!("{stdout}");
-                        // match res {
-                        //     Ok(_) => {}
-                        //     Err(_) => {}
-                        // }
+                        eprintln!("{}", stdout.to_string_lossy());
                     }
                     Ok(None) => {}
                     Err(_) => break,

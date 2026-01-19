@@ -735,7 +735,7 @@ impl Connector for GrpcConnectorClient {
 
 pub async fn launch_client(socket: &Path) -> Result<Arc<dyn Connector>, anyhow::Error> {
     tracing::info!("waiting for  socket...");
-    wait_for_socket(socket, Duration::from_secs(30)).await?;
+    wait_for_socket(socket, Duration::from_secs(5)).await?;
     tracing::info!("Got socket...");
 
     let connector_client = GrpcConnectorClient::connect(socket).await?;

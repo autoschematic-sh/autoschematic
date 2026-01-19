@@ -213,6 +213,12 @@ export async function activate(context: vscode.ExtensionContext) {
 				command: "filter",
 				arguments: [fileUri.path]
 			});
+			
+
+			if (filterResponse === null) {
+				vscode.window.showErrorMessage(`No Autoschematic config is present.`);
+				return;
+			}
 
 			if (!filterResponse.includes("Resource")) {
 				vscode.window.showErrorMessage(`Not a resource file for any active connector: ${fileUri.path}`);

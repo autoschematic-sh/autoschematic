@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, ffi::OsString, time::Instant};
 
 use anyhow::bail;
 use async_trait::async_trait;
@@ -38,9 +38,9 @@ pub struct RunData {
     pub comment_url: String,
     pub r#type: String,
     pub command: String,
-    pub logs: Vec<String>,
+    pub logs: Vec<OsString>,
     #[serde(skip)]
-    pub log_sender: Option<Sender<String>>,
+    pub log_sender: Option<Sender<OsString>>,
     pub finished: bool,
 }
 
@@ -76,8 +76,8 @@ pub trait TraceStore: Send + Sync + std::fmt::Debug {
         command: &str,
     ) -> anyhow::Result<TraceHandle>;
     async fn finish_run(&self, handle: &TraceHandle) -> anyhow::Result<()>;
-    async fn append_run_log(&self, handle: &TraceHandle, value: String) -> anyhow::Result<()>;
-    async fn subscribe_run_logs(&self, repo_key: &RepoKey, run_key: &RunKey) -> anyhow::Result<Option<Receiver<String>>>;
+    async fn append_run_log(&self, handle: &TraceHandle, value: OsString) -> anyhow::Result<()>;
+    async fn subscribe_run_logs(&self, repo_key: &RepoKey, run_key: &RunKey) -> anyhow::Result<Option<Receiver<OsString>>>;
 }
 
 #[async_trait]
@@ -228,7 +228,7 @@ impl TraceStore for InMemTraceStore {
         Ok(())
     }
 
-    async fn append_run_log(&self, handle: &TraceHandle, value: String) -> anyhow::Result<()> {
+    async fn append_run_log(&self, handle: &TraceHandle, value: OsString) -> anyhow::Result<()> {
         let mut repos = self.repos.lock().await;
 
         let Some(repo) = repos.get_mut(&handle.repo_key) else {
@@ -262,7 +262,7 @@ impl TraceStore for InMemTraceStore {
         Ok(())
     }
 
-    async fn subscribe_run_logs(&self, repo_key: &RepoKey, run_key: &RunKey) -> anyhow::Result<Option<Receiver<String>>> {
+    async fn subscribe_run_logs(&self, repo_key: &RepoKey, run_key: &RunKey) -> anyhow::Result<Option<Receiver<OsString>>> {
         let mut repos = self.repos.lock().await;
         let Some(repo) = repos.get_mut(repo_key) else {
             bail!("No such repo: {:?}", repo_key);

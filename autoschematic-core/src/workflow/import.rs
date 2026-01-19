@@ -176,7 +176,7 @@ pub async fn import_all(
                 loop {
                     match inbox.recv().await {
                         Ok(Some(stdout)) => {
-                            eprintln!("{stdout}");
+                            eprintln!("{}", stdout.to_string_lossy());
                         }
                         Err(RecvError::Closed) => break,
                         _ => {}

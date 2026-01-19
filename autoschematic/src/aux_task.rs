@@ -61,7 +61,7 @@ pub async fn spawn_task(
             let res = registry_inbox.recv().await;
             match res {
                 Some(msg) => {
-                    // tracing::info!("Got Message from task: {:?}", msg);
+                    println!("Got Message from task: {:?}", msg);
                     match msg {
                         TaskMessage::StateChange(ref value) => {
                             if let Some(registry) = TASK_REGISTRY.get() {
@@ -152,7 +152,7 @@ pub async fn spawn_task(
                 match task.run(arg).await {
                     Ok(()) => Ok(()),
                     Err(e) => {
-                        // tracing::error!("Agent error: {}", e);
+                        eprintln!("Aux Task error: {}", e);
                         Ok(task_outbox
                             .send(TaskMessage::StateChange(TaskState::Error {
                                 message: format!("{e:#?}"),

@@ -3,7 +3,7 @@
 # The above line is so we can use can use heredocs in Dockerfiles. No more && and \!
 # https://www.docker.com/blog/introduction-to-heredocs-in-dockerfiles/
 
-FROM rust:1.90-trixie AS build
+FROM rust:1.92-trixie AS build
 
 # Capture dependencies
 RUN cargo new /app
@@ -43,10 +43,13 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,targe
 EOF
 
 # Again, our final image is the same - a slim base and just our app
-FROM debian:bookworm-slim AS app
+FROM rust:1.92-slim-trixie AS app
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    libssl-dev \
+    pkg-config \
+    protobuf-compiler \
     # python3.11 \ 
     # python3-pip \ 
     # libpython3.11-dev \
