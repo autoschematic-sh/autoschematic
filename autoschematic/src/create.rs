@@ -106,7 +106,9 @@ pub async fn create(_prefix_filter: &Option<String>, _connector_filter: &Option<
 
     println!("Writing {}/{}", prefix.display(), output_path.display());
 
-    tokio::fs::create_dir_all(prefix.join(&output_path).parent().unwrap()).await?;
+    if let Some(parent) = prefix.join(&output_path).parent() {
+        tokio::fs::create_dir_all(parent).await?;
+    }
 
     tokio::fs::write(prefix.join(output_path), &skeleton.body).await?;
 

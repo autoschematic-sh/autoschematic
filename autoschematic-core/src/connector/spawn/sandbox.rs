@@ -716,7 +716,9 @@ pub fn unseal_secrets_to_folder(
         let secret_text = keystore.unseal_secret(secrets.first().unwrap())?;
         let out_dir = secret_mount.join(prefix).join(connector_shortname);
         let out_path = path.strip_prefix(prefix.join(".secrets").join(connector_shortname))?;
-        std::fs::create_dir_all(out_dir.join(out_path).parent().unwrap())?;
+        if let Some(parent) = out_dir.join(out_path).parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         std::fs::write(out_dir.join(out_path), secret_text)?;
     }
     Ok(())

@@ -89,7 +89,9 @@ pub async fn seal(domain: &str, path: &Path, in_path: Option<&Path>, key_id: Opt
     // } else {
     //     out_path.set_extension("sealed");
     // }
-    std::fs::create_dir_all(path.parent().unwrap())?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
 
     std::fs::write(path, serde_json::to_string_pretty(&[seal])?)?;
     Ok(())

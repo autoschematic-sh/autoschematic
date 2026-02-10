@@ -34,7 +34,7 @@ pub async fn show_spinner() -> tokio::sync::oneshot::Sender<()> {
             {
                 let lock = std::io::stdout().lock();
                 print!("{}\r", frames[frame_i % frames.len()].on_black().bold());
-                std::io::stdout().flush().unwrap();
+                let _ = std::io::stdout().flush();
                 drop(lock);
             }
             frame_i += 1;
@@ -43,12 +43,12 @@ pub async fn show_spinner() -> tokio::sync::oneshot::Sender<()> {
                     // print!("\r");
                     let _lock =std::io::stdout().lock();
                     print!(" \r");
-                    std::io::stdout().flush().unwrap();
+                    let _ = std::io::stdout().flush();
                 }
                 _ = &mut recv => {
                     let _lock =std::io::stdout().lock();
                     print!(" \r");
-                    std::io::stdout().flush().unwrap();
+                    let _ = std::io::stdout().flush();
                     break;
                 }
             }
