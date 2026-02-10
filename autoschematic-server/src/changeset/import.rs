@@ -189,7 +189,7 @@ impl ChangeSet {
                         }
                     }
                 });
-                // Store handle to ensure task completes, but don't block on it
+                // Detach the task to run independently without blocking
                 drop(reader_handle);
 
                 let phy_addrs = connector.list(&subpath.clone()).await.context(format!(

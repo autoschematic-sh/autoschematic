@@ -153,7 +153,7 @@ impl ChangeSet {
                     }
                 }
             });
-            // Store handle to ensure task completes, but don't block on it
+            // Detach the task to run independently without blocking
             // The task will finish when the inbox channel is closed
             drop(reader_handle);
 

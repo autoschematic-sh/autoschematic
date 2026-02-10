@@ -123,7 +123,7 @@ impl ChangeSet {
                         }
                     }
                 });
-                // Store handle to ensure task completes, but don't block on it
+                // Detach the task to run independently without blocking
                 drop(reader_handle);
 
                 'object: for object in &filtered_objects {

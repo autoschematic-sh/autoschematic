@@ -121,7 +121,7 @@ pub async fn spawn_task(
             }
         }
     });
-    // Store handle to ensure task completes, but don't block on it
+    // Detach the task to run independently without blocking
     // The task will exit when registry_inbox is closed
     drop(broadcast_handle);
 
