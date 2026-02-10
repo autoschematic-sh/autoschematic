@@ -93,18 +93,21 @@ impl ChangeSet {
                     .await?;
 
                 let sender_trace_handle = trace_handle.clone();
-                let _reader_handle = tokio::spawn(async move {
+                let reader_handle = tokio::spawn(async move {
                     loop {
                         match inbox.recv().await {
                             Ok(Some(stdout)) => {
-                                let _ = append_run_log(&sender_trace_handle, stdout).await;
-                                // if let Ok(_) = res {}
+                                if let Err(e) = append_run_log(&sender_trace_handle, stdout).await {
+                                    tracing::error!("Failed to append run log: {}", e);
+                                }
                             }
                             Ok(None) => {}
                             Err(_) => break,
                         }
                     }
                 });
+                // Store handle to ensure task completes, but don't block on it
+                drop(reader_handle);
 
                 // let mut connector_import_count = 0;
                 'object: for object in &filtered_objects {

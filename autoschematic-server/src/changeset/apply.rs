@@ -140,21 +140,22 @@ impl ChangeSet {
                 )
                 .await?;
             let sender_trace_handle = trace_handle.clone();
-            let _reader_handle = tokio::spawn(async move {
+            let reader_handle = tokio::spawn(async move {
                 loop {
                     match inbox.recv().await {
                         Ok(Some(stdout)) => {
-                            let _res = append_run_log(&sender_trace_handle, stdout).await;
-                            // match res {
-                            //     Ok(r) => {}
-                            //     Err(e) => {}
-                            // }
+                            if let Err(e) = append_run_log(&sender_trace_handle, stdout).await {
+                                tracing::error!("Failed to append run log: {}", e);
+                            }
                         }
                         Ok(None) => {}
                         Err(_) => break,
                     }
                 }
             });
+            // Store handle to ensure task completes, but don't block on it
+            // The task will finish when the inbox channel is closed
+            drop(reader_handle);
 
             if !plan_report.connector_ops.is_empty() {
                 let file_check_run_id = self

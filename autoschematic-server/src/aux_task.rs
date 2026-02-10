@@ -56,7 +56,7 @@ pub async fn spawn_task(
     let (_dummy_send, registry_broadcast) = tokio::sync::broadcast::channel(64);
 
     let broadcast_registry_key = registry_key.clone();
-    let _broadcast_handle: tokio::task::JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
+    let broadcast_handle: tokio::task::JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
         loop {
             let res = registry_inbox.recv().await;
             match res {
@@ -121,14 +121,18 @@ pub async fn spawn_task(
             }
         }
     });
+    // Store handle to ensure task completes, but don't block on it
+    // The task will exit when registry_inbox is closed
+    drop(broadcast_handle);
 
-    // TODO is this necessary??
-    let mut reader_broadcast = registry_broadcast.resubscribe();
-    let _reader_handle = tokio::spawn(async move {
-        loop {
-            let _res = reader_broadcast.recv().await;
-        }
-    });
+    // The reader broadcast appears to be unused (see TODO comment)
+    // Removing to avoid spawning unnecessary tasks
+    // let mut reader_broadcast = registry_broadcast.resubscribe();
+    // let _reader_handle = tokio::spawn(async move {
+    //     loop {
+    //         let _res = reader_broadcast.recv().await;
+    //     }
+    // });
 
     let Some(registry) = TASK_REGISTRY.get() else {
         bail!("Task registry not initialized")

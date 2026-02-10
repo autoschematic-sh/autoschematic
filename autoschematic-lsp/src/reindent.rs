@@ -199,7 +199,9 @@ pub fn reindent_old(src: &str) -> anyhow::Result<String> {
                 {
                     // consume the rest of the delimiter
                     for _ in 1..delim.len() {
-                        out.push(chars.next().unwrap());
+                        if let Some(ch) = chars.next() {
+                            out.push(ch);
+                        }
                     }
                     mode = Mode::Code;
                 }

@@ -207,7 +207,14 @@ impl ConnectorHandle for SandboxConnectorHandle {
     async fn status(&self) -> ConnectorHandleStatus {
         match self.still_alive() {
             Ok(pid) => {
-                let pid = sysinfo::Pid::from_u32(pid.try_into().unwrap());
+                let pid_u32: u32 = match pid.try_into() {
+                    Ok(p) => p,
+                    Err(_) => {
+                        tracing::warn!("Failed to convert PID {} to u32, treating as dead", pid);
+                        return ConnectorHandleStatus::Dead;
+                    }
+                };
+                let pid = sysinfo::Pid::from_u32(pid_u32);
                 SYSINFO.lock().await.refresh_processes_specifics(
                     sysinfo::ProcessesToUpdate::Some(&[pid]),
                     false,
@@ -263,9 +270,15 @@ pub fn pipe_fd_to_outbox(fd: &OwnedFd, outbox: &ConnectorOutbox) {
 
 /// Log the contents of /proc/self/status.
 pub fn log_proc_self_status() {
-    let status = std::fs::read_to_string("/proc/self/status").unwrap();
-    eprintln!("/proc/self/status:");
-    eprintln!("{}", status);
+    match std::fs::read_to_string("/proc/self/status") {
+        Ok(status) => {
+            eprintln!("/proc/self/status:");
+            eprintln!("{}", status);
+        }
+        Err(e) => {
+            eprintln!("Failed to read /proc/self/status: {} (this is expected on non-Linux systems)", e);
+        }
+    }
 }
 
 fn random_overlay_dir(_root: &Path) -> PathBuf {

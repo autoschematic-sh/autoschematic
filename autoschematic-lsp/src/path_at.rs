@@ -28,7 +28,9 @@ pub fn path_at(src: &str, line: usize, col: usize) -> Result<Option<Vec<Componen
 
     // 2) parse
     let mut pairs = RonParser::parse(Rule::ron, src)?;
-    let root = pairs.next().unwrap(); // SOI … EOI
+    let Some(root) = pairs.next() else {
+        return Ok(None); // Empty parse result
+    };
 
     // 3) walk the tree to the innermost node that covers `offset`
     let mut trail = Vec::<Component>::new();
@@ -52,7 +54,9 @@ pub fn ident_at(src: &str, line: usize, col: usize) -> Result<Option<DocIdent>> 
 
     // 2) parse
     let mut pairs = RonParser::parse(Rule::ron, src)?;
-    let root = pairs.next().unwrap(); // SOI … EOI
+    let Some(root) = pairs.next() else {
+        return Ok(None); // Empty parse result
+    };
 
     // 3) walk the tree to the innermost node that covers `offset`
     let mut ident = None;

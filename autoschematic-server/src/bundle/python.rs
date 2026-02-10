@@ -149,10 +149,11 @@ impl Connector for PythonConnector {
 
                         let args = PyTuple::new(py, [traceback])?;
                         let full_traceback = format!("{}", format_tb.call1(args)?);
+                        let traceback_str = unescape(&full_traceback).unwrap_or_else(|_| full_traceback.clone());
                         Err(anyhow!(
                             "Python connector exception: __init__(): {}: Traceback: {}",
                             e.to_string(),
-                            unescape(&full_traceback).unwrap()
+                            traceback_str
                         ))
                     } else {
                         Err(anyhow!(
@@ -263,10 +264,11 @@ impl Connector for PythonConnector {
 
                         let args = PyTuple::new(py, [traceback])?;
                         let full_traceback = format!("{}", format_tb.call1(args)?);
+                        let traceback_str = unescape(&full_traceback).unwrap_or_else(|_| full_traceback.clone());
                         Err(anyhow!(
                             "Python connector exception: plan(): {}: Traceback: {}",
                             e.to_string(),
-                            unescape(&full_traceback).unwrap()
+                            traceback_str
                         ))
                     } else {
                         Err(anyhow!(
