@@ -18,6 +18,7 @@ pub mod keystore;
 pub mod macros;
 pub mod manifest;
 pub mod report;
+pub mod ron;
 pub mod secret;
 pub mod tarpc_bridge;
 pub mod template;

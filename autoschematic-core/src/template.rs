@@ -1,3 +1,4 @@
+use lazy_static;
 use regex::{Captures, Regex};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -5,9 +6,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::connector::OutputMapFile;
-
-// use crate::connector_util::build_out_path;
+use crate::{
+    connector::OutputMapFile,
+    ron::path_at::{Component, find_strings},
+};
 
 #[derive(Debug, Serialize, Deserialize, Hash, Clone, Eq, PartialEq)]
 pub struct ReadOutput {
@@ -19,6 +21,10 @@ impl ReadOutput {
     pub fn into_string(&self) -> String {
         format!("out://{}[{}]", self.addr.to_string_lossy(), self.key)
     }
+}
+
+lazy_static::lazy_static! {
+   pub static ref OUTREF_REGEX: Regex = Regex::new(r#"out://([^\[]+)\[([^\]]+)\]"#).unwrap();
 }
 
 /// For a given resource config definition,
@@ -38,6 +44,30 @@ pub fn get_read_outputs(config: &str) -> Vec<ReadOutput> {
         });
     }
     outputs
+}
+
+/// Like get_read_outputs, but uses the pest parser to produce the path as well.
+pub fn descend_get_read_outputs(config: &str) -> anyhow::Result<(Option<String>, Vec<(Vec<Component>, ReadOutput)>)> {
+    let mut res = Vec::new();
+
+    let (root_name, read_outputs) = find_strings(config)?;
+
+    for (path, s) in read_outputs {
+        if let Some(cap) = OUTREF_REGEX.captures(&s) {
+            let filename = cap.get(1).map(|m| m.as_str()).unwrap_or("");
+            let key = cap.get(2).map(|m| m.as_str()).unwrap_or("");
+            res.push((
+                path,
+                ReadOutput {
+                    addr: PathBuf::from(filename),
+                    key: key.to_string(),
+                },
+            ));
+            // res.push((path, ReadOutput {}));
+        }
+    }
+
+    Ok((root_name, res))
 }
 
 #[derive(Debug)]
