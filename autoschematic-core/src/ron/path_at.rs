@@ -25,11 +25,11 @@ pub fn ron_path_to_string(path: &Vec<Component>) -> String {
                     first = false;
                 }
 
-                res.push_str(&s);
+                res.push_str(s);
             }
             Component::Key(s) => {
                 res.push('[');
-                res.push_str(&s);
+                res.push_str(s);
                 res.push(']');
             }
             Component::Index(n) => {
@@ -67,18 +67,25 @@ pub fn path_at(src: &str, line: usize, col: usize) -> Result<Option<Vec<Componen
     Ok(Some(trail))
 }
 
+type RonPath = Vec<Component>;
+
+#[derive(Default)]
+pub struct RonStringReport {
+    pub root: Option<String>,
+    pub strings: Vec<(RonPath, String)>,
+}
+
 /// Assuming src is a RON config file, parse it and return a list of Name1.field1.field2.key: "value"
 /// entries for each string in the config file. This is used to intelligently pick out references to other templated output variables.
-pub fn find_strings(src: &str) -> Result<(Option<String>, Vec<(Vec<Component>, String)>)> {
+pub fn find_strings(src: &str) -> Result<RonStringReport> {
     let mut pairs = RonParser::parse(Rule::ron, src)?;
+    let mut res = RonStringReport::default();
     let root = pairs.next().unwrap();
 
-    let mut results = Vec::new();
     let mut trail = Vec::new();
-    let mut root_name = None;
-    descend_find_strings(root, &mut root_name, src, &mut trail, &mut results);
+    descend_find_strings(root, &mut res.root, src, &mut trail, &mut res.strings);
 
-    Ok((root_name, results))
+    Ok(res)
 }
 
 pub fn ident_at(src: &str, line: usize, col: usize) -> Result<Option<DocIdent>> {

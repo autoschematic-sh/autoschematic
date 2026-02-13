@@ -58,11 +58,11 @@ pub struct RonOutputReport {
 pub fn descend_get_read_outputs(config: &str) -> anyhow::Result<RonOutputReport> {
     let mut res = RonOutputReport::default();
 
-    let (root, read_outputs) = find_strings(config)?;
-    
-    res.root = root;
+    let reads_strings = find_strings(config)?;
 
-    for (path, s) in read_outputs {
+    res.root = reads_strings.root;
+
+    for (path, s) in reads_strings.strings {
         if let Some(cap) = OUTREF_REGEX.captures(&s) {
             let filename = cap.get(1).map(|m| m.as_str()).unwrap_or("");
             let key = cap.get(2).map(|m| m.as_str()).unwrap_or("");
