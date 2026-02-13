@@ -2,8 +2,11 @@
 name = "autoschematic-macros"
 description = "Proc macro functionality for Autoschematic"
 license = "AGPL-3.0"
-version = "0.12.0"
+version = "0.13.0"
 edition = "2024"
+authors = ["Peter Sherman <peter@autoschematic.sh>"]
+repository = "https://github.com/autoschematic-sh/autoschematic"
+homepage = "https://autoschematic.sh"
 
 [lib]
 proc-macro = true

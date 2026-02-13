@@ -2,9 +2,9 @@
   "name": "autoschematic",
   "displayName": "Autoschematic",
   "publisher": "Autoschematic",
-  "description": "Syntax highlighting, Language Server support and Ctrl-P shortcuts for Autoschematic.",
+  "description": "State Drift Management, Syntax highlighting, and Language Server support for Autoschematic.",
   "repository": "https://github.com/autoschematic-sh/autoschematic",
-  "version": "0.11.0",
+  "version": "0.13.0",
   "icon": "resources/logo.png",
   "engines": {
     "vscode": "^1.99.0"
