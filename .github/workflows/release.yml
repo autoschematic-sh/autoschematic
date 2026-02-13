@@ -85,16 +85,19 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             asset_name: autoschematic-${{ needs.create-release.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+            lsp_asset_name: autoschematic-lsp-${{ needs.create-release.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
           # - os: windows-latest
           #   target: x86_64-pc-windows-msvc
           #   asset_name: autoschematic-${{ needs.create-release.outputs.version }}-windows-x86_64.zip
           - os: macos-latest
             target: x86_64-apple-darwin
             asset_name: autoschematic-${{ needs.create-release.outputs.version }}-x86_64-apple-darwin.tar.gz
+            lsp_asset_name: autoschematic-lsp-${{ needs.create-release.outputs.version }}-x86_64-apple-darwin.tar.gz
 
           - os: macos-latest
             target: aarch64-apple-darwin
             asset_name: autoschematic-${{ needs.create-release.outputs.version }}-aarch64-apple-darwin.tar.gz
+            lsp_asset_name: autoschematic-lsp-${{ needs.create-release.outputs.version }}-aarch64-apple-darwin.tar.gz
 
     steps:
       - name: Checkout code
