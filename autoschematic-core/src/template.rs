@@ -46,28 +46,37 @@ pub fn get_read_outputs(config: &str) -> Vec<ReadOutput> {
     outputs
 }
 
-/// Like get_read_outputs, but uses the pest parser to produce the path as well.
-pub fn descend_get_read_outputs(config: &str) -> anyhow::Result<(Option<String>, Vec<(Vec<Component>, ReadOutput)>)> {
-    let mut res = Vec::new();
+type RonPath = Vec<Component>;
 
-    let (root_name, read_outputs) = find_strings(config)?;
+#[derive(Default)]
+pub struct RonOutputReport {
+    pub root: Option<String>,
+    pub reads_outputs: Vec<(RonPath, ReadOutput)>,
+}
+
+/// Like get_read_outputs, but uses the pest parser to produce the path as well.
+pub fn descend_get_read_outputs(config: &str) -> anyhow::Result<RonOutputReport> {
+    let mut res = RonOutputReport::default();
+
+    let (root, read_outputs) = find_strings(config)?;
+    
+    res.root = root;
 
     for (path, s) in read_outputs {
         if let Some(cap) = OUTREF_REGEX.captures(&s) {
             let filename = cap.get(1).map(|m| m.as_str()).unwrap_or("");
             let key = cap.get(2).map(|m| m.as_str()).unwrap_or("");
-            res.push((
+            res.reads_outputs.push((
                 path,
                 ReadOutput {
                     addr: PathBuf::from(filename),
                     key: key.to_string(),
                 },
             ));
-            // res.push((path, ReadOutput {}));
         }
     }
 
-    Ok((root_name, res))
+    Ok(res)
 }
 
 #[derive(Debug)]
