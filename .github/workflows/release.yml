@@ -124,13 +124,13 @@ jobs:
             target
           key: ${{ matrix.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install OpenSSL + pkg-config
-        if: matrix.os == 'macos-latest'
-        run: |
-          brew update
-          brew install openssl@3 pkg-config
-          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
-          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> "$GITHUB_ENV"
+      # - name: Install OpenSSL + pkg-config
+      #   if: matrix.os == 'macos-latest'
+      #   run: |
+      #     brew update
+      #     brew install openssl@3 pkg-config
+      #     echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+      #     echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> "$GITHUB_ENV"
 
       - name: Build release binaries
         run: |
@@ -165,7 +165,7 @@ jobs:
 
   publish-crates:
     name: Publish to Crates.io
-    needs: create-release
+    needs: build-and-upload
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

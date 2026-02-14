@@ -34,7 +34,10 @@ serde = { version = "1.0.217", features = ["derive"] }
 inquire = "0.9.1"
 base64 = "0.22.1"
 ron = "0.12.0"
-git2 = "0.20.0"
+git2 = { version = "0.20.0", features = [
+    "vendored-libgit2",
+    "vendored-openssl",
+] }
 dialoguer = { version = "0.12.0", features = ["completion"] }
 regex = "1.11.1"
 lazy_static = "1.5.0"
