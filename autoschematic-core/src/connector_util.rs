@@ -12,6 +12,10 @@ use crate::{
 };
 
 pub async fn check_connector_host_version_match(shortname: &str, connector: &Arc<dyn ConnectorHandle>) -> anyhow::Result<()> {
+    if let Ok(_) = std::env::var("AUTOSCHEMATIC_NO_VERSION_CHECK") {
+        return Ok(());
+    }
+
     let conn_ver = connector.version().await?;
     let host_ver = env!("CARGO_PKG_VERSION").to_string();
     if conn_ver != host_ver {

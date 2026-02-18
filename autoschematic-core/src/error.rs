@@ -99,7 +99,7 @@ impl fmt::Display for AutoschematicError {
             } => {
                 write!(
                     f,
-                    "Protocol version for connector {} doesn't match host: connector={}, host={}",
+                    "Protocol version for connector {} doesn't match host: connector={}, host={}\nSet the env var AUTOSCHEMATIC_NO_VERSION_CHECK=true to bypass this check.",
                     shortname, conn_ver, host_ver
                 )
             }
