@@ -13,6 +13,7 @@ use autoschematic_core::{
     connector::{DocIdent, FilterResponse},
     connector_cache::{ConnectorCache, TopResponse},
     manifest::ConnectorManifest,
+    ron::path_at::{self, Component},
     template::{self},
     util::{RON, split_prefix_addr},
     workflow::{
@@ -31,16 +32,12 @@ use tracing_subscriber::filter::LevelFilter;
 use util::{diag_to_lsp, lsp_error, lsp_param_to_path};
 
 use crate::{
-    path_at::Component,
     reindent::reindent,
     util::{lsp_param_to_rename_path, map_lsp_error},
 };
 
-pub mod parse;
-pub mod path_at;
 pub mod reindent;
 pub mod util;
-
 struct Backend {
     client: Client,
     docs: DashMap<Uri, String>,

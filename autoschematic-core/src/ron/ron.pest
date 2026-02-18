@@ -82,25 +82,23 @@ float      = { sign? ~ ( "inf" | "NaN" | float_num ) ~ float_suffix? }
 // ── byte ──
 ascii_char   = _{ !( "'" | "\\" ) ~ ANY }
 byte_content = { ascii_char | "\\" ~ ( escape_ascii | escape_byte ) }
-byte         = { "b'" ~ byte_content ~ "'" }
+byte         = @{ "b'" ~ byte_content ~ "'" }
 
 // ── char ──
 char_body = { !( "'" | "\\" ) ~ ANY | "\\" ~ ( "\\" | "'" ) }
-char       = { "'" ~ char_body ~ "'" }
+char       = @{ "'" ~ char_body ~ "'" }
 
 // ── string (standard) ──
-string_char   = _{ !( "\"" | "\\" ) ~ ANY }
+string_char   =  { !( "\"" | "\\" ) ~ ANY }
 string_escape =  { "\\" ~ ( escape_ascii | escape_byte | escape_unicode ) }
-string_std    =  { "\"" ~ ( string_char | string_escape )* ~ "\"" }
+string_std    = @{ "\"" ~ ( string_char | string_escape )* ~ "\"" }
 
-// ── raw string (up to 16 #) ──
-//hashes        = _{ "#"*<0,16> }     // bounded to keep parsing regular
 hashes             = _{ "#"{0,16} }
-string_raw    =  { "r" ~ hashes ~ "\"" ~ ( !("\"" ~ hashes) ~ ANY )* ~ "\"" ~ hashes }
+string_raw    = @{ "r" ~ hashes ~ "\"" ~ ( !("\"" ~ hashes) ~ ANY )* ~ "\"" ~ hashes }
 
 // ── byte string ──
 byte_string_std = { "b" ~ string_std }
-byte_string_raw = { "br" ~ hashes ~ "\"" ~ ( !("\"" ~ hashes) ~ ANY )* ~ "\"" ~ hashes }
+byte_string_raw = @{ "br" ~ hashes ~ "\"" ~ ( !("\"" ~ hashes) ~ ANY )* ~ "\"" ~ hashes }
 byte_string     = { byte_string_std | byte_string_raw }
 
 // ── bool ──

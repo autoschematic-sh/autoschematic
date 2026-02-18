@@ -117,39 +117,3 @@ pub fn lsp_param_to_rename_path(params: ls_types::ExecuteCommandParams) -> Optio
 
     Some((old_file_path.into(), new_file_path.into()))
 }
-
-pub fn pos_byte_index(line: usize, col: usize, s: &str) -> Option<usize> {
-    let mut line_no = 1;
-    let mut col_no = 1;
-
-    let mut i = 0;
-
-    // Slightly non-intuitive arithmetic: a zero-length string at line 1, col 1 -> 0
-
-    if line_no == line && col_no == col {
-        return Some(i);
-    }
-
-    for (byte_idx, ch) in s.char_indices() {
-        if line_no == line && col_no == col {
-            return Some(i);
-        }
-
-        // "\n" and "\r\n" each come through the iterator as a single grapheme
-        if ch == '\n' {
-            line_no += 1;
-            col_no = 1;
-        } else {
-            col_no += 1;
-        }
-
-        i = byte_idx;
-    }
-
-    // ...and a string of length 7 at line 1, col 8 -> 7
-    if line_no == line && col_no == col {
-        return Some(i);
-    }
-
-    None
-}

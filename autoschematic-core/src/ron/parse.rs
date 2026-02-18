@@ -1,5 +1,5 @@
 use pest_derive::Parser;
 
 #[derive(Parser)]
-#[grammar = "ron.pest"]
+#[grammar = "ron/ron.pest"]
 pub struct RonParser;
