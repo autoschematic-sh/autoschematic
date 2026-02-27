@@ -78,6 +78,8 @@ jobs:
   build-and-upload:
     name: Build and Upload Assets
     needs: create-release
+    permissions:
+      id-token: write
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
