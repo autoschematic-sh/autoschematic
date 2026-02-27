@@ -165,6 +165,7 @@ jobs:
           
       - name: Build & upload Python binary wheels
         run: |
+          pip install twine
           bash scripts/build_pip_wheels.sh ${{ matrix.target }} target/${{ matrix.target }}/release/autoschematic
           bash scripts/publish_pip.sh
 
