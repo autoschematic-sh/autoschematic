@@ -288,9 +288,7 @@ impl Spec {
                 if !path.is_file() {
                     bail!("launch_server_binary: {}: not found", path.display())
                 }
-                let args = vec![
-                    path.to_string_lossy().to_string(),
-                ];
+                let args = vec![path.to_string_lossy().to_string()];
                 Ok(SpecCommand {
                     binary: "python".into(),
                     args,
