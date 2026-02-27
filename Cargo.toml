@@ -6,7 +6,6 @@ members = [
     "autoschematic-core",
     "autoschematic-lsp",
     "autoschematic-macros",
-    #"connectors/autoschematic-connector-python-host",
 ]
 
 [profile.release]

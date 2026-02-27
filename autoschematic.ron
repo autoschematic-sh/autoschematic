@@ -1,0 +1,14 @@
+AutoschematicConfig(
+    prefixes: {
+        "autoschematic-sdk-python/examples": Prefix(
+            connectors: [
+                Connector(
+                    shortname: "python-dummy",
+                    spec: PythonLocal (
+                        path: "autoschematic-sdk-python/examples/dummy_connector.py"
+                    )
+                )
+            ]
+        )
+    }
+)

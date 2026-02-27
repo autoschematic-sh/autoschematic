@@ -1,5 +1,7 @@
 secret/
 target/
+build/
+__pycache__/
 .secret/
 *.coz
 **/*/node_modules/
@@ -9,3 +11,6 @@ scripts/build_docker_dist.sh
 scripts/publish_docker_test.sh
 autoschematic-mcp/*
 CLAUDE.md
+*.egg-info
+dist/
+*.whl

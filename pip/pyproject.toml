@@ -1,0 +1,19 @@
+[project]
+name = "autoschematic"
+version = "0.13.0"
+description = "Command-line tools for Autoschematic"
+license = "AGPL-3.0"
+authors = [{ name = "Peter Sherman", email = "peter@autoschematic.sh" }]
+requires-python = ">=3.8"
+readme = "README.md"
+
+[project.urls]
+Homepage = "https://autoschematic.sh"
+Repository = "https://github.com/autoschematic-sh/autoschematic"
+
+[project.scripts]
+autoschematic = "._main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
