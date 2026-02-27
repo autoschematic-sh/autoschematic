@@ -130,6 +130,9 @@ pub enum Spec {
     TypescriptLocal {
         path: PathBuf,
     },
+    PythonLocal {
+        path: PathBuf,
+    },
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
@@ -145,6 +148,7 @@ impl Spec {
             Spec::Cargo { protocol, .. } => protocol.clone(),
             Spec::CargoLocal { protocol, .. } => protocol.clone(),
             Spec::TypescriptLocal { .. } => Protocol::Grpc,
+            Spec::PythonLocal { .. } => Protocol::Grpc,
         }
     }
     pub fn pre_command(&self) -> anyhow::Result<Option<SpecCommand>> {
@@ -277,6 +281,16 @@ impl Spec {
                 // command
                 Ok(SpecCommand {
                     binary: "tsx".into(),
+                    args,
+                })
+            }
+            Spec::PythonLocal { path } => {
+                if !path.is_file() {
+                    bail!("launch_server_binary: {}: not found", path.display())
+                }
+                let args = vec![path.to_string_lossy().to_string()];
+                Ok(SpecCommand {
+                    binary: "python".into(),
                     args,
                 })
             }

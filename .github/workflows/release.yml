@@ -162,6 +162,11 @@ jobs:
           asset_path: ${{ matrix.asset_name }}
           asset_name: ${{ matrix.asset_name }}
           asset_content_type: application/octet-stream
+          
+      - name: Build & upload Python binary wheels
+        run: |
+          bash scripts/build_pip_wheels.sh ${{ matrix.target }} target/${{ matrix.target }}/release/autoschematic
+          bash scripts/publish_pip.sh
 
   publish-crates:
     name: Publish to Crates.io
