@@ -1,1 +1,0 @@
-# autoschematic_connector
