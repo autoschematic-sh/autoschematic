@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 # Build a platform-specific Python wheel containing the autoschematic binary.
+# Also includes autoschematic-lsp.
 #
 # Usage:
 #   ./scripts/build_pip_wheels.sh <rust-target> <path-to-binary>
@@ -50,6 +51,9 @@ TMPDIR="$(mktemp -d)"
 mkdir -p "$TMPDIR/${DATA_DIR}/scripts"
 cp "$BINARY_PATH" "$TMPDIR/${DATA_DIR}/scripts/autoschematic"
 chmod +x "$TMPDIR/${DATA_DIR}/scripts/autoschematic"
+
+cp "$BINARY_PATH"-lsp "$TMPDIR/${DATA_DIR}/scripts/autoschematic-lsp"
+chmod +x "$TMPDIR/${DATA_DIR}/scripts/autoschematic-lsp"
 
 # --- dist-info ---
 mkdir -p "$TMPDIR/${DIST_INFO}"
