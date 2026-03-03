@@ -46,10 +46,6 @@ DIST_INFO="autoschematic-${VERSION}.dist-info"
 TMPDIR="$(mktemp -d)"
 # trap 'rm -rf "$TMPDIR"' EXIT
 
-# --- Package stub ---
-mkdir -p "$TMPDIR/autoschematic_pip"
-cp pip/autoschematic_pip/__init__.py "$TMPDIR/autoschematic_pip/__init__.py"
-
 # --- Binary in data/scripts ---
 mkdir -p "$TMPDIR/${DATA_DIR}/scripts"
 cp "$BINARY_PATH" "$TMPDIR/${DATA_DIR}/scripts/autoschematic"
@@ -76,15 +72,6 @@ Wheel-Version: 1.0
 Generator: autoschematic-build
 Root-Is-Purelib: false
 Tag: py3-none-${PLATFORM_TAG}
-EOF
-
-cat > "$TMPDIR/${DIST_INFO}/top_level.txt" <<EOF
-autoschematic_pip
-EOF
-
-cat > "$TMPDIR/${DIST_INFO}/entry_points.txt" <<EOF
-[console_scripts]
-autoschematic = autoschematic_pip:main
 EOF
 
 # --- RECORD (hashes computed after packing; leave empty for the RECORD entry itself) ---
