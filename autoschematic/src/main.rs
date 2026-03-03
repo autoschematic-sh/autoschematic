@@ -221,6 +221,7 @@ pub enum AutoschematicSubcommand {
         #[arg(short, long, value_name = "path")]
         path: String,
     },
+    Version,
 }
 
 #[tokio::main]
@@ -310,6 +311,10 @@ async fn main() -> anyhow::Result<()> {
             AutoschematicSafetySubcommand::Unlock => unset_safety_lock(),
         },
         AutoschematicSubcommand::CheckDrift { path } => check_drift::check_drift(&path).await,
+        AutoschematicSubcommand::Version => {
+            eprintln!("{}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
     };
 
     // Clean up connector cache before exiting
