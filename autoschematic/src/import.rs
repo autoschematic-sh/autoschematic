@@ -216,7 +216,7 @@ pub async fn import(
                 .with_prompt(" ◈ Import succeeded! Do you wish to run git commit to track the imported files?")
                 .default(true)
                 .interact()
-                .expect("Exiting...")
+                .expect("Exiting..."),
         };
 
         if do_commit {

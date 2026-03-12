@@ -260,7 +260,9 @@ impl GetResourceResponse {
     /// directory set to the repo root.
     /// Returns a Vec of the file paths that were actually written.
     pub async fn write(self, prefix: &Path, phy_addr: &Path, virt_addr: &Path) -> anyhow::Result<Vec<PathBuf>> {
-        let virt_addr = if phy_addr == virt_addr && let Some(ref self_virt_addr) = self.virt_addr {
+        let virt_addr = if phy_addr == virt_addr
+            && let Some(ref self_virt_addr) = self.virt_addr
+        {
             self_virt_addr
         } else {
             virt_addr
