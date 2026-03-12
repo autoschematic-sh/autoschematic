@@ -328,7 +328,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Print MOTD if we have one...
     if let Ok(Some(motd)) = motd
-        && motd.len() > 0
+        && !motd.is_empty()
     {
         eprintln!("{}", motd.grey().underline_grey());
     }

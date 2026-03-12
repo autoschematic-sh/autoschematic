@@ -99,7 +99,7 @@ pub async fn write_motd(motd: &str) -> Option<()> {
 }
 
 pub async fn try_fetch_motd() -> Option<String> {
-    if let Ok(_) = std::env::var("AUTOSCHEMATIC_NO_MOTD") {
+    if std::env::var("AUTOSCHEMATIC_NO_MOTD").is_ok() {
         return None;
     }
 
@@ -132,5 +132,5 @@ pub async fn try_fetch_motd() -> Option<String> {
         write_motd(motd).await;
     }
 
-    return new_motd;
+    new_motd
 }
