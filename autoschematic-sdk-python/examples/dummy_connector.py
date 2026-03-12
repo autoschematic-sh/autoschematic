@@ -30,7 +30,7 @@ class DummyConnector(Connector):
     def __init__(self, name: str, prefix: str) -> None:
         """
         __init__() generally shouldn't fail, even if config is invalid. That's for the second-stage init() method.
-        (Note: in rust, this is called new(), hence the slightly confusing naming with init().)
+        (Note: in rust, this is called new(), hence the slightly confusing naming with init()...)
         """
 
         self.name = name
@@ -61,6 +61,10 @@ class DummyConnector(Connector):
         There are other types of FilterResponses, but NONE and RESOURCE are the most common.
         If you return FilterResponse.CONFIG for a given file, the LSP will restart your connector
          whenever that file is modified, allowing you to reload config in init(). 
+         
+        `filter()` will be cached by the host, and should essentially be static (though it is allowed to depend on any 
+         file marked as FilterResponse.CONFIG, so that the host can reload the connector when
+         any such file changes).
 
         """
         if WIDGET_ADDR.match(addr):
@@ -71,7 +75,9 @@ class DummyConnector(Connector):
         """
         In list(), your connector might query a remote API and return a list of paths (addresses) corresponding
          to resources that exist. Here, our dummy connector just returns the static list of widgets that it stores internally.
-        `subpath` is used to constrain the search for performance. You can safely ignore it. See other connectors for how to use `subpath` effectively.
+        list() is rarely called except during import, and enumerating every possible resource addressable by a connector is likely to take time.
+        `subpath` is used to constrain the search for performance. You can safely ignore the subpath variable. See other connectors for how to use `subpath` effectively.
+        See the Connector trait in connector.rs for more information about `subpath`.
         """
         return [addr for addr in self.widgets]
 
@@ -82,10 +88,13 @@ class DummyConnector(Connector):
         """
 
         if addr in self.widgets:
+            widget_addr = WIDGET_ADDR.match(addr)
+            assert widget_addr
+
             return GetResponse(
                 exists=True,
                 resource_definition=self.widgets[addr],
-                outputs={"widget_id": f"wid-{addr.split('/')[-1].split('.')[0]}"},
+                outputs={"widget_id": f"wid-{widget_addr.group("name")}"},
             )
         return GetResponse(exists=False)
 
@@ -141,17 +150,18 @@ class DummyConnector(Connector):
         """
         op_exec() is where your connector will execute connector ops as returned by plan().
         In op_exec(), you'll actually make the e.g. AWS calls to create, modify, delete etc 
-        the resources as specified in the op definition.
+        the resources as specified in the op definition. 
+        You'll receive `op` in serialized form, so you'll need to parse it yourself.
         """
         widget_addr = WIDGET_ADDR.match(addr)
-
+        
         if widget_addr:
             dec_op = json.loads(op)
             
             action = dec_op.get('action')
 
             return OpExecResponse(
-                outputs={"widget_id": f"wid-{addr.split('/')[-1].split('.')[0]}"},
+                outputs={"widget_id": f"wid-{widget_addr.group("name")}"},
                 friendly_message=f"Executed {action} on {addr}",
             )
         else:

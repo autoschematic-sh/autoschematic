@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import re
 
 
@@ -62,3 +63,11 @@ def form_path(template: str, addr: dict[str, str]) -> str:
         return str(addr[key])
 
     return re.sub(r"\[([^\]]+)\]", _replace, template)
+
+@dataclass
+class PointerToVirtual:
+    addr: str
+
+@dataclass
+class OutputMap:
+    map: dict

@@ -18,6 +18,7 @@ class FilterResponse(IntFlag):
 class GetResponse:
     exists: bool
     resource_definition: bytes | None = None
+    virt_addr: str | None = None
     outputs: dict[str, str] | None = None
 
 

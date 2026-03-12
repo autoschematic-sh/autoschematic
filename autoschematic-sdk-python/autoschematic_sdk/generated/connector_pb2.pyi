@@ -63,7 +63,7 @@ class GetRequest(_message.Message):
     def __init__(self, addr: _Optional[str] = ...) -> None: ...
 
 class GetResponse(_message.Message):
-    __slots__ = ("exists", "resource_definition", "outputs")
+    __slots__ = ("exists", "resource_definition", "virt_addr", "outputs")
     class OutputsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -73,11 +73,13 @@ class GetResponse(_message.Message):
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     EXISTS_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_DEFINITION_FIELD_NUMBER: _ClassVar[int]
+    VIRT_ADDR_FIELD_NUMBER: _ClassVar[int]
     OUTPUTS_FIELD_NUMBER: _ClassVar[int]
     exists: bool
     resource_definition: bytes
+    virt_addr: str
     outputs: _containers.ScalarMap[str, str]
-    def __init__(self, exists: bool = ..., resource_definition: _Optional[bytes] = ..., outputs: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, exists: bool = ..., resource_definition: _Optional[bytes] = ..., virt_addr: _Optional[str] = ..., outputs: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class PlanRequest(_message.Message):
     __slots__ = ("addr", "current", "desired")

@@ -59,6 +59,7 @@ class _ConnectorServicer(connector_pb2_grpc.ConnectorServicer):
             return connector_pb2.GetResponse(
                 exists=True,
                 resource_definition=res.resource_definition or b"",
+                virt_addr=res.virt_addr or "",
                 outputs=res.outputs or {},
             )
         except Exception as e:
