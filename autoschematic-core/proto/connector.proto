@@ -31,7 +31,8 @@ message GetResponse {
   /// false => no resource at `addr`; other fields ignored
   bool   exists              = 1;
   bytes  resource_definition = 2;
-  map<string,string> outputs = 3;
+  string virt_addr           = 3;
+  map<string,string> outputs = 4;
 }
 
 /// Connector::plan
