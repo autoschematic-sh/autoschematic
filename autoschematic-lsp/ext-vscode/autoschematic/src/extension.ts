@@ -190,7 +190,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const targetUri = vscode.Uri.joinPath(
 			wsFolder.uri,
 			'.autoschematic',
-			rel + '.out.ron'
+			rel + '.out.json'
 		);
 
 		const doc = await vscode.workspace.openTextDocument(targetUri);

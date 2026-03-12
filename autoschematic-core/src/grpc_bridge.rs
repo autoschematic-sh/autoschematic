@@ -91,12 +91,15 @@ impl GrpcConnector for GrpcConnectorServer {
             Ok(Response::new(GetResponse {
                 exists: true,
                 resource_definition: resp.resource_definition,
+                // TODO Maybe this should be bytes, if we're so intent on using a PathBuf?
+                virt_addr: resp.virt_addr.unwrap_or_default().to_string_lossy().to_string(),
                 outputs: resp.outputs.unwrap_or_default(),
             }))
         } else {
             Ok(Response::new(GetResponse {
                 exists: false,
                 resource_definition: vec![],
+                virt_addr: String::new(),
                 outputs: std::collections::HashMap::new(),
             }))
         }
@@ -434,9 +437,15 @@ impl Connector for GrpcConnectorClient {
         if !resp.exists {
             return Ok(None);
         }
+        let virt_addr = if resp.virt_addr.is_empty() {
+            None
+        } else {
+            Some(resp.virt_addr.into())
+        };
         let outputs = if resp.outputs.is_empty() { None } else { Some(resp.outputs) };
         Ok(Some(connector::GetResourceResponse {
             resource_definition: resp.resource_definition,
+            virt_addr,
             outputs,
         }))
     }
