@@ -138,12 +138,14 @@ jobs:
       - name: Build release binaries
         run: |
           cargo build --release --target ${{ matrix.target }} --bin autoschematic
+          cargo build --release --target ${{ matrix.target }} --bin autoschematic-lsp
 
       - name: Create archive (Unix)
         if: matrix.os != 'windows-latest'
         run: |
           mkdir -p release
           cp target/${{ matrix.target }}/release/autoschematic release/
+          cp target/${{ matrix.target }}/release/autoschematic-lsp release/
           cp README.md LICENSE release/
           cd release
           tar -czf ../${{ matrix.asset_name }} *
@@ -153,6 +155,7 @@ jobs:
         run: |
           mkdir release
           cp target/${{ matrix.target }}/release/autoschematic.exe release/
+          cp target/${{ matrix.target }}/release/autoschematic-lsp.exe release/
           cp README.md,LICENSE release/
           Compress-Archive -Path release/* -DestinationPath ${{ matrix.asset_name }}
 
