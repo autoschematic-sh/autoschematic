@@ -263,7 +263,7 @@ pub async fn apply(
                 .with_prompt(" ◈ Apply succeeded! Some resources were deferred on outputs that are now available. Do you wish to continue applying?")
                 .default(true)
                 .interact()
-                .unwrap();
+                .expect("Exiting...");
 
             if do_reapply {
                 Box::pin(apply(
@@ -282,7 +282,7 @@ pub async fn apply(
                 )
                 .default(true)
                 .interact()
-                .unwrap();
+                .expect("Exiting...");
 
             if do_reapply {
                 // apply(_prefix_filter, connector_filter, _subpath_filter, ask_confirm, skip_commit).await?;
@@ -301,7 +301,7 @@ pub async fn apply(
             .with_prompt(" ◈ Apply succeeded! Do you wish to run git commit to track the new state?")
             .default(true)
             .interact()
-            .unwrap();
+            .expect("Exiting...");
 
         if do_commit {
             Command::new("git")

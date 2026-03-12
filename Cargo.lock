@@ -508,7 +508,7 @@ checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
 name = "autoschematic"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -520,10 +520,12 @@ dependencies = [
  "crossterm 0.29.0",
  "dialoguer",
  "directories",
+ "dirs",
  "ecdsa",
  "elliptic-curve",
  "git2",
  "hkdf",
+ "http 1.4.0",
  "inquire",
  "k256",
  "lazy_static",
@@ -546,7 +548,7 @@ dependencies = [
 
 [[package]]
 name = "autoschematic-core"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -600,7 +602,7 @@ dependencies = [
 
 [[package]]
 name = "autoschematic-lsp"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "anyhow",
  "autoschematic-core",
@@ -619,7 +621,7 @@ dependencies = [
 
 [[package]]
 name = "autoschematic-macros"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "quote",
  "syn",
@@ -627,7 +629,7 @@ dependencies = [
 
 [[package]]
 name = "autoschematic-server"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "actix-cors",
  "actix-session",
@@ -652,7 +654,7 @@ dependencies = [
  "git2",
  "hex",
  "hmac 0.12.1",
- "http 1.2.0",
+ "http 1.4.0",
  "http-body-util",
  "hyper",
  "indexmap",
@@ -716,7 +718,7 @@ dependencies = [
  "axum-core",
  "bytes",
  "futures-util",
- "http 1.2.0",
+ "http 1.4.0",
  "http-body",
  "http-body-util",
  "itoa",
@@ -741,7 +743,7 @@ checksum = "68464cd0412f486726fb3373129ef5d2993f90c34bc2bc1c1e9943b2f4fc7ca6"
 dependencies = [
  "bytes",
  "futures-core",
- "http 1.2.0",
+ "http 1.4.0",
  "http-body",
  "http-body-util",
  "mime",
@@ -1547,6 +1549,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3e8aa94d75141228480295a7d0e7feb620b1a5ad9f12bc40be62411e38cce4e"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
 name = "dirs-sys"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2141,7 +2152,7 @@ dependencies = [
  "fnv",
  "futures-core",
  "futures-sink",
- "http 1.2.0",
+ "http 1.4.0",
  "indexmap",
  "slab",
  "tokio",
@@ -2223,12 +2234,11 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.2.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f16ca2af56261c99fba8bac40a10251ce8188205a4c448fbb745a2e4daa76fea"
+checksum = "e3ba2a386d7f85a81f119ad7498ebe444d2e22c2af0b86b069416ace48b3311a"
 dependencies = [
  "bytes",
- "fnv",
  "itoa",
 ]
 
@@ -2239,7 +2249,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
 dependencies = [
  "bytes",
- "http 1.2.0",
+ "http 1.4.0",
 ]
 
 [[package]]
@@ -2250,7 +2260,7 @@ checksum = "793429d76616a256bcb62c2a2ec2bed781c8307e797e2598c50010f2bee2544f"
 dependencies = [
  "bytes",
  "futures-util",
- "http 1.2.0",
+ "http 1.4.0",
  "http-body",
  "pin-project-lite",
 ]
@@ -2292,7 +2302,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "h2 0.4.7",
- "http 1.2.0",
+ "http 1.4.0",
  "http-body",
  "httparse",
  "httpdate",
@@ -2310,7 +2320,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d191583f3da1305256f22463b9bb0471acad48a4e534a5218b9963e9c1f59b2"
 dependencies = [
  "futures-util",
- "http 1.2.0",
+ "http 1.4.0",
  "hyper",
  "hyper-util",
  "log",
@@ -2347,7 +2357,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "http 1.2.0",
+ "http 1.4.0",
  "http-body",
  "hyper",
  "ipnet",
@@ -3136,7 +3146,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "getrandom 0.2.15",
- "http 1.2.0",
+ "http 1.4.0",
  "rand 0.8.5",
  "reqwest 0.12.12",
  "serde",
@@ -3218,7 +3228,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "getrandom 0.2.15",
- "http 1.2.0",
+ "http 1.4.0",
  "http-body",
  "http-body-util",
  "hyper",
@@ -4065,7 +4075,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "http 1.2.0",
+ "http 1.4.0",
  "http-body",
  "http-body-util",
  "hyper",
@@ -4109,7 +4119,7 @@ dependencies = [
  "encoding_rs",
  "futures-core",
  "h2 0.4.7",
- "http 1.2.0",
+ "http 1.4.0",
  "http-body",
  "http-body-util",
  "hyper",
@@ -5244,7 +5254,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "h2 0.4.7",
- "http 1.2.0",
+ "http 1.4.0",
  "http-body",
  "http-body-util",
  "hyper",
@@ -5329,7 +5339,7 @@ dependencies = [
  "bitflags 2.9.1",
  "bytes",
  "futures-util",
- "http 1.2.0",
+ "http 1.4.0",
  "http-body",
  "iri-string",
  "pin-project-lite",

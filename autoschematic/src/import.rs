@@ -47,7 +47,7 @@ pub async fn import(
             .with_prompt(" ⊆ In which prefixes should we query and import remote resources?")
             .items(&items)
             .interact()
-            .unwrap();
+            .expect("Exiting...");
 
         for i in selection {
             prefix_selections.push(items[i].to_string());
@@ -102,7 +102,7 @@ pub async fn import(
                     ))
                     .items(&items)
                     .interact()
-                    .unwrap();
+                    .expect("Exiting...");
 
                 for i in selection {
                     connector_selections
@@ -216,7 +216,7 @@ pub async fn import(
                 .with_prompt(" ◈ Import succeeded! Do you wish to run git commit to track the imported files?")
                 .default(true)
                 .interact()
-                .unwrap(),
+                .expect("Exiting..."),
         };
 
         if do_commit {

@@ -3,14 +3,14 @@ cargo-features = ["edition2024"]
 name = "autoschematic-lsp"
 description = "Language server support for Autoschematic."
 license = "AGPL-3.0"
-version = "0.13.0"
+version = "0.14.0"
 edition = "2024"
 authors = ["Peter Sherman <peter@autoschematic.sh>"]
 repository = "https://github.com/autoschematic-sh/autoschematic"
 homepage = "https://autoschematic.sh"
 
 [dependencies]
-autoschematic-core = { path = "../autoschematic-core", version = "0.13.0", features = [
+autoschematic-core = { path = "../autoschematic-core", version = "0.14.0", features = [
     "grpc",
 ] }
 anyhow = "1.0.98"

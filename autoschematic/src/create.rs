@@ -23,7 +23,7 @@ pub async fn create(_prefix_filter: &Option<String>, _connector_filter: &Option<
             .items(&prefix_names)
             .max_length(10)
             .interact()
-            .unwrap()
+            .expect("Exiting...")
     } else {
         0
     };
@@ -38,7 +38,7 @@ pub async fn create(_prefix_filter: &Option<String>, _connector_filter: &Option<
         .items(&connector_names)
         .max_length(10)
         .interact()
-        .unwrap();
+        .expect("Exiting...");
 
     // let connector_name = connector_names.get(connector_i).unwrap();
 
@@ -50,12 +50,17 @@ pub async fn create(_prefix_filter: &Option<String>, _connector_filter: &Option<
     spinner_stop.send(()).unwrap();
 
     let skeleton_paths: Vec<String> = skeletons.iter().map(|a| a.addr.to_str().unwrap().to_string()).collect();
+    if skeleton_paths.is_empty() {
+        println!("Error: this connector has no skeleton definitions.");
+        return Ok(());
+    }
+
     let skeleton_i = Select::new()
         .with_prompt("Select object")
         .items(&skeleton_paths)
         .max_length(10)
         .interact()
-        .unwrap();
+        .expect("Exiting...");
 
     let skeleton = skeletons.get(skeleton_i).unwrap();
 
@@ -96,7 +101,7 @@ pub async fn create(_prefix_filter: &Option<String>, _connector_filter: &Option<
             ))
             .default(false)
             .interact()
-            .unwrap();
+            .expect("Exiting...");
         if !write_override {
             return Ok(());
         }

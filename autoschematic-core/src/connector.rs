@@ -9,7 +9,6 @@ use std::{
 
 use anyhow::bail;
 use documented::{Documented, DocumentedFields};
-use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
@@ -17,8 +16,6 @@ use async_trait::async_trait;
 use crate::{bundle::UnbundleResponseElement, macros::FieldTypes, template::ReadOutput};
 
 pub use crate::diag::DiagnosticResponse;
-
-use crate::util::RON;
 
 /// ConnectorOps output by Connector::plan() may declare a set of output values
 /// that they will set or delete on execution.
@@ -63,11 +60,11 @@ impl OutputMapFile {
         if let Some(fname) = addr.file_name() {
             new_filename.push(fname);
         } else {
-            // If there's no file name at all, we'll just use ".out.ron"
+            // If there's no file name at all, we'll just use ".out.json"
             // so `new_filename` right now is just "." - that's fine.
-            // We'll end up producing something like "./office/east/ec2/us-east-1/.out.ron"
+            // We'll end up producing something like "./office/east/ec2/us-east-1/.out.json"
         }
-        new_filename.push(".out.ron");
+        new_filename.push(".out.json");
 
         output.push(new_filename);
 
@@ -81,7 +78,7 @@ impl OutputMapFile {
             let file = File::open(&output_path)?;
             let reader = BufReader::new(file);
 
-            let output: Self = RON.from_reader(reader)?;
+            let output: Self = serde_json::from_reader(reader)?;
 
             return Ok(Some(output));
         }
@@ -96,7 +93,7 @@ impl OutputMapFile {
             let file = File::open(&output_path)?;
             let reader = BufReader::new(file);
 
-            let output: Self = RON.from_reader(reader)?;
+            let output: Self = serde_json::from_reader(reader)?;
 
             match &output {
                 OutputMapFile::PointerToVirtual(virt_addr) => {
@@ -111,9 +108,8 @@ impl OutputMapFile {
 
     pub fn write(&self, prefix: &Path, addr: &Path) -> anyhow::Result<PathBuf> {
         let output_path = Self::path(prefix, addr);
-        let pretty_config = PrettyConfig::default();
 
-        let contents = RON.to_string_pretty(self, pretty_config)?;
+        let contents = serde_json::to_string_pretty(self)?;
 
         if let Some(parent) = output_path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -133,7 +129,7 @@ impl OutputMapFile {
         if output_path.is_file() {
             let contents = std::fs::read_to_string(&output_path)?;
 
-            let output: Self = RON.from_str(&contents)?;
+            let output: Self = serde_json::from_str(&contents)?;
 
             match &output {
                 OutputMapFile::PointerToVirtual(virtual_address) => {
@@ -143,14 +139,14 @@ impl OutputMapFile {
                     if let Some(parent) = output_path.parent() {
                         std::fs::create_dir_all(parent)?;
                     }
-                    std::fs::write(&output_path, RON.to_string_pretty(self, PrettyConfig::default())?)?;
+                    std::fs::write(&output_path, serde_json::to_string_pretty(self)?)?;
                 }
             }
         } else {
             if let Some(parent) = output_path.parent() {
                 std::fs::create_dir_all(parent)?;
             }
-            std::fs::write(&output_path, RON.to_string_pretty(self, PrettyConfig::default())?)?;
+            std::fs::write(&output_path, serde_json::to_string_pretty(self)?)?;
         }
 
         Ok(())
@@ -255,6 +251,7 @@ pub struct PhysicalAddress(pub PathBuf);
 /// resource, and `outputs` will contain the
 pub struct GetResourceResponse {
     pub resource_definition: Vec<u8>,
+    pub virt_addr: Option<PathBuf>,
     pub outputs: Option<OutputMap>,
 }
 
@@ -263,6 +260,14 @@ impl GetResourceResponse {
     /// directory set to the repo root.
     /// Returns a Vec of the file paths that were actually written.
     pub async fn write(self, prefix: &Path, phy_addr: &Path, virt_addr: &Path) -> anyhow::Result<Vec<PathBuf>> {
+        let virt_addr = if phy_addr == virt_addr
+            && let Some(ref self_virt_addr) = self.virt_addr
+        {
+            self_virt_addr
+        } else {
+            virt_addr
+        };
+
         let mut res = Vec::new();
 
         let body = self.resource_definition;
@@ -514,7 +519,7 @@ pub trait Connector: Send + Sync {
     /// Execute a ConnectorOp.
     /// OpExecResponse may include output files, containing, for example,
     ///  the resultant IDs of created resources such as EC2 instances or VPCs.
-    /// This will be stored at ./{prefix}/{addr}.out.ron,
+    /// This will be stored at ./{prefix}/{addr}.out.json,
     ///  or merged if already present.
     async fn op_exec(&self, addr: &Path, op: &str) -> Result<OpExecResponse, anyhow::Error>;
 

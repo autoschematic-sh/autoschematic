@@ -1,0 +1,18 @@
+[project]
+name = "autoschematic-sdk"
+version = "0.14.0"
+description = "Build Autoschematic Connectors in Python."
+requires-python = ">=3.10"
+dependencies = [
+    "grpcio>=1.60",
+    "protobuf>=4.25",
+]
+
+[project.optional-dependencies]
+dev = [
+    "grpcio-tools>=1.60",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

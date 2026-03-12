@@ -8,12 +8,14 @@ macro_rules! get_resource_response {
     ($resource:expr) => {{
         Ok(Some(GetResourceResponse {
             resource_definition: Resource::to_bytes(&$resource).context("Resource::to_bytes")?,
+            virt_addr: None,
             outputs: None,
         }))
     }};
     ($resource:expr, $outputs:expr) => {{
         Ok(Some(GetResourceResponse {
             resource_definition: Resource::to_bytes(&$resource).context("Resource::to_bytes")?,
+            virt_addr: None,
             outputs: Some(HashMap::from_iter($outputs.into_iter().map(|(k, v)| (k.to_string(), v)))),
         }))
     }};

@@ -14,3 +14,4 @@ CLAUDE.md
 *.egg-info
 dist/
 *.whl
+.env

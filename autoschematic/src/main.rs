@@ -1,12 +1,16 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use autoschematic_core::connector_cache::ConnectorCache;
 
 use clap::{Parser, Subcommand};
+use crossterm::style::Stylize;
 use lazy_static::lazy_static;
 use tracing_subscriber::EnvFilter;
 
-use crate::safety_lock::{set_safety_lock, unset_safety_lock};
+use crate::{
+    safety_lock::{set_safety_lock, unset_safety_lock},
+    util::try_fetch_motd,
+};
 
 lazy_static! {
     /// Global connector cache shared across all subcommands
@@ -221,6 +225,7 @@ pub enum AutoschematicSubcommand {
         #[arg(short, long, value_name = "path")]
         path: String,
     },
+    Version,
 }
 
 #[tokio::main]
@@ -232,6 +237,8 @@ async fn main() -> anyhow::Result<()> {
         .with_line_number(false)
         .with_env_filter(EnvFilter::from_default_env())
         .init();
+
+    let motd = tokio::time::timeout(Duration::from_millis(500), async move { try_fetch_motd().await }).await;
 
     // Set up Ctrl-C handler to clean up connector cache
     let cache_for_ctrlc = CONNECTOR_CACHE.clone();
@@ -310,10 +317,21 @@ async fn main() -> anyhow::Result<()> {
             AutoschematicSafetySubcommand::Unlock => unset_safety_lock(),
         },
         AutoschematicSubcommand::CheckDrift { path } => check_drift::check_drift(&path).await,
+        AutoschematicSubcommand::Version => {
+            eprintln!("{}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
     };
 
     // Clean up connector cache before exiting
     CONNECTOR_CACHE.clear().await;
+
+    // Print MOTD if we have one...
+    if let Ok(Some(motd)) = motd
+        && !motd.is_empty()
+    {
+        eprintln!("{}", motd.grey().underline_grey());
+    }
 
     result
 }
