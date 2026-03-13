@@ -28,7 +28,7 @@ class _ConnectorServicer(connector_pb2_grpc.ConnectorServicer):
             await context.abort(grpc.StatusCode.INTERNAL, str(e))
 
     async def Version(self, request, context):
-        return connector_pb2.VersionResponse(version="0.13.0")
+        return connector_pb2.VersionResponse(version="0.14.0")
 
     async def Filter(self, request, context):
         try:
