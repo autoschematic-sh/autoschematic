@@ -38,6 +38,7 @@ If you prefer to build from source, you can also run
 cargo install autoschematic
 ```
 
+> Note: to disable fetching the MOTD (fetched no more than once/day otherwise), set the env var AUTOSCHEMATIC_NO_MOTD=1
 
 Now you're about ready to try out some examples.
 
