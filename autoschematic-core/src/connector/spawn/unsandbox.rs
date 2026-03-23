@@ -19,7 +19,7 @@ use crate::{
     grpc_bridge,
     keystore::KeyStore,
     tarpc_bridge::{self},
-    util::passthrough_secrets_from_env,
+    util::{passthrough_env_from_env, passthrough_secrets_from_env},
 };
 use anyhow::bail;
 use async_trait::async_trait;
@@ -131,11 +131,13 @@ pub async fn launch_server_binary(
     let socket = random_socket_path();
     let error_dump = random_error_dump_path();
 
-    if let Some(keystore) = keystore {
+    if let Some(ref keystore) = keystore {
         env = keystore.unseal_env_map(&env)?;
     } else {
         env = passthrough_secrets_from_env(&env)?;
     }
+
+    env = passthrough_env_from_env(&env)?;
 
     if let Some(spec_pre_command) = spec.pre_command()? {
         let mut command = CommandWrap::with_new(spec_pre_command.binary, |command| {
