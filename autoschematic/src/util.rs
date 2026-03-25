@@ -106,7 +106,7 @@ pub async fn try_fetch_motd() -> Option<String> {
     let mut old_motd: Option<String> = None;
 
     if let Some((mtime, motd)) = cached_motd().await {
-        if mtime.elapsed().ok()? < Duration::from_secs(5) {
+        if mtime.elapsed().ok()? < Duration::from_hours(24) {
             return None;
         }
 

@@ -24,7 +24,7 @@ use crate::{
     keystore::KeyStore,
     secret::SealedSecret,
     tarpc_bridge::{self},
-    util::passthrough_secrets_from_env,
+    util::{passthrough_env_from_env, passthrough_secrets_from_env},
 };
 use anyhow::{Context, bail};
 use async_trait::async_trait;
@@ -410,6 +410,8 @@ pub async fn launch_server_binary_sandboxed(
     } else {
         env = passthrough_secrets_from_env(&env)?;
     }
+
+    env = passthrough_env_from_env(&env)?;
 
     // We create a pipe (a linked pair of OwnedFds) for stdout and stderr.
     // In essence, the connector, within the sandbox, will write to stdout,

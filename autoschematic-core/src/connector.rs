@@ -245,13 +245,17 @@ pub struct VirtualAddress(pub PathBuf);
 pub struct PhysicalAddress(pub PathBuf);
 
 #[derive(Debug, Serialize, Deserialize)]
-/// GetResourceResponse represents the successful result of Connector.get(addr).
-/// Where a resource exists at `addr` that is fetched by the connector,
-/// `resource_definition`` will contain the connector's string representation of that
-/// resource, and `outputs` will contain the
+/// GetResourceResponse represents the successful result of Connector.get(addr),
+/// where a resource exists at `addr` that is fetched by the connector.
 pub struct GetResourceResponse {
+    /// The on-disk (serialized) representation of this resource.
     pub resource_definition: Vec<u8>,
+    /// The virtual address (if a canonical one can be derived) of this resource.
+    /// E.G. a Grafana dashboard's physical address is based on its uid, but its virtual address on
+    /// import might be hinted based on the dashboard's title.
+    /// AWS resources might read a `name` (or configurable) tag to suggest a virtual address here on import,
     pub virt_addr: Option<PathBuf>,
+    /// Outputs (e.g. canonical resource id, vpc_id, subnet_id...) to set here.
     pub outputs: Option<OutputMap>,
 }
 

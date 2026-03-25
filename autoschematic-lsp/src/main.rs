@@ -89,7 +89,7 @@ impl LanguageServer for Backend {
 
         self.docs.insert(params.text_document.uri.clone(), text.clone());
 
-        self.validate(&params.text_document.uri, &text.clone()).await;
+        self.validate(&params.text_document.uri, text).await;
     }
 
     async fn hover(&self, params: HoverParams) -> tower_lsp_server::jsonrpc::Result<Option<Hover>> {
@@ -593,7 +593,6 @@ impl Backend {
         let Some(autoschematic_config) = self.autoschematic_config.read().await.clone() else {
             return Ok(());
         };
-        // let mut handles = Vec::new();
         let mut joinset: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
         for (prefix_name, prefix_def) in &autoschematic_config.prefixes {

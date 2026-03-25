@@ -5,15 +5,13 @@ use std::path::{Component, Path};
 /// In zsh terms, the filter path behaves as if it always has "**/*" at the end.
 /// For example:
 ///
-/// addr_matches_filter("some/prefix". "aws/iam/user/jon.ron", "some/prefix") -> true
+/// addr_matches_filter("some/prefix", "some/prefix") -> true
 ///
-/// addr_matches_filter("some/prefix". "aws/iam/user/jon.ron", "some") -> true
+/// addr_matches_filter("some/prefix", "some") -> true
 ///
-/// addr_matches_filter("another/prefix". "aws/iam/user/jon.ron", "some") -> false
+/// addr_matches_filter("another/prefix", "some") -> false
 ///
-/// addr_matches_filter("another/prefix". "aws/iam/user/jon.ron", "*/prefix") -> true
-///
-/// addr_matches_filter("some/prefix". "aws/iam/user/jon.ron", "*/\*/aws") -> true
+/// addr_matches_filter("another/prefix"", "*/prefix") -> true
 pub fn addr_matches_filter(addr: &Path, filter: &Path) -> bool {
     let full_path_components: Vec<Component<'_>> = addr.components().filter(|c| *c != Component::CurDir).collect();
     let filter_components: Vec<Component<'_>> = filter.components().filter(|c| *c != Component::CurDir).collect();
