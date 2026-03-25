@@ -182,6 +182,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+         fetch-depth: 0
 
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
@@ -204,29 +206,29 @@ jobs:
 
       - name: Publish autoschematic-macros
         run: >
-          git diff --name-only main | grep autoschematic-macros/Cargo.toml  
+          git diff --name-only  ${{ github.event.before }} ${{ github.event.after }} | grep autoschematic-macros/Cargo.toml  
           && cargo publish --package autoschematic-macros --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Publish autoschematic-core
         run: >
-          git diff --name-only main | grep autoschematic-core/Cargo.toml  
+          git diff --name-only  ${{ github.event.before }} ${{ github.event.after }} | grep autoschematic-core/Cargo.toml  
           && cargo publish --package autoschematic-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
           && sleep 30 
         # wait for autoschematic-core to be available...
 
       - name: Publish autoschematic
         run: >
-          git diff --name-only main | grep autoschematic/Cargo.toml  
+          git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep autoschematic/Cargo.toml  
           && cargo publish --package autoschematic --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Publish autoschematic-server
         run: >
-          git diff --name-only main | grep autoschematic-server/Cargo.toml  
+          git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep autoschematic-server/Cargo.toml  
           && cargo publish --package autoschematic-server --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Publish autoschematic-lsp
         run: >
-          git diff --name-only main | grep autoschematic-lsp/Cargo.toml
+          git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep autoschematic-lsp/Cargo.toml  
           && cargo publish --package autoschematic-lsp --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   # build-docker:
