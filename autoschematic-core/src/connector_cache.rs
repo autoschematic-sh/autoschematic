@@ -177,7 +177,7 @@ impl ConnectorCache {
                 }
             }
 
-            return Ok((connector.clone(), inbox.resubscribe()));
+            Ok((connector.clone(), inbox.resubscribe()))
         } else {
             self.init_status.insert(key.clone(), InitStatus::Spawning);
             // In order for the first process that invokes connector_init to receive the earliest messages from the inbox,
@@ -208,7 +208,7 @@ impl ConnectorCache {
 
             self.cache.insert(key, (connector_arc.clone(), inbox.resubscribe()));
 
-            return Ok((connector_arc, inbox));
+            Ok((connector_arc, inbox))
         }
         // }
     }
