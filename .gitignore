@@ -9,8 +9,6 @@ __pycache__/
 scripts/build_docker_test.sh
 scripts/build_docker_dist.sh
 scripts/publish_docker_test.sh
-autoschematic-mcp/*
-CLAUDE.md
 *.egg-info
 dist/
 *.whl
