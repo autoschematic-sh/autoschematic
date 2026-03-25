@@ -2,7 +2,7 @@
 name = "autoschematic-lsp"
 description = "Language server support for Autoschematic."
 license = "AGPL-3.0"
-version = "0.14.4"
+version = "0.14.5"
 edition = "2024"
 authors = ["Peter Sherman <peter@autoschematic.sh>"]
 repository = "https://github.com/autoschematic-sh/autoschematic"
