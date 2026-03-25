@@ -203,22 +203,31 @@ jobs:
           key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Publish autoschematic-macros
-        run: cargo publish --package autoschematic-macros --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: >
+          git diff --name-only main | grep autoschematic-macros/Cargo.toml  
+          && cargo publish --package autoschematic-macros --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Publish autoschematic-core
-        run: cargo publish --package autoschematic-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Wait for autoschematic-core to be available
-        run: sleep 30
+        run: >
+          git diff --name-only main | grep autoschematic-core/Cargo.toml  
+          && cargo publish --package autoschematic-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          && sleep 30 
+        # wait for autoschematic-core to be available...
 
       - name: Publish autoschematic
-        run: cargo publish --package autoschematic --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: >
+          git diff --name-only main | grep autoschematic/Cargo.toml  
+          && cargo publish --package autoschematic --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Publish autoschematic-server
-        run: cargo publish --package autoschematic-server --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: >
+          git diff --name-only main | grep autoschematic-server/Cargo.toml  
+          && cargo publish --package autoschematic-server --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Publish autoschematic-lsp
-        run: cargo publish --package autoschematic-lsp --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: >
+          git diff --name-only main | grep autoschematic-lsp/Cargo.toml
+          && cargo publish --package autoschematic-lsp --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   # build-docker:
   #   name: Build and Push Docker Images
