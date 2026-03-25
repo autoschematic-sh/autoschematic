@@ -2,7 +2,7 @@
 name = "autoschematic"
 description = "A tool for managing infrastructure and policy as code, built around Git."
 license = "AGPL-3.0"
-version = "0.14.5"
+version = "0.14.6"
 edition = "2024"
 authors = ["Peter Sherman <peter@autoschematic.sh>"]
 repository = "https://github.com/autoschematic-sh/autoschematic"
