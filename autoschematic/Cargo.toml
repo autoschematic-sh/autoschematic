@@ -1,20 +1,21 @@
-cargo-features = ["edition2024"]
 [package]
 name = "autoschematic"
-description = "Command-line tools for Autoschematic"
+description = "A tool for managing infrastructure and policy as code, built around Git."
 license = "AGPL-3.0"
-version = "0.14.2"
+version = "0.14.3"
 edition = "2024"
 authors = ["Peter Sherman <peter@autoschematic.sh>"]
 repository = "https://github.com/autoschematic-sh/autoschematic"
 homepage = "https://autoschematic.sh"
+keywords = ["devops", "gitops", "infrastructure", "iac", "declarative"]
+categories = ["command-line-utilities", "development-tools", "config", "database", "filesystem"]
 
 [[bin]]
 name = "autoschematic"
 path = "src/main.rs"
 
 [dependencies]
-autoschematic-core = { path = "../autoschematic-core", version = "0.14.0", features = [
+autoschematic-core = { path = "../autoschematic-core", version = "0.14.1", features = [
     "grpc",
 ] }
 ecdsa = "0.16.8"

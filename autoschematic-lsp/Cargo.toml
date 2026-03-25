@@ -1,16 +1,17 @@
-cargo-features = ["edition2024"]
 [package]
 name = "autoschematic-lsp"
 description = "Language server support for Autoschematic."
 license = "AGPL-3.0"
-version = "0.14.2"
+version = "0.14.3"
 edition = "2024"
 authors = ["Peter Sherman <peter@autoschematic.sh>"]
 repository = "https://github.com/autoschematic-sh/autoschematic"
 homepage = "https://autoschematic.sh"
+categories = ["command-line-utilities", "development-tools", "config", "database", "filesystem"]
+keywords = ["devops", "gitops", "infrastructure", "iac", "declarative"]
 
 [dependencies]
-autoschematic-core = { path = "../autoschematic-core", version = "0.14.0", features = [
+autoschematic-core = { path = "../autoschematic-core", version = "0.14.1", features = [
     "grpc",
 ] }
 anyhow = "1.0.98"
