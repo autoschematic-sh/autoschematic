@@ -44,7 +44,17 @@ class StatusProvider implements vscode.TreeDataProvider<Prefix | Connector> {
 
     constructor(client: LanguageClient) {
         this.client = client;
-        this.refreshInterval = setInterval(() => { this.refresh() }, 1000);
+
+        let refreshInFlight = false;
+        this.refreshInterval = setInterval(async () => {
+            if (refreshInFlight) return;
+            refreshInFlight = true;
+            try {
+                await this.refresh();
+            } finally {
+                refreshInFlight = false;
+            }
+        }, 1000);
     }
 
     dispose() {
