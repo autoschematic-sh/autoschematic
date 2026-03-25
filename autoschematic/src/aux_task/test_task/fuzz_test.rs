@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use crossterm::style::Stylize;
 use rand::{Rng, distr::Alphanumeric};
 use serde::{Deserialize, Serialize};
 
@@ -120,13 +121,13 @@ impl TestTask {
                     .await?
                     {
                         check_drift::CheckDriftResult::NeitherExist => {
-                            println!("check_drift: Neither exist?");
+                            println!("{}", "check_drift: Neither exist?".underline_dark_green());
                         }
                         check_drift::CheckDriftResult::InvalidAddress => {
-                            println!("check_drift: invalid address?");
+                            println!("{}", "check_drift: invalid address?".underline_dark_red());
                         }
                         check_drift::CheckDriftResult::NotEqual { current, desired } => {
-                            println!("check_drift: not equal!");
+                            println!("{}", "check_drift: not equal!".underline_dark_magenta());
                             match (current, desired) {
                                 (None, None) => {}
                                 (None, Some(_)) => {}
@@ -138,7 +139,7 @@ impl TestTask {
                             }
                         }
                         check_drift::CheckDriftResult::Equal => {
-                            println!("check_drift: equal!");
+                            println!("{}", "check_drift: equal!".underline_dark_green());
                         }
                     }
                 }
