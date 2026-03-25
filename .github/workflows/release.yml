@@ -208,56 +208,22 @@ jobs:
         run: git fetch origin main
 
       - name: Publish autoschematic-macros
-        run: >
-          git diff --name-only origin/main | grep autoschematic-macros/Cargo.toml  
-          && cargo publish --package autoschematic-macros --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: 
+          bash scripts/publish_crate_if_changed.sh autoschematic-macros "${{ secrets.CARGO_REGISTRY_TOKEN }}"
 
       - name: Publish autoschematic-core
-        run: >
-          git diff --name-only origin/main | grep autoschematic-core/Cargo.toml  
-          && cargo publish --package autoschematic-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          && sleep 30
-        # wait for autoschematic-core to be available...
+        run: 
+          bash scripts/publish_crate_if_changed.sh autoschematic-core "${{ secrets.CARGO_REGISTRY_TOKEN }}"
 
       - name: Publish autoschematic
-        run: >
-          git diff --name-only origin/main | grep autoschematic/Cargo.toml  
-          && cargo publish --package autoschematic --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run:
+          bash scripts/publish_crate_if_changed.sh autoschematic "${{ secrets.CARGO_REGISTRY_TOKEN }}"
 
       - name: Publish autoschematic-server
-        run: >
-          git diff --name-only origin/main | grep autoschematic-server/Cargo.toml  
-          && cargo publish --package autoschematic-server --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: 
+          bash scripts/publish_crate_if_changed.sh autoschematic-server "${{ secrets.CARGO_REGISTRY_TOKEN }}"
 
       - name: Publish autoschematic-lsp
-        run: >
-          git diff --name-only origin/main | grep autoschematic-lsp/Cargo.toml  
-          && cargo publish --package autoschematic-lsp --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: 
+          bash scripts/publish_crate_if_changed.sh autoschematic-lsp "${{ secrets.CARGO_REGISTRY_TOKEN }}"
 
-  # build-docker:
-  #   name: Build and Push Docker Images
-  #   needs: create-release
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: Checkout code
-  #     uses: actions/checkout@v4
-
-  #   - name: Set up Docker Buildx
-  #     uses: docker/setup-buildx-action@v3
-
-  #   - name: Login to Docker Hub
-  #     uses: docker/login-action@v3
-  #     with:
-  #       username: ${{ secrets.DOCKER_USERNAME }}
-  #       password: ${{ secrets.DOCKER_PASSWORD }}
-
-  #   - name: Build and push Server image
-  #     uses: docker/build-push-action@v5
-  #     with:
-  #       context: ./autoschematic-server
-  #       file: ./autoschematic-server/Dockerfile
-  #       push: true
-  #       tags: |
-  #         autoschematic/autoschematic-server:latest
-  #         autoschematic/autoschematic-server:${{ needs.create-release.outputs.version }}
-  #       platforms: linux/amd64,linux/arm64
