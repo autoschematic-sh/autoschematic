@@ -127,6 +127,17 @@ pub enum Spec {
         #[serde(default)]
         protocol: Protocol,
     },
+    Pip {
+        name: String,
+        #[serde(default)]
+        version: Option<String>,
+        #[serde(default)]
+        binary: Option<String>,
+        #[serde(default)]
+        module: Option<String>,
+        #[serde(default)]
+        protocol: Protocol,
+    },
     TypescriptLocal {
         path: PathBuf,
     },
@@ -147,6 +158,7 @@ impl Spec {
             Spec::Binary { protocol, .. } => protocol.clone(),
             Spec::Cargo { protocol, .. } => protocol.clone(),
             Spec::CargoLocal { protocol, .. } => protocol.clone(),
+            Spec::Pip { protocol, .. } => protocol.clone(),
             Spec::TypescriptLocal { .. } => Protocol::Grpc,
             Spec::PythonLocal { .. } => Protocol::Grpc,
         }
@@ -283,6 +295,26 @@ impl Spec {
                     binary: "tsx".into(),
                     args,
                 })
+            }
+            Spec::Pip {
+                name, binary, module, ..
+            } => {
+                if let Some(binary) = binary {
+                    let binary = which::which(binary)?;
+                    Ok(SpecCommand { binary, args: vec![] })
+                } else if let Some(module) = module {
+                    let args = vec!["-m".into(), module.into()];
+                    Ok(SpecCommand {
+                        binary: "python".into(),
+                        args,
+                    })
+                } else {
+                    let args = vec!["-m".into(), name.into()];
+                    Ok(SpecCommand {
+                        binary: "python".into(),
+                        args,
+                    })
+                }
             }
             Spec::PythonLocal { path } => {
                 if !path.is_file() {
