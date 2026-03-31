@@ -64,7 +64,7 @@ pub async fn cargo_install_missing(config: &AutoschematicConfig) -> anyhow::Resu
                     ..
                 } => {
                     // TODO check pkg_map and skip existing with same version, features
-                    println!("Installing {name}");
+                    println!("Installing {name} via Cargo");
 
                     let mut command = tokio::process::Command::new("cargo");
 
@@ -82,6 +82,32 @@ pub async fn cargo_install_missing(config: &AutoschematicConfig) -> anyhow::Resu
                         && !features.is_empty()
                     {
                         command.args(["--features", &features.join(",")]);
+                    }
+
+                    let status = command
+                        .stdin(Stdio::inherit())
+                        .stdout(Stdio::inherit())
+                        .stderr(Stdio::inherit())
+                        .kill_on_drop(true)
+                        .spawn()?
+                        .wait()
+                        .await?;
+
+                    if !status.success() {
+                        bail!("Pre-command failed: {:?}: {}", command, status)
+                    }
+                }
+                autoschematic_core::config::Spec::Pip { name, version, .. } => {
+                    println!("Installing {name} via Pip");
+
+                    let mut command = tokio::process::Command::new("pip");
+
+                    command.args(["install"]);
+
+                    if let Some(version) = version {
+                        command.args([format!("{name}~={version}")]);
+                    } else {
+                        command.args([name]);
                     }
 
                     let status = command
