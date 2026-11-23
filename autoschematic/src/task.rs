@@ -30,12 +30,16 @@ pub async fn run_task(path: &Path, _commit: bool, arg: Option<String>) -> anyhow
         let Some(res) =
             workflow::task_exec::task_exec(&config, CONNECTOR_CACHE.clone(), keystore, &None, path, arg, state).await?
         else {
-            println!("{}: Not a task for any connector: {}", " Error".dark_red(), path.display());
+            println!(
+                "{}: Not a task for any connector: {}",
+                crate::output::styled(" Error".dark_red()),
+                path.display()
+            );
             return Ok(());
         };
 
         if let Some(friendly_message) = res.friendly_message {
-            println!(" ⋇ {}", friendly_message);
+            println!(" {} {}", crate::output::choose("⋇", "-"), friendly_message);
         }
 
         arg = None;
@@ -55,7 +59,7 @@ pub async fn run_task(path: &Path, _commit: bool, arg: Option<String>) -> anyhow
         }
     }
 
-    println!("{}", " Success!".dark_green());
+    println!("{}", crate::output::styled(" Success!".dark_green()));
 
     Ok(())
 }

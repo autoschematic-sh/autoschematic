@@ -27,6 +27,13 @@ pub async fn show_spinner() -> tokio::sync::oneshot::Sender<()> {
 
     let (send, mut recv) = tokio::sync::oneshot::channel::<()>();
 
+    if crate::output::plain() {
+        tokio::spawn(async move {
+            let _ = recv.await;
+        });
+        return send;
+    }
+
     tokio::spawn(async move {
         let mut frame_i: usize = 0;
 

@@ -9,6 +9,9 @@ use regex::Regex;
 use tokio::fs::create_dir_all;
 
 pub fn colour_op_message(message: &str) -> String {
+    if crate::output::plain() {
+        return message.to_string();
+    }
     let re = Regex::new(r"(Deleted|deleted|DELETED|Delete|delete|DELETE|Destroy|destroy|DESTROY|DROPPED|DROP)").unwrap();
 
     // let message = re.replace_all(message, |captures: &regex::Captures| match &captures[0] {
@@ -29,6 +32,9 @@ pub fn colour_op_message(message: &str) -> String {
 /// Look for a fenced ```diff … ``` block in `message`.
 /// If found, colourise each added/removed line
 pub fn try_colour_op_message_diff(message: &str) -> Option<String> {
+    if crate::output::plain() {
+        return None;
+    }
     // (?s) → dot matches new-lines
     // (?m) → ^ / $ are line anchors
     let diff_re = Regex::new(r"(?sm)```diff\n(.*?)\n```").unwrap();

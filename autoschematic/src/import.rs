@@ -44,7 +44,7 @@ pub async fn import(
         let items: Vec<&String> = config.prefixes.keys().collect();
 
         let selection = MultiSelect::new()
-            .with_prompt(" ⊆ In which prefixes should we query and import remote resources?")
+            .with_prompt("In which prefixes should we query and import remote resources?")
             .items(&items)
             .interact()
             .expect("Exiting...");
@@ -97,8 +97,8 @@ pub async fn import(
             } else {
                 let selection = MultiSelect::new()
                     .with_prompt(format!(
-                        " ⊆ In prefix {}, with which connectors should we query and import remote resources?",
-                        prefix_selection.clone().dark_grey(),
+                        "In prefix {}, with which connectors should we query and import remote resources?",
+                        crate::output::styled(prefix_selection.clone().dark_grey()),
                     ))
                     .items(&items)
                     .interact()
@@ -116,7 +116,7 @@ pub async fn import(
     }
 
     if total_connectors == 0 {
-        println!(" ∅ Selection matched no connectors, or your prefix(es) are empty.");
+        println!("Selection matched no connectors, or your prefix(es) are empty.");
         return Ok(());
     }
 
@@ -141,15 +141,15 @@ pub async fn import(
                                 println!(
                                     "{}: Starting import under {}/{}",
                                     connector_name,
-                                    prefix_name.clone().dark_grey(),
+                                    crate::output::styled(prefix_name.clone().dark_grey()),
                                     subpath.display()
                                 )
                             }
                             ImportMessage::SkipExisting { prefix, addr } => {
                                 eprintln!(
                                     " {} Skipping {}/{} (already exists)",
-                                    "∋".dark_grey(),
-                                    prefix.to_string_lossy().dark_grey(),
+                                    crate::output::choose("∋", "-"),
+                                    crate::output::styled(prefix.to_string_lossy().dark_grey()),
                                     addr.display()
                                 )
                             }
@@ -157,8 +157,8 @@ pub async fn import(
                             ImportMessage::GetSuccess { addr, .. } => {
                                 eprintln!(
                                     " {} Imported {}/{}",
-                                    "⋉".bold(),
-                                    prefix_name.clone().dark_grey(),
+                                    crate::output::choose("⋉", "-"),
+                                    crate::output::styled(prefix_name.clone().dark_grey()),
                                     addr.display()
                                 )
                             }
@@ -207,13 +207,13 @@ pub async fn import(
         }
     }
 
-    println!("{}", " Success!".dark_green());
+    println!("{}", crate::output::styled(" Success!".dark_green()));
 
     if wrote_files {
         let do_commit = match commit {
             Some(commit) => commit,
             None => Confirm::new()
-                .with_prompt(" ◈ Import succeeded! Do you wish to run git commit to track the imported files?")
+                .with_prompt("Import succeeded! Do you wish to run git commit to track the imported files?")
                 .default(true)
                 .interact()
                 .expect("Exiting..."),

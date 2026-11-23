@@ -3,7 +3,7 @@ use autoschematic_core::{
 };
 use crossterm::style::Stylize;
 
-use crate::{CONNECTOR_CACHE, selection::select_paths, spinner::show_spinner};
+use crate::{CONNECTOR_CACHE, output, selection::select_paths, spinner::show_spinner};
 
 pub async fn unbundle(
     prefix_filter: &Option<String>,
@@ -63,16 +63,17 @@ pub async fn unbundle(
 
         println!(
             " {}/{}:",
-            unbundle_report.prefix.display().to_string().dark_grey(),
-            unbundle_report.addr.display().to_string().bold()
+            output::styled(unbundle_report.prefix.display().to_string().dark_grey()),
+            output::styled(unbundle_report.addr.display().to_string().bold())
         );
 
         for element in &unbundle_elements {
             write_unbundle_element(&unbundle_report.prefix, &unbundle_report.addr, element, overbundle, git_stage).await?;
             println!(
-                " ↪ {}/{}:",
-                unbundle_report.prefix.display().to_string().dark_grey(),
-                element.addr.display().to_string().underline_dark_grey()
+                " {} {}/{}:",
+                output::choose("↪", "->"),
+                output::styled(unbundle_report.prefix.display().to_string().dark_grey()),
+                output::styled(element.addr.display().to_string().underline_dark_grey())
             );
         }
     }

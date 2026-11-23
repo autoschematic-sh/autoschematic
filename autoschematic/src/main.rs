@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use autoschematic_core::connector_cache::ConnectorCache;
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use crossterm::style::Stylize;
 use lazy_static::lazy_static;
 use tracing_subscriber::EnvFilter;
@@ -25,6 +25,7 @@ mod create;
 mod import;
 mod init;
 mod install;
+mod output;
 mod plan;
 mod safety_lock;
 mod seal;
@@ -37,8 +38,12 @@ mod util;
 mod validate;
 
 #[derive(Parser, Debug)]
-#[command(name = "autoschematic")]
+#[command(name = "autoschematic", version)]
 pub struct AutoschematicCommand {
+    /// Disable colors, decorations, spinners and MOTD. Automatic when output is redirected.
+    #[arg(long, global = true)]
+    pub plain: bool,
+
     #[command(subcommand)]
     pub command: AutoschematicSubcommand,
 }
@@ -235,7 +240,18 @@ pub enum AutoschematicSubcommand {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let plain = output::default_plain() || std::env::args_os().any(|arg| arg == "--plain");
+    let command = AutoschematicCommand::command();
+    let command = if plain {
+        command.color(clap::ColorChoice::Never)
+    } else {
+        command
+    };
+    let cmd = AutoschematicCommand::from_arg_matches(&command.get_matches())?;
+    output::configure(plain || cmd.plain);
+
     tracing_subscriber::fmt()
+        .with_ansi(!output::plain())
         .with_writer(std::io::stderr)
         .with_target(true)
         .with_thread_ids(false)
@@ -243,7 +259,14 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    let motd = tokio::time::timeout(Duration::from_millis(500), async move { try_fetch_motd().await }).await;
+    let motd = if output::plain() {
+        None
+    } else {
+        tokio::time::timeout(Duration::from_millis(500), try_fetch_motd())
+            .await
+            .ok()
+            .flatten()
+    };
 
     // Set up Ctrl-C handler to clean up connector cache
     let cache_for_ctrlc = CONNECTOR_CACHE.clone();
@@ -254,8 +277,6 @@ async fn main() -> anyhow::Result<()> {
             std::process::exit(130); // SIGINT
         }
     });
-
-    let cmd = AutoschematicCommand::parse();
 
     let result = match cmd.command {
         AutoschematicSubcommand::Seal {
@@ -289,8 +310,9 @@ async fn main() -> anyhow::Result<()> {
             skip_commit,
         } => {
             let ask_confirm = !skip_confirm;
-            let _apply_reports = apply::apply(prefix, connector, subpath, ask_confirm, skip_commit).await?;
-            Ok(())
+            apply::apply(prefix, connector, subpath, ask_confirm, skip_commit)
+                .await
+                .map(|_| ())
         }
         AutoschematicSubcommand::Unbundle {
             prefix,
@@ -332,7 +354,7 @@ async fn main() -> anyhow::Result<()> {
     CONNECTOR_CACHE.clear().await;
 
     // Print MOTD if we have one...
-    if let Ok(Some(motd)) = motd
+    if let Some(motd) = motd
         && !motd.is_empty()
     {
         eprintln!("{}", motd.grey().underline_grey());

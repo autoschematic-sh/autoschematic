@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    io::Write,
+    io::{BufRead, Write},
     process::{Command, Stdio},
 };
 
@@ -16,7 +16,7 @@ use autoschematic_core::{
 };
 
 use crate::{
-    CONNECTOR_CACHE,
+    CONNECTOR_CACHE, output,
     plan::{frame, print_frame_end, print_frame_start, print_plan, print_plan_addr},
     safety_lock::check_safety_lock,
     selection::select_paths,
@@ -159,7 +159,7 @@ pub async fn apply(
             .collect()
     };
 
-    println!(" ◇ Plan complete.");
+    println!("{}Plan complete.", output::choose(" ◇ ", ""));
     if plan_report_set.plan_reports.is_empty() {
         println!("No changes for the selected staged resources.");
         return Ok(apply_report_set);
@@ -167,9 +167,9 @@ pub async fn apply(
 
     if ask_confirm {
         println!(
-            "Type {} to {} of the above actions and commit.",
-            verify_code.clone().bold(),
-            "execute all".underline_dark_grey()
+            "Type {} to {} of the above actions.",
+            output::styled(verify_code.clone().bold()),
+            output::styled("execute all".underline_dark_grey())
         );
         println!("Hit Ctrl-c to cancel.");
 
@@ -177,8 +177,7 @@ pub async fn apply(
             print!(">");
             let _ = std::io::stdout().flush();
 
-            let mut input_line = String::new();
-            std::io::stdin().read_line(&mut input_line).expect("Failed to read line");
+            let input_line = read_confirmation(&mut std::io::stdin().lock())?;
             let verify_code_attempt = input_line.trim();
             match verify_code_attempt {
                 s if s == verify_code => {
@@ -227,7 +226,7 @@ pub async fn apply(
                 for (i, line) in coloured_message.lines().enumerate() {
                     if i == 0 {
                         // println!("{}  ⟣ {}", frame(), line)
-                        println!("{}  ⟖ {}", frame(), line);
+                        println!("{}  {} {}", frame(), output::choose("⟖", "-"), line);
                     } else {
                         println!("{}  {}", frame(), line)
                     }
@@ -259,13 +258,21 @@ pub async fn apply(
     let mut did_make_output_progress = false;
 
     if !deferred.is_empty() {
-        println!(" ⊬ Some files were not applied as they were missing outputs.");
+        println!(
+            "{}Some files were not applied as they were missing outputs.",
+            output::choose(" ⊬ ", "")
+        );
         for plan_report in deferred {
             print_plan_addr(&plan_report);
             for output in &plan_report.missing_outputs {
                 if set_outputs.contains(output) {
                     did_make_output_progress = true;
-                    println!(" {} {}[{}]  ", "[SET!]".green(), output.addr.display(), output.key);
+                    println!(
+                        " {} {}[{}]  ",
+                        output::styled("[SET!]".green()),
+                        output.addr.display(),
+                        output.key
+                    );
                 } else {
                     println!("        {}[{}]", output.addr.display(), output.key);
                 }
@@ -274,7 +281,7 @@ pub async fn apply(
 
         if did_make_output_progress {
             let do_reapply = Confirm::new()
-                .with_prompt(" ◈ Apply succeeded! Some resources were deferred on outputs that are now available. Do you wish to continue applying?")
+                .with_prompt("Apply succeeded! Some resources were deferred on outputs that are now available. Do you wish to continue applying?")
                 .default(true)
                 .interact()
                 .expect("Exiting...");
@@ -291,15 +298,13 @@ pub async fn apply(
             }
         } else {
             let do_reapply = Confirm::new()
-                .with_prompt(
-                    " ◈ Apply succeeded, but some resources are still deferred. Do you wish to continue applying anyway?",
-                )
+                .with_prompt("Apply succeeded, but some resources are still deferred. Do you wish to continue applying anyway?")
                 .default(true)
                 .interact()
                 .expect("Exiting...");
 
             if do_reapply {
-                // apply(prefix_filter, connector_filter, subpath_filter, ask_confirm, skip_commit).await?;
+                // apply(_prefix_filter, connector_filter, _subpath_filter, ask_confirm, skip_commit).await?;
                 Box::pin(apply(
                     prefix_filter,
                     connector_filter,
@@ -312,7 +317,7 @@ pub async fn apply(
         }
     } else if wrote_files && !skip_commit {
         let do_commit = Confirm::new()
-            .with_prompt(" ◈ Apply succeeded! Do you wish to run git commit to track the new state?")
+            .with_prompt("Apply succeeded! Do you wish to run git commit to track the new state?")
             .default(true)
             .interact()
             .expect("Exiting...");
@@ -328,4 +333,23 @@ pub async fn apply(
     }
 
     Ok(apply_report_set)
+}
+
+fn read_confirmation(input: &mut impl BufRead) -> anyhow::Result<String> {
+    let mut line = String::new();
+    if input.read_line(&mut line)? == 0 {
+        anyhow::bail!("Confirmation input closed. No actions confirmed; use --skip-confirm for unattended apply.");
+    }
+    Ok(line)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn confirmation_eof_is_an_error() {
+        assert!(read_confirmation(&mut std::io::Cursor::new("")).is_err());
+        assert_eq!(read_confirmation(&mut std::io::Cursor::new("1234\n")).unwrap(), "1234\n");
+    }
 }

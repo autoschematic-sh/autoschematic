@@ -40,13 +40,25 @@ cargo install autoschematic
 
 > Note: to disable fetching the MOTD (fetched no more than once/day otherwise), set the env var AUTOSCHEMATIC_NO_MOTD=1
 
+## CLI output and automation
+
+Use `autoschematic --plain plan` for line-oriented output without CLI colors,
+text styling, decorative borders, or animated spinners. Plain mode also skips
+fetching and displaying the MOTD. It is automatic when stdout or stderr is not a
+terminal, when `NO_COLOR` is nonempty, or when `TERM=dumb`. The global `--plain`
+flag also works after a subcommand. Connector and build diagnostics are retained.
+
+Plain mode does not approve changes or disable confirmations. Closing stdin at the apply confirmation returns an error.
+
+Use `autoschematic --version` (or `autoschematic version`) to print the CLI version.
+
 `plan`, `apply`, and `unbundle` select staged resource files using `--prefix`
 and `--subpath` before starting connectors. Subpaths are relative to the prefix
 and support `*` wildcards within path components; brace expansion and `?` are not
 supported. Quote wildcard paths so the shell does not expand them:
 
 ```sh
-autoschematic plan --prefix main --connector aws/route53 \
+autoschematic --plain plan --prefix main --connector aws/route53 \
   --subpath 'aws/route53/hosted_zones/example.com/records/A/*.ron'
 ```
 
