@@ -3,23 +3,30 @@ use autoschematic_core::{
 };
 use crossterm::style::Stylize;
 
-use crate::{CONNECTOR_CACHE, spinner::show_spinner};
+use crate::{CONNECTOR_CACHE, selection::select_paths, spinner::show_spinner};
 
 pub async fn unbundle(
-    _prefix_filter: &Option<String>,
+    prefix_filter: &Option<String>,
     connector_filter: &Option<String>,
-    _subpath_filter: &Option<String>,
+    subpath_filter: &Option<String>,
     overbundle: bool,
     git_stage: bool,
 ) -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;
 
     let staged_files = get_staged_files()?;
+    let staged_files = select_paths(
+        &config,
+        staged_files,
+        prefix_filter.as_deref(),
+        connector_filter.as_deref(),
+        subpath_filter.as_deref(),
+    )?;
 
     let keystore = None;
 
     if staged_files.is_empty() {
-        println!(" ∅  No files staged in git. Stage modified files with `git add` to unbundle them.");
+        println!("No staged files match the requested filters. Stage modified files with git add to unbundle them.");
         return Ok(());
     }
 

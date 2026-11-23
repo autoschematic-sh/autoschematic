@@ -28,6 +28,7 @@ mod install;
 mod plan;
 mod safety_lock;
 mod seal;
+mod selection;
 mod spinner;
 mod sso;
 mod task;
@@ -126,7 +127,7 @@ pub enum AutoschematicSubcommand {
         #[arg(short, long, value_name = "connector")]
         connector: Option<String>,
 
-        /// Optional path (can be a glob) to filter which resources are imported.
+        /// Filter staged resources by path relative to the prefix (supports * wildcards).
         #[arg(short, long, value_name = "subpath")]
         subpath: Option<String>,
     },
@@ -140,7 +141,7 @@ pub enum AutoschematicSubcommand {
         #[arg(short, long, value_name = "connector")]
         connector: Option<String>,
 
-        /// Optional path (can be a glob) to filter which resources are imported.
+        /// Filter staged resources by path relative to the prefix (supports * wildcards).
         #[arg(short, long, value_name = "subpath")]
         subpath: Option<String>,
 
@@ -162,7 +163,7 @@ pub enum AutoschematicSubcommand {
         #[arg(short, long, value_name = "connector")]
         connector: Option<String>,
 
-        /// Optional path (can be a glob) to filter which resources are imported.
+        /// Filter staged resources by path relative to the prefix (supports * wildcards).
         #[arg(short, long, value_name = "subpath")]
         subpath: Option<String>,
 
@@ -224,6 +225,10 @@ pub enum AutoschematicSubcommand {
     CheckDrift {
         #[arg(short, long, value_name = "path")]
         path: String,
+
+        /// Only load the named connector when checking drift.
+        #[arg(short, long, value_name = "connector")]
+        connector: Option<String>,
     },
     Version,
 }
@@ -316,7 +321,7 @@ async fn main() -> anyhow::Result<()> {
             AutoschematicSafetySubcommand::Lock => set_safety_lock(),
             AutoschematicSafetySubcommand::Unlock => unset_safety_lock(),
         },
-        AutoschematicSubcommand::CheckDrift { path } => check_drift::check_drift(&path).await,
+        AutoschematicSubcommand::CheckDrift { path, connector } => check_drift::check_drift(&path, connector.as_deref()).await,
         AutoschematicSubcommand::Version => {
             eprintln!("{}", env!("CARGO_PKG_VERSION"));
             Ok(())

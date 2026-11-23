@@ -3,6 +3,7 @@ use crossterm::style::Stylize;
 
 use crate::{
     CONNECTOR_CACHE,
+    selection::select_paths,
     spinner::show_spinner,
     util::{colour_op_message, try_colour_op_message_diff},
 };
@@ -10,18 +11,31 @@ use crate::{
 pub async fn plan(
     prefix_filter: &Option<String>,
     connector_filter: &Option<String>,
-    _subpath_filter: &Option<String>,
+    subpath_filter: &Option<String>,
 ) -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;
 
-    if let Some(_prefix_filter) = prefix_filter {}
-
     let staged_files = get_staged_files()?;
+    let no_staged_files = staged_files.is_empty();
+    let staged_files = select_paths(
+        &config,
+        staged_files,
+        prefix_filter.as_deref(),
+        connector_filter.as_deref(),
+        subpath_filter.as_deref(),
+    )?;
 
     let keystore = None;
 
     if staged_files.is_empty() {
-        println!(" ∅  No files staged in git. Stage modified files with git add to plan or apply them.");
+        println!(
+            "{}",
+            if no_staged_files {
+                "No files staged in git. Stage modified files with git add to plan or apply them."
+            } else {
+                "No staged files match the requested filters."
+            }
+        );
         return Ok(());
     }
 
@@ -79,9 +93,7 @@ pub async fn plan(
 
     println!(" ◇ Plan complete.");
     if !have_nonempty_plan {
-        println!(
-            " ≡ All plans are empty, implying that the remote configuration matches the desired configuration for all staged files."
-        );
+        println!("No changes for the selected staged resources.");
         return Ok(());
     }
 

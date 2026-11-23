@@ -1,4 +1,35 @@
 use std::path::{Component, Path};
+
+fn component_matches(value: &std::ffi::OsStr, pattern: &std::ffi::OsStr) -> bool {
+    if value == pattern || pattern == "*" {
+        return true;
+    }
+
+    let (Some(value), Some(pattern)) = (value.to_str(), pattern.to_str()) else {
+        return false;
+    };
+
+    let value: Vec<char> = value.chars().collect();
+    let pattern: Vec<char> = pattern.chars().collect();
+    let mut matches = vec![false; value.len() + 1];
+    matches[0] = true;
+
+    for pattern_char in pattern {
+        if pattern_char == '*' {
+            for i in 1..=value.len() {
+                matches[i] = matches[i] || matches[i - 1];
+            }
+        } else {
+            for i in (1..=value.len()).rev() {
+                matches[i] = matches[i - 1] && value[i - 1] == pattern_char;
+            }
+            matches[0] = false;
+        }
+    }
+
+    matches[value.len()]
+}
+
 /// This function determines, for a given resource address, whether or not
 /// the user-provided filter path excludes that resource address.
 /// This includes * globs.
@@ -24,11 +55,7 @@ pub fn addr_matches_filter(addr: &Path, filter: &Path) -> bool {
     for (full_path_component, filter_component) in full_path_components.iter().zip(filter_components) {
         match (full_path_component, filter_component) {
             (Component::Normal(full), Component::Normal(filter)) => {
-                if *full == filter {
-                    continue;
-                }
-
-                if filter.to_str() == Some("*") {
+                if component_matches(full, filter) {
                     continue;
                 }
 
@@ -121,5 +148,18 @@ mod tests {
         let addr = Path::new("aws/iam/user/jon.ron");
         let filter = Path::new("*/*/user/jon.ron");
         assert!(addr_matches_filter(addr, filter));
+    }
+
+    #[test]
+    fn test_addr_matches_filter_filename_extension_wildcard() {
+        let addr = Path::new("k8s/default/ns/rhythm-nebula/deployment/backend.yaml");
+        let filter = Path::new("k8s/default/ns/rhythm-nebula/deployment/*.yaml");
+        assert!(addr_matches_filter(addr, filter));
+    }
+
+    #[test]
+    fn test_addr_matches_filter_embedded_wildcards() {
+        assert!(component_matches("backend.yaml".as_ref(), "back*.y*".as_ref()));
+        assert!(!component_matches("backend.yml".as_ref(), "back*.yaml".as_ref()));
     }
 }

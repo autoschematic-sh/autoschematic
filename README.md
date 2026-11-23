@@ -40,6 +40,21 @@ cargo install autoschematic
 
 > Note: to disable fetching the MOTD (fetched no more than once/day otherwise), set the env var AUTOSCHEMATIC_NO_MOTD=1
 
+`plan`, `apply`, and `unbundle` select staged resource files using `--prefix`
+and `--subpath` before starting connectors. Subpaths are relative to the prefix
+and support `*` wildcards within path components; brace expansion and `?` are not
+supported. Quote wildcard paths so the shell does not expand them:
+
+```sh
+autoschematic plan --prefix main --connector aws/route53 \
+  --subpath 'aws/route53/hosted_zones/example.com/records/A/*.ron'
+```
+
+For repositories with several connectors, pass `--connector aws/route53` to
+`check-drift` alongside `--path main/aws/route53/...`. This loads only the
+requested connector, so missing installations of unrelated connectors do not
+block the check.
+
 Now you're about ready to try out some examples.
 
 [https://autoschematic.sh/guide/getting-started/](https://autoschematic.sh/guide/getting-started/)
