@@ -50,6 +50,10 @@ flag also works after a subcommand. Connector and build diagnostics are retained
 
 Plain mode does not approve changes or disable confirmations. Closing stdin at the apply confirmation returns an error.
 
+`plan` and `apply` read selected resource contents from the Git index. To include
+a later edit, stage it before planning. A staged deletion remains a deletion even
+if the file has been recreated in the working tree.
+
 Use `autoschematic --version` (or `autoschematic version`) to print the CLI version.
 
 `plan`, `apply`, and `unbundle` select staged resource files using `--prefix`

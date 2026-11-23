@@ -32,6 +32,7 @@ mod seal;
 mod selection;
 mod spinner;
 mod sso;
+mod staged;
 mod task;
 mod unbundle;
 mod util;

@@ -9,7 +9,7 @@ use dialoguer::Confirm;
 use rand::Rng;
 
 use autoschematic_core::{
-    git_util::{get_staged_files, git_add},
+    git_util::git_add,
     report::{ApplyReport, PlanReport, PlanReportSet},
     template::ReadOutput,
     util::{load_autoschematic_config, repo_root},
@@ -36,7 +36,8 @@ pub async fn apply(
     let repo_root = repo_root()?;
     let config = load_autoschematic_config()?;
 
-    let staged_files = get_staged_files()?;
+    let staged = crate::staged::StagedChanges::read(git2::Repository::discover(".")?)?;
+    let staged_files = staged.paths();
     let no_staged_files = staged_files.is_empty();
     let staged_files = select_paths(
         &config,
@@ -108,12 +109,13 @@ pub async fn apply(
         //     // TODO track if no staged files matched FilterResponse::Resource...
         //     // autoschematic_core::workflow::filter::filter(&config, &connector_cache, keystore, prefix, addr)
 
-        let Some(plan_report) = autoschematic_core::workflow::plan::plan(
+        let Some(plan_report) = autoschematic_core::workflow::plan::plan_staged(
             &config,
             CONNECTOR_CACHE.clone(),
             keystore.clone(),
             &connector_filter,
             &path,
+            staged.contents(&path)?,
         )
         .await?
         else {
