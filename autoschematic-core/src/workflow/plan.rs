@@ -43,7 +43,7 @@ pub async fn plan_connector(
             match connector.get(&phy_addr.clone()).await.context(format!(
                 "{}::get({})",
                 connector_def.shortname,
-                &phy_addr.to_str().unwrap_or_default()
+                phy_addr.to_str().unwrap_or_default()
             ))? {
                 // Existing resource present for this address
                 Some(get_resource_output) => {

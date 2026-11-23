@@ -38,7 +38,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
     {
         let entries = &*registry.entries.read().await;
 
-        for (_, entry) in entries.iter() {
+        for entry in entries.values() {
             tracing::error!("webhook sending message {:?}", &task_message);
             let _ = entry.outbox.send(task_message.clone()).await;
         }
@@ -280,7 +280,7 @@ pub async fn dispatch(webhook_event: WebhookEvent) -> Result<(), AutoschematicSe
                                                 let apply_command = match (&subpath, &connector) {
                                                     (None, None) => String::from("autoschematic apply"),
                                                     (None, Some(connector)) => {
-                                                        format!("autoschematic apply -c {}", &connector)
+                                                        format!("autoschematic apply -c {}", connector)
                                                     }
                                                     (Some(subpath), None) => {
                                                         format!("autoschematic apply -p {subpath:?}")

@@ -129,10 +129,8 @@ impl ChangeSet {
 
                     tracing::info!("Plan: {:?}", object.filename.clone());
 
-                    let check_run_name = format!(
-                        "autoschematic plan -c {} -p ./{:?}",
-                        &connector_def.shortname, &object.filename
-                    );
+                    let check_run_name =
+                        format!("autoschematic plan -c {} -p ./{:?}", connector_def.shortname, object.filename);
 
                     let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
                         VirtToPhyResponse::NotPresent => None,
@@ -165,7 +163,7 @@ impl ChangeSet {
                                 match connector.get(&phy_addr.clone()).await.context(format!(
                                     "{}::get({})",
                                     connector_def.shortname,
-                                    &phy_addr.to_str().unwrap_or_default()
+                                    phy_addr.to_str().unwrap_or_default()
                                 ))? {
                                     // Existing resource present for this address
                                     Some(get_resource_output) => {

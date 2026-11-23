@@ -140,8 +140,8 @@ pub async fn import(
                             ImportMessage::StartImport { subpath } => {
                                 println!(
                                     "{}: Starting import under {}/{}",
-                                    &connector_name,
-                                    &prefix_name.clone().dark_grey(),
+                                    connector_name,
+                                    prefix_name.clone().dark_grey(),
                                     subpath.display()
                                 )
                             }
@@ -158,7 +158,7 @@ pub async fn import(
                                 eprintln!(
                                     " {} Imported {}/{}",
                                     "⋉".bold(),
-                                    &prefix_name.clone().dark_grey(),
+                                    prefix_name.clone().dark_grey(),
                                     addr.display()
                                 )
                             }
