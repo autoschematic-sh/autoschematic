@@ -50,6 +50,12 @@ flag also works after a subcommand. Connector and build diagnostics are retained
 
 Plain mode does not approve changes or disable confirmations. Closing stdin at the apply confirmation returns an error.
 
+If a resource needs a missing output, `plan` lists it and exits with an error.
+With `--skip-confirm`, `apply` stops before executing any operations in an
+incomplete plan. Apply the prerequisites first, then plan again. Interactive
+apply lets you confirm the available operations and reviews the deferred
+resources again after those operations finish.
+
 `plan` and `apply` read selected resource contents from the Git index. To include
 a later edit, stage it before planning. A staged deletion remains a deletion even
 if the file has been recreated in the working tree.

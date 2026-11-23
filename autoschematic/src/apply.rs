@@ -1,5 +1,4 @@
 use std::{
-    collections::HashSet,
     io::{BufRead, Write},
     process::{Command, Stdio},
 };
@@ -10,14 +9,13 @@ use rand::Rng;
 
 use autoschematic_core::{
     git_util::git_add,
-    report::{ApplyReport, PlanReport, PlanReportSet},
-    template::ReadOutput,
+    report::ApplyReport,
     util::{load_autoschematic_config, repo_root},
 };
 
 use crate::{
     CONNECTOR_CACHE, output,
-    plan::{frame, print_frame_end, print_frame_start, print_plan, print_plan_addr},
+    plan::{PlanBatch, frame, plan_batch, print_frame_end, print_frame_start, print_plan_addr},
     safety_lock::check_safety_lock,
     selection::select_paths,
     spinner::show_spinner,
@@ -36,7 +34,7 @@ pub async fn apply(
     let repo_root = repo_root()?;
     let config = load_autoschematic_config()?;
 
-    let staged = crate::staged::StagedChanges::read(git2::Repository::discover(".")?)?;
+    let mut staged = crate::staged::StagedChanges::read(git2::Repository::discover(".")?)?;
     let staged_files = staged.paths();
     let no_staged_files = staged_files.is_empty();
     let staged_files = select_paths(
@@ -61,8 +59,6 @@ pub async fn apply(
 
     let keystore = None;
 
-    let mut wrote_files = false;
-
     let pre_commit_hook = repo_root.join(".git").join("pre-commit");
 
     if pre_commit_hook.is_file() {
@@ -75,79 +71,105 @@ pub async fn apply(
             .expect("Git: pre-commit hooks failed!");
     }
 
-    let mut plan_report_set = PlanReportSet::default();
     let mut apply_report_set = Vec::new();
+    let mut pending = staged_files;
+    while !pending.is_empty() {
+        let batch = plan_batch(&config, &mut staged, pending, &connector_filter).await?;
+        check_deferred(&batch, ask_confirm, apply_report_set.len())?;
+        if batch.ready.is_empty() {
+            break;
+        }
+        if ask_confirm {
+            confirm_operations()?;
+        }
+        check_safety_lock()?;
+        pending = batch.deferred;
+        let mut need_print_frame_start = true;
+        let mut need_print_frame_end = false;
+        for plan_report in batch.ready {
+            let spinner_stop = show_spinner().await;
+            let Some(apply_report) = autoschematic_core::workflow::apply::apply(
+                &config,
+                CONNECTOR_CACHE.clone(),
+                keystore.clone(),
+                &plan_report.connector_def.as_ref().map(|c| c.shortname.clone()),
+                &plan_report,
+            )
+            .await?
+            else {
+                spinner_stop.send(()).unwrap();
+                anyhow::bail!(
+                    "No connector applied {}",
+                    plan_report.prefix.join(&plan_report.virt_addr).display()
+                );
+            };
 
-    let mut need_print_frame_start = true;
-    let mut need_print_frame_end = false;
-
-    // let mut unbundle_results = Vec::new();
-    // for path in &staged_files {
-    //     if let Some(unbundle_report) = autoschematic_core::workflow::unbundle::unbundle(
-    //         &config,
-    //         connector_cache.clone(),
-    //         keystore.clone(),
-    //         &connector,
-    //         &path,
-    //     )
-    //     .await?
-    //     {
-    //         if let Some(elements) = unbundle_report.elements {
-    //             for element in elements {
-    //                 unbundle_results.push(element.addr);
-    //             }
-    //         }
-    //     }
-    // }
-    //
-    let mut deferred: Vec<PlanReport> = Vec::new();
-    let mut set_outputs: HashSet<ReadOutput> = HashSet::new();
-
-    for path in staged_files {
-        let spinner_stop = show_spinner().await;
-
-        //     // TODO track if no staged files matched FilterResponse::Resource...
-        //     // autoschematic_core::workflow::filter::filter(&config, &connector_cache, keystore, prefix, addr)
-
-        let Some(plan_report) = autoschematic_core::workflow::plan::plan_staged(
-            &config,
-            CONNECTOR_CACHE.clone(),
-            keystore.clone(),
-            &connector_filter,
-            &path,
-            staged.contents(&path)?,
-        )
-        .await?
-        else {
             spinner_stop.send(()).unwrap();
-            continue;
-        };
 
-        spinner_stop.send(()).unwrap();
+            if need_print_frame_start {
+                need_print_frame_start = false;
+                need_print_frame_end = true;
+                print_frame_start();
+            }
 
-        if !plan_report.missing_outputs.is_empty() {
-            deferred.push(plan_report.clone());
+            print_plan_addr(&plan_report);
+
+            for output in &apply_report.outputs {
+                if let Some(ref friendly_message) = output.friendly_message {
+                    let coloured_message =
+                        try_colour_op_message_diff(friendly_message).unwrap_or(colour_op_message(friendly_message));
+
+                    for (i, line) in coloured_message.lines().enumerate() {
+                        if i == 0 {
+                            // println!("{}  ⟣ {}", frame(), line)
+                            println!("{}  {} {}", frame(), output::choose("⟖", "-"), line);
+                        } else {
+                            println!("{}  {}", frame(), line)
+                        }
+                    }
+                }
+            }
+
+            for path in &apply_report.wrote_files {
+                git_add(&repo_root, path)?;
+            }
+
+            apply_report_set.push(apply_report);
         }
-
-        if plan_report.connector_ops.is_empty() {
-            continue;
+        if need_print_frame_end {
+            print_frame_end();
         }
+    }
+    if !apply_report_set.is_empty() && !skip_commit {
+        let do_commit = Confirm::new()
+            .with_prompt("Apply succeeded! Do you wish to run git commit to track the new state?")
+            .default(true)
+            .interact()?;
 
-        if need_print_frame_start {
-            need_print_frame_start = false;
-            need_print_frame_end = true;
-            print_frame_start();
+        if do_commit {
+            let status = Command::new("git")
+                .arg("commit")
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .status()?;
+            anyhow::ensure!(status.success(), "git commit failed: {status}");
         }
-
-        print_plan(&plan_report);
-
-        plan_report_set.plan_reports.push(plan_report);
     }
 
-    if need_print_frame_end {
-        print_frame_end();
-    }
+    Ok(apply_report_set)
+}
 
+fn check_deferred(batch: &PlanBatch, interactive: bool, applied: usize) -> anyhow::Result<()> {
+    if !batch.deferred.is_empty() && (!interactive || batch.ready.is_empty()) {
+        anyhow::bail!(
+            "Incomplete apply: {} resource(s) need outputs; {applied} resource(s) applied. Apply the prerequisites first.",
+            batch.deferred.len()
+        );
+    }
+    Ok(())
+}
+
+fn confirm_operations() -> anyhow::Result<()> {
     const CHARSET: &[u8] = b"1234567890";
     const PASSWORD_LEN: usize = 4;
 
@@ -161,180 +183,30 @@ pub async fn apply(
             .collect()
     };
 
-    println!("{}Plan complete.", output::choose(" ◇ ", ""));
-    if plan_report_set.plan_reports.is_empty() {
-        println!("No changes for the selected staged resources.");
-        return Ok(apply_report_set);
-    }
+    println!(
+        "Type {} to {} of the above actions.",
+        output::styled(verify_code.clone().bold()),
+        output::styled("execute all".underline_dark_grey())
+    );
+    println!("Hit Ctrl-c to cancel.");
 
-    if ask_confirm {
-        println!(
-            "Type {} to {} of the above actions.",
-            output::styled(verify_code.clone().bold()),
-            output::styled("execute all".underline_dark_grey())
-        );
-        println!("Hit Ctrl-c to cancel.");
+    loop {
+        print!(">");
+        let _ = std::io::stdout().flush();
 
-        loop {
-            print!(">");
-            let _ = std::io::stdout().flush();
-
-            let input_line = read_confirmation(&mut std::io::stdin().lock())?;
-            let verify_code_attempt = input_line.trim();
-            match verify_code_attempt {
-                s if s == verify_code => {
-                    break;
-                }
-                _ => {
-                    println!("Wrong code.");
-                    continue;
-                }
+        let input_line = read_confirmation(&mut std::io::stdin().lock())?;
+        let verify_code_attempt = input_line.trim();
+        match verify_code_attempt {
+            s if s == verify_code => {
+                break;
+            }
+            _ => {
+                println!("Wrong code.");
+                continue;
             }
         }
     }
-
-    let mut need_print_frame_start = true;
-    let mut need_print_frame_end = false;
-    for plan_report in plan_report_set.plan_reports {
-        let spinner_stop = show_spinner().await;
-        let Some(apply_report) = autoschematic_core::workflow::apply::apply(
-            &config,
-            CONNECTOR_CACHE.clone(),
-            keystore.clone(),
-            &connector_filter,
-            &plan_report,
-        )
-        .await?
-        else {
-            spinner_stop.send(()).unwrap();
-            continue;
-        };
-
-        spinner_stop.send(()).unwrap();
-
-        if need_print_frame_start {
-            need_print_frame_start = false;
-            need_print_frame_end = true;
-            print_frame_start();
-        }
-
-        print_plan_addr(&plan_report);
-
-        for output in &apply_report.outputs {
-            if let Some(ref friendly_message) = output.friendly_message {
-                let coloured_message =
-                    try_colour_op_message_diff(friendly_message).unwrap_or(colour_op_message(friendly_message));
-
-                for (i, line) in coloured_message.lines().enumerate() {
-                    if i == 0 {
-                        // println!("{}  ⟣ {}", frame(), line)
-                        println!("{}  {} {}", frame(), output::choose("⟖", "-"), line);
-                    } else {
-                        println!("{}  {}", frame(), line)
-                    }
-                }
-            }
-
-            if let Some(ref report_outputs) = output.outputs {
-                for key in report_outputs.keys() {
-                    set_outputs.insert(ReadOutput {
-                        addr: plan_report.virt_addr.clone(),
-                        key: key.clone(),
-                    });
-                }
-            }
-        }
-
-        for path in &apply_report.wrote_files {
-            git_add(&repo_root, path)?;
-        }
-
-        wrote_files = true;
-
-        apply_report_set.push(apply_report);
-    }
-    if need_print_frame_end {
-        print_frame_end();
-    }
-
-    let mut did_make_output_progress = false;
-
-    if !deferred.is_empty() {
-        println!(
-            "{}Some files were not applied as they were missing outputs.",
-            output::choose(" ⊬ ", "")
-        );
-        for plan_report in deferred {
-            print_plan_addr(&plan_report);
-            for output in &plan_report.missing_outputs {
-                if set_outputs.contains(output) {
-                    did_make_output_progress = true;
-                    println!(
-                        " {} {}[{}]  ",
-                        output::styled("[SET!]".green()),
-                        output.addr.display(),
-                        output.key
-                    );
-                } else {
-                    println!("        {}[{}]", output.addr.display(), output.key);
-                }
-            }
-        }
-
-        if did_make_output_progress {
-            let do_reapply = Confirm::new()
-                .with_prompt("Apply succeeded! Some resources were deferred on outputs that are now available. Do you wish to continue applying?")
-                .default(true)
-                .interact()
-                .expect("Exiting...");
-
-            if do_reapply {
-                Box::pin(apply(
-                    prefix_filter,
-                    connector_filter,
-                    subpath_filter,
-                    ask_confirm,
-                    skip_commit,
-                ))
-                .await?;
-            }
-        } else {
-            let do_reapply = Confirm::new()
-                .with_prompt("Apply succeeded, but some resources are still deferred. Do you wish to continue applying anyway?")
-                .default(true)
-                .interact()
-                .expect("Exiting...");
-
-            if do_reapply {
-                // apply(_prefix_filter, connector_filter, _subpath_filter, ask_confirm, skip_commit).await?;
-                Box::pin(apply(
-                    prefix_filter,
-                    connector_filter,
-                    subpath_filter,
-                    ask_confirm,
-                    skip_commit,
-                ))
-                .await?;
-            }
-        }
-    } else if wrote_files && !skip_commit {
-        let do_commit = Confirm::new()
-            .with_prompt("Apply succeeded! Do you wish to run git commit to track the new state?")
-            .default(true)
-            .interact()
-            .expect("Exiting...");
-
-        if do_commit {
-            Command::new("git")
-                .arg("commit")
-                .stdin(Stdio::inherit())
-                .stdout(Stdio::inherit())
-                .output()
-                .expect("git commit: failed to execute");
-        }
-    }
-
-    Ok(apply_report_set)
+    Ok(())
 }
 
 fn read_confirmation(input: &mut impl BufRead) -> anyhow::Result<String> {
@@ -348,6 +220,23 @@ fn read_confirmation(input: &mut impl BufRead) -> anyhow::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing_outputs_stop_unattended_apply_before_any_ready_operations() {
+        let mut batch = PlanBatch::default();
+        batch.deferred.push("prod/child".into());
+        assert!(
+            check_deferred(&batch, true, 1)
+                .unwrap_err()
+                .to_string()
+                .contains("1 resource(s) applied")
+        );
+        batch.ready.push(Default::default());
+        assert!(check_deferred(&batch, false, 0).is_err());
+        assert!(check_deferred(&batch, true, 0).is_ok());
+        batch.deferred.clear();
+        assert!(check_deferred(&batch, false, 0).is_ok());
+    }
 
     #[test]
     fn confirmation_eof_is_an_error() {

@@ -1,4 +1,4 @@
-use autoschematic_core::{report::PlanReport, util::load_autoschematic_config};
+use autoschematic_core::{config::AutoschematicConfig, report::PlanReport, util::load_autoschematic_config};
 use crossterm::style::Stylize;
 
 use crate::{
@@ -15,7 +15,7 @@ pub async fn plan(
 ) -> anyhow::Result<()> {
     let config = load_autoschematic_config()?;
 
-    let staged = crate::staged::StagedChanges::read(git2::Repository::discover(".")?)?;
+    let mut staged = crate::staged::StagedChanges::read(git2::Repository::discover(".")?)?;
     let staged_files = staged.paths();
     let no_staged_files = staged_files.is_empty();
     let staged_files = select_paths(
@@ -25,8 +25,6 @@ pub async fn plan(
         connector_filter.as_deref(),
         subpath_filter.as_deref(),
     )?;
-
-    let keystore = None;
 
     if staged_files.is_empty() {
         println!(
@@ -40,66 +38,65 @@ pub async fn plan(
         return Ok(());
     }
 
-    let mut need_print_frame_start = true;
-    let mut need_print_frame_end = false;
-    let mut have_nonempty_plan = false;
-    for path in staged_files {
-        let spinner_stop = show_spinner().await;
+    let batch = plan_batch(&config, &mut staged, staged_files, connector_filter).await?;
+    if !batch.deferred.is_empty() {
+        anyhow::bail!("Incomplete plan: {} resource(s) need outputs", batch.deferred.len());
+    }
+    Ok(())
+}
 
-        let Some(plan_report) = autoschematic_core::workflow::plan::plan_staged(
-            &config,
+#[derive(Default)]
+pub struct PlanBatch {
+    pub ready: Vec<PlanReport>,
+    pub deferred: Vec<std::path::PathBuf>,
+}
+
+pub async fn plan_batch(
+    config: &AutoschematicConfig,
+    staged: &mut crate::staged::StagedChanges,
+    paths: Vec<std::path::PathBuf>,
+    connector: &Option<String>,
+) -> anyhow::Result<PlanBatch> {
+    let mut batch = PlanBatch::default();
+    for path in paths {
+        let spinner_stop = show_spinner().await;
+        let report = autoschematic_core::workflow::plan::plan_staged(
+            config,
             CONNECTOR_CACHE.clone(),
-            keystore.clone(),
-            connector_filter,
+            None,
+            connector,
             &path,
             staged.contents(&path)?,
         )
-        .await?
-        else {
-            spinner_stop.send(()).unwrap();
-            continue;
-        };
+        .await?;
+        let _ = spinner_stop.send(());
+        let Some(report) = report else { continue };
 
-        // println!("{plan_report:#?}");
-
-        spinner_stop.send(()).unwrap();
-
-        if !plan_report.missing_outputs.is_empty() {
-            print_plan_addr(&plan_report);
+        if !report.missing_outputs.is_empty() {
+            print_plan_addr(&report);
             println!("{}  {}Missing outputs:", frame(), output::choose("⊬ ", ""));
-            for output in &plan_report.missing_outputs {
+            for output in &report.missing_outputs {
                 println!("{}    {}[{}]", frame(), output.addr.display(), output.key);
             }
-
-            continue;
+            batch.deferred.push(path);
+        } else if !report.connector_ops.is_empty() {
+            if batch.ready.is_empty() {
+                print_frame_start();
+            }
+            print_plan(&report);
+            batch.ready.push(report);
         }
-
-        if plan_report.connector_ops.is_empty() {
-            continue;
-        }
-
-        have_nonempty_plan = true;
-
-        if need_print_frame_start {
-            need_print_frame_start = false;
-            need_print_frame_end = true;
-            print_frame_start();
-        }
-
-        print_plan(&plan_report);
     }
-
-    if need_print_frame_end {
+    if !batch.ready.is_empty() {
         print_frame_end();
     }
-
-    println!("{}Plan complete.", output::choose(" ◇ ", ""));
-    if !have_nonempty_plan {
-        println!("No changes for the selected staged resources.");
-        return Ok(());
+    if batch.deferred.is_empty() {
+        println!("{}Plan complete.", output::choose(" ◇ ", ""));
+        if batch.ready.is_empty() {
+            println!("No changes for the selected staged resources.");
+        }
     }
-
-    Ok(())
+    Ok(batch)
 }
 
 pub fn print_frame_start() {
