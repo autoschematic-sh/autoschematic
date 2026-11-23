@@ -70,7 +70,7 @@ pub enum AutoschematicSubcommand {
         kind: AutoschematicSafetySubcommand,
     },
     /// Validate that the Autoschematic config within this repository is well-formed.
-    /// Includes autoschematic.lock.ron and autoschematic.rbac.ron if present.
+    /// Includes autoschematic.rbac.ron if present.
     Validate {},
     /// Install or upgrade the connectors listed in autoschematic.ron.
     Install {
