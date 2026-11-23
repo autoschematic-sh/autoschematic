@@ -2,7 +2,7 @@ use autoschematic_core::{git_util::get_staged_files, report::PlanReport, util::l
 use crossterm::style::Stylize;
 
 use crate::{
-    CONNECTOR_CACHE,
+    CONNECTOR_CACHE, output,
     selection::select_paths,
     spinner::show_spinner,
     util::{colour_op_message, try_colour_op_message_diff},
@@ -64,7 +64,7 @@ pub async fn plan(
 
         if !plan_report.missing_outputs.is_empty() {
             print_plan_addr(&plan_report);
-            println!("{}  ⊬ Missing outputs: ", frame());
+            println!("{}  {}Missing outputs:", frame(), output::choose("⊬ ", ""));
             for output in &plan_report.missing_outputs {
                 println!("{}    {}[{}]", frame(), output.addr.display(), output.key);
             }
@@ -91,7 +91,7 @@ pub async fn plan(
         print_frame_end();
     }
 
-    println!(" ◇ Plan complete.");
+    println!("{}Plan complete.", output::choose(" ◇ ", ""));
     if !have_nonempty_plan {
         println!("No changes for the selected staged resources.");
         return Ok(());
@@ -101,6 +101,9 @@ pub async fn plan(
 }
 
 pub fn print_frame_start() {
+    if output::plain() {
+        return;
+    }
     let term_width = crossterm::terminal::size().unwrap_or((80, 0)).0;
 
     let frame_width = 80.min(term_width);
@@ -109,7 +112,7 @@ pub fn print_frame_start() {
 
     frame.push_str(&"╔".dark_grey().to_string());
 
-    for _ in 0..frame_width - 2 {
+    for _ in 0..frame_width.saturating_sub(2) {
         frame.push_str(&"═".dark_grey().to_string());
     }
 
@@ -119,10 +122,17 @@ pub fn print_frame_start() {
 }
 
 pub fn frame() -> String {
-    "║".dark_grey().to_string()
+    if output::plain() {
+        String::new()
+    } else {
+        "║".dark_grey().to_string()
+    }
 }
 
 pub fn print_frame_end() {
+    if output::plain() {
+        return;
+    }
     let term_width = crossterm::terminal::size().unwrap_or((80, 0)).0;
 
     let frame_width = 80.min(term_width);
@@ -131,7 +141,7 @@ pub fn print_frame_end() {
 
     frame.push_str(&"╚".dark_grey().to_string());
 
-    for _ in 0..frame_width - 2 {
+    for _ in 0..frame_width.saturating_sub(2) {
         frame.push_str(&"═".dark_grey().to_string());
     }
 
@@ -144,16 +154,17 @@ pub fn print_plan_addr(plan_report: &PlanReport) {
     println!(
         "{} At {}/{}:",
         frame(),
-        plan_report.prefix.display().to_string().dark_grey(),
-        plan_report.virt_addr.display().to_string().bold()
+        output::styled(plan_report.prefix.display().to_string().dark_grey()),
+        output::styled(plan_report.virt_addr.display().to_string().bold())
     );
 
     if let Some(phy_addr) = &plan_report.phy_addr {
         println!(
-            "{}  ↪ {}/{}:",
+            "{}  {} {}/{}:",
             frame(),
-            plan_report.prefix.display().to_string().dark_grey(),
-            phy_addr.display().to_string().underline_dark_grey()
+            output::choose("↪", "->"),
+            output::styled(plan_report.prefix.display().to_string().dark_grey()),
+            output::styled(phy_addr.display().to_string().underline_dark_grey())
         );
     }
 }
@@ -184,7 +195,7 @@ pub fn print_plan(plan_report: &PlanReport) {
 
         for (i, line) in coloured_message.lines().enumerate() {
             if i == 0 {
-                println!("{}  ⟣ {}", frame(), line)
+                println!("{}  {} {}", frame(), output::choose("⟣", "-"), line)
             } else {
                 println!("{}  {}", frame(), line)
             }
