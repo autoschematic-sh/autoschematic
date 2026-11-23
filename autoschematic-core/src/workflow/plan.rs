@@ -13,11 +13,27 @@ use crate::{
     util::split_prefix_addr,
 };
 
+#[derive(Clone)]
+enum DesiredSource {
+    WorkingTree,
+    Staged(Option<Arc<[u8]>>),
+}
+
 pub async fn plan_connector(
     connector_def: config::Connector,
     connector: Arc<dyn Connector>,
     prefix: &Path,
     virt_addr: &Path,
+) -> Result<Option<PlanReport>, anyhow::Error> {
+    plan_connector_from(connector_def, connector, prefix, virt_addr, DesiredSource::WorkingTree).await
+}
+
+async fn plan_connector_from(
+    connector_def: config::Connector,
+    connector: Arc<dyn Connector>,
+    prefix: &Path,
+    virt_addr: &Path,
+    source: DesiredSource,
 ) -> Result<Option<PlanReport>, anyhow::Error> {
     let mut plan_report = PlanReport {
         prefix: prefix.into(),
@@ -57,12 +73,15 @@ pub async fn plan_connector(
         None => None,
     };
 
-    let path = prefix.join(virt_addr);
-
-    let connector_ops = if path.is_file() {
-        // let desired = std::fs::read(&path)?;
-        let desired_bytes = tokio::fs::read(&path).await?;
-
+    let desired = match source {
+        DesiredSource::Staged(blob) => blob,
+        DesiredSource::WorkingTree => match tokio::fs::read(prefix.join(virt_addr)).await {
+            Ok(bytes) => Some(Arc::from(bytes)),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
+            Err(err) => return Err(err.into()),
+        },
+    };
+    let connector_ops = if let Some(desired_bytes) = desired {
         match std::str::from_utf8(&desired_bytes) {
             Ok(desired) => {
                 let template_result = template_config(prefix, desired)?;
@@ -92,7 +111,11 @@ pub async fn plan_connector(
                 // may be the most diabolically awful design
                 // TODO remove awful design
                 connector
-                    .plan(&phy_addr.clone().unwrap_or(virt_addr.into()), current, Some(desired_bytes))
+                    .plan(
+                        &phy_addr.clone().unwrap_or(virt_addr.into()),
+                        current,
+                        Some(desired_bytes.to_vec()),
+                    )
                     .await
                     .context(format!("{}::plan({}, _, _)", connector_def.shortname, virt_addr.display()))?
             }
@@ -119,15 +142,52 @@ pub async fn plan_connector(
     Ok(Some(plan_report))
 }
 
-/// For a given path, attempt to resolve its prefix and Connector impl and return a Vec of ConnectorOps.
-/// Note that this, unlike the server implementation, does not handle setting desired = None where files do
-/// not exist - it is intended to be used from the command line or from LSPs to quickly modify resources.
+/// Plan using the desired resource in the working tree.
 pub async fn plan(
     autoschematic_config: &AutoschematicConfig,
     connector_cache: Arc<ConnectorCache>,
     keystore: Option<Arc<dyn KeyStore>>,
     connector_filter: &Option<String>,
     path: &Path,
+) -> Result<Option<PlanReport>, anyhow::Error> {
+    plan_from(
+        autoschematic_config,
+        connector_cache,
+        keystore,
+        connector_filter,
+        path,
+        DesiredSource::WorkingTree,
+    )
+    .await
+}
+
+/// Plan using a staged blob. A staged deletion has no desired bytes.
+pub async fn plan_staged(
+    autoschematic_config: &AutoschematicConfig,
+    connector_cache: Arc<ConnectorCache>,
+    keystore: Option<Arc<dyn KeyStore>>,
+    connector_filter: &Option<String>,
+    path: &Path,
+    desired: Option<Vec<u8>>,
+) -> Result<Option<PlanReport>, anyhow::Error> {
+    plan_from(
+        autoschematic_config,
+        connector_cache,
+        keystore,
+        connector_filter,
+        path,
+        DesiredSource::Staged(desired.map(Arc::from)),
+    )
+    .await
+}
+
+async fn plan_from(
+    autoschematic_config: &AutoschematicConfig,
+    connector_cache: Arc<ConnectorCache>,
+    keystore: Option<Arc<dyn KeyStore>>,
+    connector_filter: &Option<String>,
+    path: &Path,
+    source: DesiredSource,
 ) -> Result<Option<PlanReport>, anyhow::Error> {
     let autoschematic_config = Arc::new(autoschematic_config.clone());
 
@@ -160,6 +220,7 @@ pub async fn plan(
         // let prefix_name = prefix_name.clone();
         let prefix = prefix.clone();
         let virt_addr = virt_addr.clone();
+        let source = source.clone();
         joinset.spawn(async move {
             let Some(prefix_name) = prefix.to_str() else {
                 return Ok(None);
@@ -185,7 +246,7 @@ pub async fn plan(
                 .await?
                 == FilterResponse::Resource
             {
-                let plan_report = plan_connector(connector_def, connector, &prefix, &virt_addr).await?;
+                let plan_report = plan_connector_from(connector_def, connector, &prefix, &virt_addr, source).await?;
                 return Ok(plan_report);
             }
             Ok(None)
