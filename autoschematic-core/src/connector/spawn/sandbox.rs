@@ -614,7 +614,7 @@ pub async fn launch_server_binary_sandboxed(
                     c_args.push(socket.clone().into_c_string().unwrap());
                     c_args.push(error_dump.clone().into_c_string().unwrap());
 
-                    eprintln!("execve({:?}, {:?}, {:?})", &binary_c, &c_args, &c_env);
+                    eprintln!("execve({:?}, {:?}, {:?})", binary_c, c_args, c_env);
 
                     // exec_debug_shell();
 

@@ -116,8 +116,8 @@ impl ChangeSet {
                     let check_run_name = format!(
                         "autoschematic pull-state -p {} -c {} -s ./{}",
                         prefix_name,
-                        &connector_def.shortname,
-                        &object.filename.to_string_lossy()
+                        connector_def.shortname,
+                        object.filename.to_string_lossy()
                     );
 
                     let phy_addr = match connector.addr_virt_to_phy(virt_addr).await? {
@@ -185,7 +185,7 @@ impl ChangeSet {
                         if let Some(current) = connector.get(&phy_addr).await.context(format!(
                             "{}::get({})",
                             connector_def.shortname,
-                            &phy_addr.to_str().unwrap_or_default()
+                            phy_addr.to_str().unwrap_or_default()
                         ))? {
                             if !connector.eq(&phy_addr, &current.resource_definition, &desired).await? {
                                 tick_import_count = true;

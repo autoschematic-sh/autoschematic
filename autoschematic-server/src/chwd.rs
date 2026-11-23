@@ -48,7 +48,7 @@ impl Drop for ChangeWorkingDirectory {
         if let Err(e) = env::set_current_dir(&self.previous_directory) {
             eprintln!(
                 "Unable to change directory back to {:?} due to error {}",
-                &self.previous_directory, &e
+                self.previous_directory, e
             );
         }
     }

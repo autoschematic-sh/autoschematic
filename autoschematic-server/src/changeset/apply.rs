@@ -97,8 +97,8 @@ impl ChangeSet {
 
             let check_run_name = format!(
                 "autoschematic apply -c {} -p ./{:?}",
-                &connector_def.shortname,
-                &PathBuf::from(&prefix).join(&virt_addr)
+                connector_def.shortname,
+                PathBuf::from(&prefix).join(&virt_addr)
             );
 
             let Some(ref connector_def) = plan_report.connector_def else {
