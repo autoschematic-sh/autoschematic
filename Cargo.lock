@@ -539,6 +539,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.8",
  "signature",
+ "tempfile",
  "tokio",
  "toml 0.9.5",
  "tracing-subscriber",

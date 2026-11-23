@@ -54,3 +54,6 @@ async-trait = "0.1.88"
 toml = "0.9.5"
 dirs = "6.0.0"
 http = "1.4.0"
+
+[dev-dependencies]
+tempfile = "3"

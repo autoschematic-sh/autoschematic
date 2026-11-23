@@ -19,14 +19,15 @@ use crate::{
     CONNECTOR_CACHE,
     plan::{frame, print_frame_end, print_frame_start, print_plan, print_plan_addr},
     safety_lock::check_safety_lock,
+    selection::select_paths,
     spinner::show_spinner,
     util::{colour_op_message, try_colour_op_message_diff},
 };
 
 pub async fn apply(
-    _prefix_filter: Option<String>,
+    prefix_filter: Option<String>,
     connector_filter: Option<String>,
-    _subpath_filter: Option<String>,
+    subpath_filter: Option<String>,
     ask_confirm: bool,
     skip_commit: bool,
 ) -> anyhow::Result<Vec<ApplyReport>> {
@@ -36,6 +37,26 @@ pub async fn apply(
     let config = load_autoschematic_config()?;
 
     let staged_files = get_staged_files()?;
+    let no_staged_files = staged_files.is_empty();
+    let staged_files = select_paths(
+        &config,
+        staged_files,
+        prefix_filter.as_deref(),
+        connector_filter.as_deref(),
+        subpath_filter.as_deref(),
+    )?;
+
+    if staged_files.is_empty() {
+        println!(
+            "{}",
+            if no_staged_files {
+                "No files staged in git. Stage modified files with git add to plan or apply them."
+            } else {
+                "No staged files match the requested filters."
+            }
+        );
+        return Ok(Vec::new());
+    }
 
     let keystore = None;
 
@@ -58,11 +79,6 @@ pub async fn apply(
 
     let mut need_print_frame_start = true;
     let mut need_print_frame_end = false;
-
-    if staged_files.is_empty() {
-        println!(" ∅  No files staged in git. Stage modified files with git add to plan or apply them.");
-        return Ok(apply_report_set);
-    }
 
     // let mut unbundle_results = Vec::new();
     // for path in &staged_files {
@@ -145,9 +161,7 @@ pub async fn apply(
 
     println!(" ◇ Plan complete.");
     if plan_report_set.plan_reports.is_empty() {
-        println!(
-            " ≡ All plans are empty, implying that the remote configuration matches the desired configuration for all staged files."
-        );
+        println!("No changes for the selected staged resources.");
         return Ok(apply_report_set);
     }
 
@@ -267,9 +281,9 @@ pub async fn apply(
 
             if do_reapply {
                 Box::pin(apply(
-                    _prefix_filter,
+                    prefix_filter,
                     connector_filter,
-                    _subpath_filter,
+                    subpath_filter,
                     ask_confirm,
                     skip_commit,
                 ))
@@ -285,11 +299,11 @@ pub async fn apply(
                 .expect("Exiting...");
 
             if do_reapply {
-                // apply(_prefix_filter, connector_filter, _subpath_filter, ask_confirm, skip_commit).await?;
+                // apply(prefix_filter, connector_filter, subpath_filter, ask_confirm, skip_commit).await?;
                 Box::pin(apply(
-                    _prefix_filter,
+                    prefix_filter,
                     connector_filter,
-                    _subpath_filter,
+                    subpath_filter,
                     ask_confirm,
                     skip_commit,
                 ))
